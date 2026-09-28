@@ -184,3 +184,11 @@ h1, h2, h3, h4 { letter-spacing: -0.02em; }
 }
 .fade-up { animation: fade-up 0.35s ease both; }
 @media (prefers-reduced-motion: reduce) { .fade-up { animation: none; } }
+
+/* Netlify injects a "Powered by Netlify" badge (and an owner toolbar) into
+   every page as an iframe. This keeps both hidden regardless of the
+   dashboard setting. */
+#nl-badge-frame,
+#nl-hud-frame {
+  display: none !important;
+}
