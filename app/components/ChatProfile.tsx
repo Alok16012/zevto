@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { BackIcon, BagIcon, CardIcon, ChevronRight, ClipIcon, GearIcon, GiftIcon, HelpIcon, HistoryIcon, InfoIcon, PinIcon, SendIcon, ShieldIcon, BellIcon, StarLineIcon, TagIcon, WalletIcon } from "./icons";
 import { Avatar, PageHeader, card, iconBtn } from "./ui";
 import { BrandMark } from "./Brand";
@@ -215,7 +216,10 @@ export function ProfileScreen({ user, stats, walletBalance, unreadNotifs, onMenu
           width: "100%", background: "var(--surface)", color: "var(--red)", border: "none", borderRadius: 16,
           padding: 15, fontSize: 15, fontWeight: 600, cursor: "pointer",
         }}>Log Out</button>
-        <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--text-disabled)", marginTop: 14 }}>Zavtoo v1.0.0</p>
+        <p style={{ textAlign: "center", fontSize: 12, marginTop: 14 }}>
+          <Link href="/technician" style={{ color: "var(--blue)", fontWeight: 600, textDecoration: "none" }}>Are you a Zavtoo technician? Partner app →</Link>
+        </p>
+        <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--text-disabled)", marginTop: 6 }}>Zavtoo v1.0.0</p>
       </div>
     </div>
   );

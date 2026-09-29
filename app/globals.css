@@ -199,3 +199,26 @@ h1, h2, h3, h4 { letter-spacing: -0.02em; }
 }
 .sheet-up { animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 @media (prefers-reduced-motion: reduce) { .sheet-up { animation: none; } }
+
+/* ── Admin panel (/admin): sidebar on desktop, top bar + drawer on phones. ── */
+.admin-shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+.admin-side { position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.admin-topbar { display: none; }
+.admin-main { min-width: 0; padding: 24px 28px 40px; }
+.admin-grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.admin-grid-2 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
+.admin-row:hover td { background: var(--bg-secondary); }
+@media (max-width: 1100px) {
+  .admin-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-grid-2 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  .admin-shell { grid-template-columns: 1fr; }
+  .admin-side { display: none; }
+  .admin-side.open { display: block; position: fixed; inset: 0 auto 0 0; width: 260px; z-index: 150; box-shadow: var(--shadow-xl); }
+  .admin-topbar { display: flex; }
+  .admin-main { padding: 16px 16px 32px; }
+}
+@media (max-width: 480px) {
+  .admin-grid-4 { gap: 10px; }
+}
