@@ -1,27 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, CheckIcon, ChevronDown, ChatIcon, PhoneIcon, StarIcon } from "./icons";
+import { ArrowRight, CheckIcon, ChevronDown, ChevronRight, ChatIcon, PhoneIcon, StarIcon } from "./icons";
 import PurifierArt from "./PurifierArt";
 import { Footer, PageHeader, PrimaryButton, StatusBadge, Tabs, card, field, label } from "./ui";
-import { PRODUCTS, TIME_SLOTS, fmtDate, inr, type Order, type ServiceRequest } from "../lib/data";
+import { CouponApply } from "./Offers";
+import { RateServiceCard, ServiceRatedCard } from "./Reviews";
+import { SERVICE_ICON } from "./ServicesHub";
+import {
+  PRODUCTS, SERVICE_CATALOG, TIME_SLOTS, couponByCode, couponDiscount, couponError, fmtDate, inr,
+  type Order, type ServiceRating, type ServiceRequest, type ServiceType,
+} from "../lib/data";
 
 /* ───────────────────────── Book service ───────────────────────── */
 
-type ServiceType = ServiceRequest["type"];
-
-const PRICES: Record<ServiceType, number> = { Installation: 0, Repair: 499, AMC: 1999 };
-const NOTES: Record<ServiceType, string> = {
-  Installation: "Free with every Zavtoo purifier",
-  Repair: "Visit charge · parts billed extra",
-  AMC: "1 year · 3 visits · 2 filter sets",
-};
+export interface BookingRequest {
+  type: ServiceType; product: string; date: string; slot: string; description: string;
+  price: number; coupon: string | null; discount: number;
+}
 
 export function BookServiceScreen({ initialType = "Installation", onBack, onSubmit }: {
   initialType?: ServiceType; onBack?: () => void;
-  onSubmit: (req: { type: ServiceType; product: string; date: string; slot: string; description: string }) => void;
+  onSubmit: (req: BookingRequest) => void;
 }) {
   const [type, setType] = useState<ServiceType>(initialType);
+  const [coupon, setCoupon] = useState<string | null>(null);
   const [product, setProduct] = useState("");
   const [date, setDate] = useState("");
   const [slot, setSlot] = useState("");
@@ -31,11 +34,17 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
   // Tomorrow is the earliest bookable day.
   const min = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const ok = product && date && slot;
+  const offering = SERVICE_CATALOG.find((o) => o.type === type)!;
+  const price = offering.price;
+  // Switching service type can make an applied coupon invalid — drop it quietly.
+  const hit = coupon ? couponByCode(coupon) : undefined;
+  const valid = hit && !couponError(hit, price, "service") ? hit : undefined;
+  const discount = valid ? couponDiscount(valid, price) : 0;
 
   const submit = () => {
     setTouched(true);
     if (!ok) return;
-    onSubmit({ type, product, date: fmtDate(new Date(`${date}T00:00`)), slot, description: desc.trim() });
+    onSubmit({ type, product, date: fmtDate(new Date(`${date}T00:00`)), slot, description: desc.trim(), price, coupon: valid?.code ?? null, discount });
   };
 
   const err = (v: string) => touched && !v ? { border: "1.5px solid var(--error-text)" } : {};
@@ -44,9 +53,20 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
     <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
       <PageHeader title="Book Service" onBack={onBack} />
       <div style={{ padding: "0 16px", flex: 1 }}>
-        <Tabs<ServiceType> value={type} onChange={setType} tabs={[
-          { id: "Installation", label: "Installation" }, { id: "Repair", label: "Repair" }, { id: "AMC", label: "AMC" },
-        ]} />
+        <div className="no-scroll" style={{ display: "flex", gap: 8, overflowX: "auto", margin: "0 -16px", padding: "2px 16px 4px" }}>
+          {SERVICE_CATALOG.map((o) => {
+            const on = o.type === type;
+            const ic = SERVICE_ICON[o.type];
+            return (
+              <button key={o.type} onClick={() => setType(o.type)} aria-pressed={on} style={{
+                flexShrink: 0, display: "flex", alignItems: "center", gap: 6, borderRadius: 999, padding: "8px 14px 8px 10px",
+                fontSize: 13, fontWeight: 600, cursor: "pointer",
+                background: on ? "var(--blue)" : "var(--surface)", color: on ? "white" : "var(--text-secondary)",
+                border: "none", boxShadow: on ? "0 4px 12px rgba(11,92,255,0.28)" : "var(--shadow-card)",
+              }}><ic.Icon s={16} c={on ? "white" : ic.fg} /> {o.type}</button>
+            );
+          })}
+        </div>
 
         <div style={{
           marginTop: 14, borderRadius: 16, padding: "12px 14px",
@@ -55,9 +75,9 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
         }}>
           <div>
             <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700 }}>{type}</p>
-            <p style={{ margin: 0, fontSize: 11.5, color: "rgba(255,255,255,0.75)" }}>{NOTES[type]}</p>
+            <p style={{ margin: 0, fontSize: 11.5, color: "rgba(255,255,255,0.75)" }}>{offering.tagline} · {offering.priceNote}</p>
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: "var(--gold)" }}>{PRICES[type] ? inr(PRICES[type]) : "FREE"}</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: "var(--gold)", whiteSpace: "nowrap" }}>{price ? inr(price) : "FREE"}</span>
         </div>
 
         <div style={{ marginTop: 20 }}>
@@ -101,9 +121,20 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
           <textarea id="svc-desc" value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} maxLength={300}
             placeholder="Write a short description..." style={{ ...field, resize: "none" }} />
         </div>
+        {price > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <CouponApply amount={price} on="service" applied={valid?.code ?? null} onApply={setCoupon} />
+            {discount > 0 && (
+              <p style={{ margin: "8px 4px 0", fontSize: 13, color: "var(--ink-soft)", display: "flex", justifyContent: "space-between" }}>
+                <span>Payable after service</span>
+                <span><s style={{ color: "var(--ink-mute)", marginRight: 6 }}>{inr(price)}</s><b style={{ color: "var(--ink)" }}>{inr(price - discount)}</b></span>
+              </p>
+            )}
+          </div>
+        )}
         {touched && !ok && <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "var(--error-text)" }}>Please choose a product, date and time slot.</p>}
       </div>
-      <Footer><PrimaryButton onClick={submit}>Book Service</PrimaryButton></Footer>
+      <Footer><PrimaryButton onClick={submit}>Book {type}{price ? ` · ${inr(price - discount)}` : ""}</PrimaryButton></Footer>
     </div>
   );
 }
@@ -151,7 +182,9 @@ export function OrdersScreen({ orders, onBack, onOpen }: { orders: Order[]; onBa
 
 /* ───────────────────────── Order details (products) ───────────────────────── */
 
-export function OrderDetailPage({ order, onBack, onHelp }: { order: Order; onBack: () => void; onHelp: () => void }) {
+export function OrderDetailPage({ order, onBack, onHelp, onReview }: {
+  order: Order; onBack: () => void; onHelp: () => void; onReview: (productId: string) => void;
+}) {
   const steps = ["Placed", "Shipped", "Delivered"];
   const at = Math.max(0, steps.indexOf(order.status));
   return (
@@ -182,6 +215,35 @@ export function OrderDetailPage({ order, onBack, onHelp }: { order: Order; onBac
             {steps.map((s, i) => <span key={s} style={{ fontSize: 11.5, fontWeight: i === at ? 700 : 500, color: i <= at ? "var(--ink)" : "var(--ink-mute)" }}>{s}</span>)}
           </div>
         </div>
+        {(order.discount || order.walletUsed) ? (
+          <div style={{ ...card, padding: "6px 14px", marginTop: 12 }}>
+            {([
+              ["Order value", inr(order.amount + (order.discount ?? 0) + (order.walletUsed ?? 0))],
+              order.discount ? [`Coupon ${order.coupon ?? ""}`, "− " + inr(order.discount)] : null,
+              order.walletUsed ? ["Paid from wallet", "− " + inr(order.walletUsed)] : null,
+            ].filter(Boolean) as string[][]).map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 13, color: "var(--ink-soft)" }}>
+                <span>{k}</span><span style={{ fontWeight: 600, color: v.startsWith("−") ? "var(--success-text)" : "var(--ink)" }}>{v}</span>
+              </div>
+            ))}
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: "1px dashed var(--line-strong)", fontSize: 14, fontWeight: 700 }}>
+              <span>Amount paid</span><span>{inr(order.amount)}</span>
+            </div>
+          </div>
+        ) : null}
+        {order.status === "Delivered" && order.productIds?.map((pid) => {
+          const p = PRODUCTS.find((x) => x.id === pid);
+          return p ? (
+            <button key={pid} onClick={() => onReview(pid)} className="press" style={{ ...card, width: "100%", border: "1.5px solid var(--gold)", marginTop: 12, padding: 14, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left" }}>
+              <StarIcon s={22} />
+              <span style={{ flex: 1 }}>
+                <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>Rate &amp; review</span>
+                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>{p.name}</span>
+              </span>
+              <ChevronRight s={16} c="var(--ink-mute)" />
+            </button>
+          ) : null;
+        })}
         <button onClick={onHelp} className="press" style={{ ...card, width: "100%", border: "none", marginTop: 12, padding: 14, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left" }}>
           <ChatIcon s={22} c="var(--blue)" />
           <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>Need help with this order?</span>
@@ -194,11 +256,10 @@ export function OrderDetailPage({ order, onBack, onHelp }: { order: Order; onBac
 
 /* ───────────────────────── Track service ───────────────────────── */
 
-export function TrackServicePage({ service, onBack, onChat, onRate }: {
-  service: ServiceRequest; onBack: () => void; onChat: () => void; onRate: (stars: number) => void;
+export function TrackServicePage({ service, onBack, onChat, onRate, onOpenTech }: {
+  service: ServiceRequest; onBack: () => void; onChat: () => void; onRate: (r: ServiceRating) => void; onOpenTech: (id: string) => void;
 }) {
   const [showInfo, setShowInfo] = useState(false);
-  const [stars, setStars] = useState(0);
   const tech = service.technician;
   const awaitingFeedback = service.current === 4 && !service.timeline[4].at;
 
@@ -253,11 +314,11 @@ export function TrackServicePage({ service, onBack, onChat, onRate }: {
               display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700,
               border: "2.5px solid white", boxShadow: "0 2px 8px rgba(11,92,255,0.3)",
             }}>{tech.initials}</div>
-            <div style={{ flex: 1 }}>
-              <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600 }}>{tech.name}</p>
-              <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>Technician</p>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}><StarIcon s={13} /><span style={{ fontSize: 12.5, fontWeight: 600 }}>{tech.rating}</span></div>
-            </div>
+            <button onClick={() => onOpenTech(tech.id)} style={{ flex: 1, background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>
+              <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{tech.name}</p>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--blue)", fontWeight: 600 }}>View profile &amp; reviews</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}><StarIcon s={13} /><span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{tech.rating}</span></div>
+            </button>
             <a href={`tel:${tech.phone}`} aria-label="Call technician" className="press" style={circleBtn("var(--success)")}><PhoneIcon s={19} c="var(--success-text)" /></a>
             <button onClick={onChat} aria-label="Chat with support" className="press" style={{ ...circleBtn("var(--blue-tint)"), border: "none", cursor: "pointer" }}><ChatIcon s={19} c="var(--blue)" /></button>
           </div>
@@ -268,17 +329,8 @@ export function TrackServicePage({ service, onBack, onChat, onRate }: {
           </div>
         )}
 
-        {awaitingFeedback && (
-          <div style={{ ...card, padding: 16, marginTop: 12, textAlign: "center" }}>
-            <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700 }}>How was the service?</p>
-            <div style={{ display: "flex", justifyContent: "center", gap: 6, margin: "10px 0 12px" }}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button key={n} onClick={() => setStars(n)} aria-label={`${n} stars`} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 28, color: n <= stars ? "var(--gold)" : "var(--line-strong)", padding: 0 }}>★</button>
-              ))}
-            </div>
-            <PrimaryButton tone="gold" disabled={!stars} onClick={() => onRate(stars)}>Submit Feedback</PrimaryButton>
-          </div>
-        )}
+        {awaitingFeedback && <RateServiceCard techName={tech?.name} onSubmit={onRate} />}
+        {service.rating && <ServiceRatedCard rating={service.rating} />}
 
         <button onClick={() => setShowInfo((s) => !s)} className="press" style={{
           width: "100%", marginTop: 14, background: "transparent", border: "2px solid var(--blue)", borderRadius: 999,

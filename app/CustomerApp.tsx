@@ -4,14 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import BottomNav, { type Tab } from "./components/BottomNav";
 import HomeScreen from "./components/HomeScreen";
 import { OnboardingScreen, SplashScreen } from "./components/Intro";
-import { CartPage, OrderPlacedPage, ProductDetailPage, ProductListPage, type CartLine } from "./components/ShopScreens";
-import { BookServiceScreen, OrderDetailPage, OrdersScreen, TrackServicePage } from "./components/ServiceScreens";
+import { CartPage, OrderPlacedPage, ProductDetailPage, ProductListPage, type CartLine, type CheckoutTotals } from "./components/ShopScreens";
+import { BookServiceScreen, OrderDetailPage, OrdersScreen, TrackServicePage, type BookingRequest } from "./components/ServiceScreens";
 import { ChatScreen, InfoPage, ProfileScreen, type ProfileKey } from "./components/ChatProfile";
+import { AddressesPage, EditProfilePage, NotificationsPage, ReferralPage, WalletPage } from "./components/Account";
+import { OffersPage } from "./components/Offers";
+import { AllReviewsPage, MyReviewsPage, TechnicianPage, WriteReviewPage } from "./components/Reviews";
+import { ServiceDetailPage, ServicesHubScreen } from "./components/ServicesHub";
 import { PrimaryButton, StatusBadge, card } from "./components/ui";
-import { ChevronRight, PinIcon, CardIcon, ShieldIcon } from "./components/icons";
+import { ChevronRight, CardIcon, ShieldIcon } from "./components/icons";
 import {
-  INITIAL_CHAT, INITIAL_ORDERS, INITIAL_SERVICES, SERVICE_STEPS, inr, nowTime, productById, todayLabel,
-  type ChatMessage, type Order, type ServiceRequest,
+  INITIAL_ADDRESSES, INITIAL_CHAT, INITIAL_NOTIFICATIONS, INITIAL_ORDERS, INITIAL_REFERRALS, INITIAL_REVIEWS, INITIAL_SERVICES,
+  INITIAL_WALLET, REFERRAL_REWARD, SERVICE_STEPS, USER, inr, nowTime, productById, techById, todayLabel,
+  type Address, type AppNotification, type ChatMessage, type NotifPrefs, type Order, type Referral, type Review,
+  type ServiceRating, type ServiceRequest, type ServiceType, type UserProfile, type WalletTxn,
 } from "./lib/data";
 
 const SHELL_MAX_W = 430;
@@ -25,7 +31,18 @@ type Detail =
   | { k: "track"; id: string }
   | { k: "order"; id: string }
   | { k: "orders" }
-  | { k: "book"; type: ServiceRequest["type"] }
+  | { k: "book"; type: ServiceType }
+  | { k: "serviceInfo"; type: ServiceType }
+  | { k: "tech"; id: string }
+  | { k: "reviews"; productId: string }
+  | { k: "writeReview"; productId: string }
+  | { k: "myReviews" }
+  | { k: "offers" }
+  | { k: "wallet" }
+  | { k: "referral" }
+  | { k: "notifications" }
+  | { k: "editProfile" }
+  | { k: "addresses" }
   | { k: "chat" }
   | { k: "info"; key: ProfileKey };
 
@@ -56,6 +73,15 @@ export default function CustomerApp() {
   const [typing, setTyping] = useState(false);
   const [unread, setUnread] = useState(0);
   const [wish, setWish] = useState<string[]>([]);
+  const [user, setUser] = useState<UserProfile>(USER);
+  const [addresses, setAddresses] = useState<Address[]>(INITIAL_ADDRESSES);
+  const [wallet, setWallet] = useState<WalletTxn[]>(INITIAL_WALLET);
+  const [referrals, setReferrals] = useState<Referral[]>(INITIAL_REFERRALS);
+  const [notifs, setNotifs] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
+  const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>({ push: true, sms: true, whatsapp: false, offers: true });
+  const [reviews, setReviews] = useState<Review[]>(INITIAL_REVIEWS);
+  const [coupon, setCoupon] = useState<string | null>(null);
+  const [useWallet, setUseWallet] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatOpen = useRef(false);
@@ -82,6 +108,17 @@ export default function CustomerApp() {
   };
 
   const cartCount = cart.reduce((s, l) => s + l.qty, 0);
+  const walletBalance = wallet.reduce((s, t) => s + t.amount, 0);
+  const unreadNotifs = notifs.filter((n) => !n.read).length;
+  const defaultAddress = addresses.find((a) => a.isDefault) ?? addresses[0];
+  const referralCode = `${user.name.split(" ")[0].toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6) || "ZAV"}250`;
+
+  /** Drops a new item into the in-app notification centre. */
+  const notify = (n: Omit<AppNotification, "id" | "at" | "read">) =>
+    setNotifs((all) => [{ ...n, id: `n${Date.now()}${Math.random().toString(36).slice(2, 5)}`, at: `${todayLabel()}, ${nowTime()}`, read: false }, ...all]);
+
+  const creditWallet = (title: string, amount: number) =>
+    setWallet((w) => [{ id: `w${Date.now()}`, title, amount, at: todayLabel() }, ...w]);
 
   const addToCart = (id: string, qty = 1) => {
     setCart((c) => {
@@ -94,17 +131,21 @@ export default function CustomerApp() {
   const setQty = (id: string, qty: number) =>
     setCart((c) => (qty <= 0 ? c.filter((l) => l.id !== id) : c.map((l) => (l.id === id ? { ...l, qty } : l))));
 
-  const checkout = () => {
+  const checkout = (_pay: "online" | "cod", t: CheckoutTotals) => {
     const first = productById(cart[0].id)!;
-    const amount = cart.reduce((s, l) => s + productById(l.id)!.price * l.qty, 0);
     const ref = nextRef("ZVT");
     const title = cart.length > 1 ? `${first.name} + ${cart.length - 1} more` : first.name;
-    setOrders((o) => [{ id: ref, kind: "product", title, art: first.art, amount, date: todayLabel(), status: "Placed" }, ...o]);
-    setCart([]);
+    setOrders((o) => [{
+      id: ref, kind: "product", title, art: first.art, amount: t.toPay, date: todayLabel(), status: "Placed",
+      productIds: cart.map((l) => l.id), coupon: t.coupon ?? undefined, discount: t.discount || undefined, walletUsed: t.walletUsed || undefined,
+    }, ...o]);
+    if (t.walletUsed) creditWallet(`Paid for order #${ref}`, -t.walletUsed);
+    notify({ kind: "order", title: "Order placed", body: `${title} · ${inr(t.toPay)}. We'll notify you when it ships.`, link: { k: "order", id: ref } });
+    setCart([]); setCoupon(null); setUseWallet(false);
     setStack([{ k: "placed", ref, title: "Order Placed!", next: { k: "order", id: ref } }]);
   };
 
-  const bookService = (req: { type: ServiceRequest["type"]; product: string; date: string; slot: string; description: string }) => {
+  const bookService = ({ price, coupon: code, discount, ...req }: BookingRequest) => {
     const id = nextRef("SRV");
     const ref = nextRef("ZVT");
     const now = `${todayLabel()}, ${nowTime()}`;
@@ -113,26 +154,67 @@ export default function CustomerApp() {
       timeline: SERVICE_STEPS.map((label, i) => ({ label, at: i === 0 ? now : null })),
     };
     setServices((s) => [svc, ...s]);
-    const price = { Installation: 0, Repair: 499, AMC: 1999 }[req.type];
-    setOrders((o) => [{ id: ref, kind: "service", title: `Service Booking · ${req.type}`, art: "spare", amount: price, date: todayLabel(), status: "Requested", serviceId: id }, ...o]);
+    setOrders((o) => [{
+      id: ref, kind: "service", title: `Service Booking · ${req.type}`, art: "spare", amount: price - discount, date: todayLabel(),
+      status: "Requested", serviceId: id, coupon: code ?? undefined, discount: discount || undefined,
+    }, ...o]);
+    notify({ kind: "service", title: `${req.type} booked`, body: `${req.date}, ${req.slot}. We'll assign a technician shortly.`, link: { k: "track", id } });
     setStack([{ k: "placed", ref, title: "Service Booked!", next: { k: "track", id } }]);
 
     // Demo: ops assigns a technician a few seconds later.
     setTimeout(() => {
+      const tech = techById("t1")!;
       setServices((all) => all.map((s) => s.id !== id ? s : {
         ...s, current: 1,
-        technician: { name: "Rohit Kumar", initials: "RK", rating: 4.8, phone: "+919800000000" },
+        technician: { id: tech.id, name: tech.name, initials: tech.initials, rating: tech.rating, phone: tech.phone },
         timeline: s.timeline.map((st, i) => (i === 1 ? { ...st, at: `${todayLabel()}, ${nowTime()}` } : st)),
       }));
       setOrders((all) => all.map((o) => (o.serviceId === id ? { ...o, status: "In Progress" } : o)));
+      notify({ kind: "service", title: "Technician assigned", body: `${tech.name} (★ ${tech.rating}) will visit on ${req.date}, ${req.slot}.`, link: { k: "track", id } });
     }, 5000);
   };
 
-  const rateService = (id: string) => {
-    setServices((all) => all.map((s) => s.id !== id ? s : {
-      ...s, timeline: s.timeline.map((st, i) => (i === 4 ? { ...st, at: `${todayLabel()}, ${nowTime()}` } : st)),
+  const rateService = (id: string, rating: ServiceRating) => {
+    const s = services.find((x) => x.id === id);
+    setServices((all) => all.map((x) => x.id !== id ? x : {
+      ...x, rating, timeline: x.timeline.map((st, i) => (i === 4 ? { ...st, at: `${todayLabel()}, ${nowTime()}` } : st)),
     }));
+    // The rating also shows up on the technician's public profile.
+    if (s?.technician) {
+      const body = [rating.comment, rating.tags.length ? rating.tags.join(" · ") : ""].filter(Boolean).join(" — ");
+      setReviews((r) => [{ id: `rv${Date.now()}`, techId: s.technician!.id, author: user.name, stars: rating.stars, body, date: todayLabel(), mine: true }, ...r]);
+    }
     flash("Thanks for your feedback!");
+  };
+
+  const saveProductReview = (productId: string, stars: number, body: string) => {
+    setReviews((all) => {
+      const rest = all.filter((r) => !(r.mine && r.productId === productId));
+      return [{ id: `rv${Date.now()}`, productId, author: user.name, stars, body, date: todayLabel(), mine: true }, ...rest];
+    });
+    back();
+    flash("Review posted — thank you!");
+  };
+
+  const addMoney = (n: number) => {
+    creditWallet("Added money", n);
+    notify({ kind: "wallet", title: `${inr(n)} added to wallet`, body: `Your wallet balance is now ${inr(walletBalance + n)}.`, link: { k: "wallet" } });
+    flash(`${inr(n)} added to your wallet`);
+  };
+
+  /** Demo: a referred friend completes a purchase. */
+  const simulateReferral = () => {
+    const names = ["Sneha P.", "Arjun M.", "Kavya R.", "Rahul T.", "Isha B."];
+    const name = names[referrals.length % names.length];
+    setReferrals((r) => [{ name, status: "Purchased", at: todayLabel() }, ...r]);
+    creditWallet(`Referral bonus · ${name}`, REFERRAL_REWARD);
+    notify({ kind: "wallet", title: `You earned ${inr(REFERRAL_REWARD)}!`, body: `${name} bought a Zavtoo purifier with your code.`, link: { k: "wallet" } });
+    flash(`${inr(REFERRAL_REWARD)} referral bonus credited`);
+  };
+
+  const openNotif = (n: AppNotification) => {
+    setNotifs((all) => all.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
+    if (n.link) push(n.link);
   };
 
   /** Demo helper: moves a running job one step along. */
@@ -146,7 +228,10 @@ export default function CustomerApp() {
     setServices((all) => all.map((x) => x.id !== id ? x : {
       ...x, current: cur, timeline: x.timeline.map((st, i) => (i === stampAt ? { ...st, at: stamp } : st)),
     }));
-    if (cur >= 3) setOrders((all) => all.map((o) => (o.serviceId === id ? { ...o, status: "Completed" } : o)));
+    if (cur >= 3) {
+      setOrders((all) => all.map((o) => (o.serviceId === id ? { ...o, status: "Completed" } : o)));
+      notify({ kind: "service", title: `${s.type} completed`, body: "How did it go? Rate your technician to help others.", link: { k: "track", id } });
+    }
   };
 
   const sendChat = (body: string) => {
@@ -160,6 +245,14 @@ export default function CustomerApp() {
   };
 
   const openOrder = (o: Order) => push(o.serviceId ? { k: "track", id: o.serviceId } : { k: "order", id: o.id });
+
+  const openProfileMenu = (key: ProfileKey) => {
+    const direct: Partial<Record<ProfileKey, Detail>> = {
+      edit: { k: "editProfile" }, orders: { k: "orders" }, wallet: { k: "wallet" }, offers: { k: "offers" },
+      referral: { k: "referral" }, reviews: { k: "myReviews" }, addresses: { k: "addresses" }, notifications: { k: "notifications" },
+    };
+    push(direct[key] ?? { k: "info", key });
+  };
 
   const logout = () => {
     writeFlag(false);
@@ -198,9 +291,24 @@ export default function CustomerApp() {
                 onAdd={(id, qty) => addToCart(id, qty)}
                 onBuyNow={(id, qty) => { addToCart(id, qty); push({ k: "cart" }); }}
                 wished={wish.includes(detail.id)}
-                onToggleWish={() => setWish((w) => (w.includes(detail.id) ? w.filter((x) => x !== detail.id) : [...w, detail.id]))} />
+                onToggleWish={() => setWish((w) => (w.includes(detail.id) ? w.filter((x) => x !== detail.id) : [...w, detail.id]))}
+                reviews={reviews}
+                onSeeReviews={() => push({ k: "reviews", productId: detail.id })}
+                onWriteReview={() => push({ k: "writeReview", productId: detail.id })} />
             )}
-            {detail?.k === "cart" && <CartPage lines={cart} onBack={back} setQty={setQty} onCheckout={checkout} onShop={() => push({ k: "products" })} />}
+            {detail?.k === "reviews" && (
+              <AllReviewsPage productId={detail.productId} reviews={reviews} onBack={back} onWrite={() => push({ k: "writeReview", productId: detail.productId })} />
+            )}
+            {detail?.k === "writeReview" && (
+              <WriteReviewPage key={detail.productId} productId={detail.productId} onBack={back}
+                existing={reviews.find((r) => r.mine && r.productId === detail.productId)}
+                onSubmit={(stars, body) => saveProductReview(detail.productId, stars, body)} />
+            )}
+            {detail?.k === "cart" && (
+              <CartPage lines={cart} onBack={back} setQty={setQty} onCheckout={checkout} onShop={() => push({ k: "products" })}
+                coupon={coupon} onCoupon={setCoupon} walletBalance={walletBalance} useWallet={useWallet} onUseWallet={setUseWallet}
+                address={defaultAddress} onChangeAddress={() => push({ k: "addresses" })} userName={user.name} />
+            )}
             {detail?.k === "placed" && (
               <OrderPlacedPage orderId={detail.ref} title={detail.title} onTrack={() => setStack([detail.next])} onHome={() => goTab("home")} />
             )}
@@ -208,7 +316,8 @@ export default function CustomerApp() {
               const s = services.find((x) => x.id === detail.id);
               return s ? (
                 <>
-                  <TrackServicePage key={s.id} service={s} onBack={back} onChat={() => push({ k: "chat" })} onRate={() => rateService(s.id)} />
+                  <TrackServicePage key={s.id} service={s} onBack={back} onChat={() => push({ k: "chat" })}
+                    onRate={(r) => rateService(s.id, r)} onOpenTech={(id) => push({ k: "tech", id })} />
                   {s.technician && s.current < 4 && (
                     <div style={{ padding: "0 16px 24px", textAlign: "center" }}>
                       <button onClick={() => advanceService(s.id)} style={{ background: "none", border: "1px dashed var(--line-strong)", borderRadius: 10, padding: "6px 12px", fontSize: 11.5, color: "var(--ink-mute)", cursor: "pointer" }}>
@@ -221,8 +330,36 @@ export default function CustomerApp() {
             })()}
             {detail?.k === "order" && (() => {
               const o = orders.find((x) => x.id === detail.id);
-              return o ? <OrderDetailPage order={o} onBack={back} onHelp={() => push({ k: "chat" })} /> : null;
+              return o ? <OrderDetailPage order={o} onBack={back} onHelp={() => push({ k: "chat" })} onReview={(pid) => push({ k: "writeReview", productId: pid })} /> : null;
             })()}
+            {detail?.k === "tech" && (() => {
+              const t = techById(detail.id);
+              return t ? <TechnicianPage tech={t} reviews={reviews} onBack={back} onChat={() => push({ k: "chat" })} /> : null;
+            })()}
+            {detail?.k === "serviceInfo" && (
+              <ServiceDetailPage type={detail.type} reviews={reviews} onBack={back} onBook={() => push({ k: "book", type: detail.type })} />
+            )}
+            {detail?.k === "myReviews" && (
+              <MyReviewsPage reviews={reviews} services={services} onBack={back}
+                onEditProduct={(pid) => push({ k: "writeReview", productId: pid })} onTrack={(id) => push({ k: "track", id })} />
+            )}
+            {detail?.k === "offers" && (
+              <OffersPage onBack={back} onShop={() => push({ k: "products" })} onBook={() => goTab("service")} />
+            )}
+            {detail?.k === "wallet" && (
+              <WalletPage balance={walletBalance} txns={wallet} onBack={back} onAddMoney={addMoney} onRefer={() => push({ k: "referral" })} />
+            )}
+            {detail?.k === "referral" && (
+              <ReferralPage code={referralCode} referrals={referrals} onBack={back} onSimulate={simulateReferral} />
+            )}
+            {detail?.k === "notifications" && (
+              <NotificationsPage items={notifs} prefs={notifPrefs} onBack={back} onOpen={openNotif} onPrefs={setNotifPrefs}
+                onReadAll={() => setNotifs((all) => all.map((n) => ({ ...n, read: true })))} onClear={() => setNotifs([])} />
+            )}
+            {detail?.k === "editProfile" && (
+              <EditProfilePage user={user} onBack={back} onSave={(u) => { setUser(u); back(); flash("Profile updated"); }} />
+            )}
+            {detail?.k === "addresses" && <AddressesPage addresses={addresses} onBack={back} onChange={setAddresses} />}
             {detail?.k === "orders" && <OrdersScreen orders={orders} onBack={back} onOpen={openOrder} />}
             {detail?.k === "book" && <BookServiceScreen key={detail.type} initialType={detail.type} onBack={back} onSubmit={bookService} />}
             {detail?.k === "info" && (
@@ -241,14 +378,26 @@ export default function CustomerApp() {
                 onRenewAmc={() => push({ k: "book", type: "AMC" })}
                 onSupport={() => goTab("chat")}
                 onAddToCart={(id) => addToCart(id)}
+                unreadNotifs={unreadNotifs}
+                onOpenNotifications={() => push({ k: "notifications" })}
+                onOpenOffers={() => push({ k: "offers" })}
+                onOpenService={(t) => push({ k: "serviceInfo", type: t })}
+                onOpenServices={() => goTab("service")}
+                onRefer={() => push({ k: "referral" })}
               />
             )}
             {!detail && tab === "orders" && <OrdersScreen orders={orders} onOpen={openOrder} />}
-            {!detail && tab === "service" && <BookServiceScreen onSubmit={bookService} />}
+            {!detail && tab === "service" && (
+              <ServicesHubScreen services={services} onOpen={(t) => push({ k: "serviceInfo", type: t })}
+                onTrack={(id) => push({ k: "track", id })} onOpenTech={(id) => push({ k: "tech", id })} />
+            )}
             {!detail && tab === "profile" && (
               <ProfileScreen
+                user={user}
                 stats={{ orders: orders.filter((o) => o.kind === "product").length, services: services.length, amcDays: 12 }}
-                onMenu={(key) => push(key === "orders" ? { k: "orders" } : { k: "info", key })}
+                walletBalance={walletBalance}
+                unreadNotifs={unreadNotifs}
+                onMenu={openProfileMenu}
                 onLogout={logout}
               />
             )}
@@ -307,31 +456,11 @@ function ProfileInfo({ which, onBack, services, onTrack, onRenew }: {
           <PrimaryButton tone="gold" onClick={onRenew}>Renew for 1 year · {inr(1999)}</PrimaryButton>
         </InfoPage>
       );
-    case "addresses":
-      return (
-        <InfoPage title="Addresses" onBack={onBack}>
-          {[["Home", "B-42, Sector 62, Noida, Uttar Pradesh 201309"], ["Office", "4th Floor, Tower C, Cyber City, Gurugram 122002"]].map(([t, a]) => (
-            <div key={t} style={row}><PinIcon s={22} c="var(--blue)" /><div><p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{t}</p><p style={small}>{a}</p></div></div>
-          ))}
-        </InfoPage>
-      );
     case "payments":
       return (
         <InfoPage title="Payment Methods" onBack={onBack}>
           <div style={row}><CardIcon s={22} c="var(--blue)" /><div><p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>UPI</p><p style={small}>alok@okaxis</p></div></div>
           <p style={{ ...small, textAlign: "center", padding: "0 20px" }}>Card details are stored by the payment gateway, never on Zavtoo servers.</p>
-        </InfoPage>
-      );
-    case "notifications":
-      return (
-        <InfoPage title="Notifications" onBack={onBack}>
-          {[["Technician assigned", "Rohit Kumar will visit today, 10–12 AM.", "2h"], ["AMC renewal due", "Your AMC expires in 12 days.", "1d"], ["Order delivered", "AquaPure RO Classic was delivered.", "10d"]].map(([t, b, w]) => (
-            <div key={t} style={row}>
-              <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--blue)", flexShrink: 0 }} />
-              <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{t}</p><p style={small}>{b}</p></div>
-              <span style={{ fontSize: 11.5, color: "var(--ink-mute)" }}>{w}</span>
-            </div>
-          ))}
         </InfoPage>
       );
     case "help":

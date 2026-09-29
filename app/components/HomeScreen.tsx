@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BellIcon, CartIcon, SearchIcon, ArrowRight, ShieldIcon } from "./icons";
+import { BellIcon, CartIcon, SearchIcon, ArrowRight, ShieldIcon, GiftIcon } from "./icons";
 import { BrandMark, Wordmark } from "./Brand";
 import PurifierArt from "./PurifierArt";
-import { iconBtn } from "./ui";
-import { PRODUCTS, inr, type Product } from "../lib/data";
+import { ViewAll, iconBtn } from "./ui";
+import { SERVICE_ICON } from "./ServicesHub";
+import { COUPONS, PRODUCTS, REFERRAL_REWARD, SERVICE_CATALOG, inr, type Product, type ServiceType } from "../lib/data";
 
 interface HomeProps {
   cartCount: number;
@@ -16,6 +17,12 @@ interface HomeProps {
   onRenewAmc: () => void;
   onSupport: () => void;
   onAddToCart: (id: string) => void;
+  unreadNotifs: number;
+  onOpenNotifications: () => void;
+  onOpenOffers: () => void;
+  onOpenService: (t: ServiceType) => void;
+  onOpenServices: () => void;
+  onRefer: () => void;
 }
 
 /* ── Quick-action artwork — flat two-tone tiles, straight from the student
@@ -75,9 +82,15 @@ export default function HomeScreen(p: HomeProps) {
           <Wordmark />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <button aria-label="Notifications" className="press" style={iconBtn}>
+          <button aria-label={`Notifications${p.unreadNotifs ? `, ${p.unreadNotifs} unread` : ""}`} onClick={p.onOpenNotifications} className="press" style={iconBtn}>
             <BellIcon s={25} c="var(--text-secondary)" w={1.7} />
-            <span style={{ position: "absolute", top: 1, right: 2, width: 8, height: 8, borderRadius: "50%", background: "var(--red)", border: "1.5px solid var(--app-bg)" }} />
+            {p.unreadNotifs > 0 && (
+              <span style={{
+                position: "absolute", top: -6, right: -7, minWidth: 17, height: 17, padding: "0 4px",
+                borderRadius: 10, background: "var(--red)", border: "1.5px solid var(--app-bg)",
+                color: "white", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+              }}>{p.unreadNotifs}</span>
+            )}
           </button>
           <button aria-label="Cart" onClick={p.onOpenCart} className="press" style={iconBtn}>
             <CartIcon s={25} c="var(--text-secondary)" w={1.7} />
@@ -123,6 +136,41 @@ export default function HomeScreen(p: HomeProps) {
         ))}
       </div>
 
+      {/* ── Offers ── */}
+      <SectionHead kicker="Save more" title="Offers for you" onAll={p.onOpenOffers} />
+      <div className="no-scroll" style={{ display: "flex", gap: 10, overflowX: "auto", padding: "12px 16px 4px" }}>
+        {COUPONS.slice(0, 4).map((c) => (
+          <button key={c.code} onClick={p.onOpenOffers} className="press" style={{
+            flex: "0 0 210px", border: "1.5px dashed var(--gold-dark)", borderRadius: 16, padding: "12px 14px", cursor: "pointer", textAlign: "left",
+            background: "linear-gradient(135deg,var(--gold-tint),var(--surface))",
+          }}>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--blue-dark)" }}>{c.kind === "flat" ? `₹${c.value} OFF` : `${c.value}% OFF`}</p>
+            <p style={{ margin: "2px 0 6px", fontSize: 12, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</p>
+            <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: "0.05em", color: "var(--gold-dark)" }}>{c.code}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* ── Services ── */}
+      <SectionHead kicker="Doorstep experts" title="Our Services" onAll={p.onOpenServices} />
+      <div style={{ padding: "12px 16px 0", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+        {SERVICE_CATALOG.map((o) => {
+          const ic = SERVICE_ICON[o.type];
+          return (
+            <button key={o.type} onClick={() => p.onOpenService(o.type)} className="press" style={{
+              background: "var(--surface)", border: "none", borderRadius: 16, padding: "12px 6px", cursor: "pointer",
+              boxShadow: "var(--shadow-card)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+            }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: ic.bg, display: "flex", alignItems: "center", justifyContent: "center" }}><ic.Icon s={21} c={ic.fg} /></div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{o.type}</span>
+              <span style={{ fontSize: 11, color: o.price ? "var(--ink-soft)" : "var(--success-text)", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
+                {o.price ? `from ${inr(o.price)}` : "FREE"}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── Popular products ── */}
       <div style={{ padding: "26px 16px 0", display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
         <div>
@@ -160,6 +208,34 @@ export default function HomeScreen(p: HomeProps) {
           }}>Renew →</button>
         </div>
       </div>
+
+      {/* ── Refer & earn ── */}
+      <div style={{ padding: "12px 16px 0" }}>
+        <button onClick={p.onRefer} className="press" style={{
+          width: "100%", border: "none", cursor: "pointer", textAlign: "left", borderRadius: 18, padding: 14,
+          background: "linear-gradient(135deg,var(--blue-dark),var(--blue))", color: "white",
+          display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 20px rgba(11,92,255,0.25)",
+        }}>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(255,255,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><GiftIcon s={25} c="var(--gold)" /></div>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Refer a friend, earn {inr(REFERRAL_REWARD)}</p>
+            <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "rgba(255,255,255,0.75)" }}>Wallet credit for every friend who buys</p>
+          </div>
+          <ArrowRight s={18} c="var(--gold)" w={2.2} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SectionHead({ kicker, title, onAll }: { kicker: string; title: string; onAll: () => void }) {
+  return (
+    <div style={{ padding: "26px 16px 0", display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+      <div>
+        <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)", fontWeight: 500 }}>{kicker}</p>
+        <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--ink)", letterSpacing: "-0.02em" }}>{title}</p>
+      </div>
+      <ViewAll onClick={onAll} />
     </div>
   );
 }

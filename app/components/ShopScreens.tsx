@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CartIcon, CheckIcon, FilterIcon, HeartIcon, LayersIcon, MinusIcon, PlusIcon, SearchIcon, ShareIcon, ShieldIcon, StarIcon, SunIcon, TrashIcon, PinIcon, CardIcon } from "./icons";
+import { CartIcon, CheckIcon, FilterIcon, HeartIcon, LayersIcon, MinusIcon, PlusIcon, SearchIcon, ShareIcon, ShieldIcon, StarIcon, SunIcon, TrashIcon, PinIcon, CardIcon, WalletIcon } from "./icons";
 import PurifierArt from "./PurifierArt";
-import { Footer, PageHeader, PrimaryButton, Tabs, card, iconBtn } from "./ui";
-import { PRODUCTS, inr, productById, USER, type Category } from "../lib/data";
+import { Footer, PageHeader, PrimaryButton, Tabs, Toggle, card, iconBtn } from "./ui";
+import { CouponApply } from "./Offers";
+import { ProductReviewsSection } from "./Reviews";
+import { PRODUCTS, couponByCode, couponDiscount, couponError, inr, productById, type Address, type Category, type Review } from "../lib/data";
 
 /* ───────────────────────── Product listing ───────────────────────── */
 
@@ -106,9 +108,10 @@ export function ProductListPage({ onBack, initialQuery = "", onOpen, onAdd, cart
 
 /* ───────────────────────── Product details ───────────────────────── */
 
-export function ProductDetailPage({ id, onBack, onAdd, onBuyNow, wished, onToggleWish }: {
+export function ProductDetailPage({ id, onBack, onAdd, onBuyNow, wished, onToggleWish, reviews, onSeeReviews, onWriteReview }: {
   id: string; onBack: () => void; onAdd: (id: string, qty: number) => void; onBuyNow: (id: string, qty: number) => void;
   wished: boolean; onToggleWish: () => void;
+  reviews: Review[]; onSeeReviews: () => void; onWriteReview: () => void;
 }) {
   const p = productById(id)!;
   const [qty, setQty] = useState(1);
@@ -178,6 +181,9 @@ export function ProductDetailPage({ id, onBack, onAdd, onBuyNow, wished, onToggl
             <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>Delivered in 2–3 days · 1st year AMC free</p>
           </div>
         </div>
+
+        <ProductReviewsSection productId={p.id} reviews={reviews} onSeeAll={onSeeReviews} onWrite={onWriteReview} />
+        <div style={{ height: 12 }} />
       </div>
 
       <Footer>
@@ -222,14 +228,26 @@ export function Stepper({ qty, setQty, small }: { qty: number; setQty: (n: numbe
 
 export type CartLine = { id: string; qty: number };
 
-export function CartPage({ lines, onBack, setQty, onCheckout, onShop }: {
+export interface CheckoutTotals { subtotal: number; coupon: string | null; discount: number; walletUsed: number; toPay: number }
+
+export function CartPage({ lines, onBack, setQty, onCheckout, onShop, coupon, onCoupon, walletBalance, useWallet, onUseWallet, address, onChangeAddress, userName }: {
   lines: CartLine[]; onBack: () => void; setQty: (id: string, qty: number) => void;
-  onCheckout: (pay: "online" | "cod") => void; onShop: () => void;
+  onCheckout: (pay: "online" | "cod", totals: CheckoutTotals) => void; onShop: () => void;
+  coupon: string | null; onCoupon: (code: string | null) => void;
+  walletBalance: number; useWallet: boolean; onUseWallet: (v: boolean) => void;
+  address: Address | undefined; onChangeAddress: () => void; userName: string;
 }) {
   const [pay, setPay] = useState<"online" | "cod">("online");
   const rows = lines.map((l) => ({ ...l, p: productById(l.id)! }));
   const subtotal = rows.reduce((s, r) => s + r.p.price * r.qty, 0);
   const mrp = rows.reduce((s, r) => s + r.p.mrp * r.qty, 0);
+  // A coupon stays "applied" while the cart changes, but only counts while it's still valid.
+  const hit = coupon ? couponByCode(coupon) : undefined;
+  const couponWhy = hit ? couponError(hit, subtotal, "product") : null;
+  const couponOff = hit && !couponWhy ? couponDiscount(hit, subtotal) : 0;
+  const walletUsed = useWallet ? Math.min(walletBalance, subtotal - couponOff) : 0;
+  const toPay = subtotal - couponOff - walletUsed;
+  const totals: CheckoutTotals = { subtotal, coupon: couponOff ? hit!.code : null, discount: couponOff, walletUsed, toPay };
 
   if (rows.length === 0) {
     return (
@@ -266,14 +284,30 @@ export function CartPage({ lines, onBack, setQty, onCheckout, onShop }: {
           ))}
         </div>
 
+        <h3 style={sectionH}>Offers &amp; wallet</h3>
+        <CouponApply amount={subtotal} on="product" applied={coupon} onApply={onCoupon} />
+        {couponWhy && <p style={{ margin: "6px 4px 0", fontSize: 12, color: "var(--error-text)", fontWeight: 600 }}>{coupon}: {couponWhy}</p>}
+        <div style={{ ...card, padding: 14, marginTop: 8, display: "flex", alignItems: "center", gap: 12, opacity: walletBalance ? 1 : 0.6 }}>
+          <WalletIcon s={22} c="var(--blue)" />
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>Use Zavtoo wallet</p>
+            <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>Balance {inr(walletBalance)}{walletUsed ? ` · using ${inr(walletUsed)}` : ""}</p>
+          </div>
+          <Toggle on={useWallet && walletBalance > 0} onChange={(v) => walletBalance > 0 && onUseWallet(v)} label="Use wallet balance" />
+        </div>
+
         <h3 style={sectionH}>Deliver to</h3>
         <div style={{ ...card, padding: 14, display: "flex", gap: 12 }}>
           <PinIcon s={22} c="var(--blue)" />
           <div style={{ flex: 1 }}>
-            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>Home · {USER.name}</p>
-            <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>B-42, Sector 62, Noida, Uttar Pradesh 201309</p>
+            {address ? (
+              <>
+                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{address.label} · {userName}</p>
+                <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>{address.line} {address.pincode}</p>
+              </>
+            ) : <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600, color: "var(--error-text)" }}>Add a delivery address</p>}
           </div>
-          <button style={{ background: "none", border: "none", color: "var(--blue)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", alignSelf: "flex-start" }}>CHANGE</button>
+          <button onClick={onChangeAddress} style={{ background: "none", border: "none", color: "var(--blue)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", alignSelf: "flex-start" }}>{address ? "CHANGE" : "ADD"}</button>
         </div>
 
         <h3 style={sectionH}>Payment</h3>
@@ -295,18 +329,24 @@ export function CartPage({ lines, onBack, setQty, onCheckout, onShop }: {
 
         <h3 style={sectionH}>Bill details</h3>
         <div style={{ ...card, padding: "6px 14px", marginBottom: 12 }}>
-          {[["Item total (MRP)", inr(mrp)], ["Discount", "− " + inr(mrp - subtotal)], ["Delivery & installation", "FREE"]].map(([k, v]) => (
+          {([
+            ["Item total (MRP)", inr(mrp)], ["Discount", "− " + inr(mrp - subtotal)],
+            couponOff ? [`Coupon (${hit!.code})`, "− " + inr(couponOff)] : null,
+            walletUsed ? ["Wallet", "− " + inr(walletUsed)] : null,
+            ["Delivery & installation", "FREE"],
+          ].filter(Boolean) as string[][]).map(([k, v]) => (
             <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", fontSize: 13.5, color: "var(--ink-soft)" }}>
               <span>{k}</span><span style={{ color: v === "FREE" || v.startsWith("−") ? "var(--success-text)" : "var(--ink)", fontWeight: 600 }}>{v}</span>
             </div>
           ))}
           <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderTop: "1px dashed var(--line-strong)", fontSize: 15, fontWeight: 700 }}>
-            <span>To pay</span><span>{inr(subtotal)}</span>
+            <span>To pay</span><span>{inr(toPay)}</span>
           </div>
         </div>
+        {mrp - toPay > 0 && <p style={{ margin: "0 0 12px", textAlign: "center", fontSize: 12.5, fontWeight: 600, color: "var(--success-text)" }}>🎉 You&apos;re saving {inr(mrp - toPay)} on this order</p>}
       </div>
       <Footer>
-        <PrimaryButton onClick={() => onCheckout(pay)}>{pay === "cod" ? "Place Order" : "Pay"} · {inr(subtotal)}</PrimaryButton>
+        <PrimaryButton disabled={!address} onClick={() => onCheckout(toPay === 0 ? "online" : pay, totals)}>{toPay === 0 ? "Place Order" : pay === "cod" ? "Place Order" : "Pay"} · {inr(toPay)}</PrimaryButton>
       </Footer>
     </div>
   );

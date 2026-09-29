@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BackIcon, BagIcon, CardIcon, ChevronRight, ClipIcon, GearIcon, HelpIcon, HistoryIcon, InfoIcon, PinIcon, SendIcon, ShieldIcon, BellIcon } from "./icons";
-import { PageHeader, card, iconBtn } from "./ui";
+import { BackIcon, BagIcon, CardIcon, ChevronRight, ClipIcon, GearIcon, GiftIcon, HelpIcon, HistoryIcon, InfoIcon, PinIcon, SendIcon, ShieldIcon, BellIcon, StarLineIcon, TagIcon, WalletIcon } from "./icons";
+import { Avatar, PageHeader, card, iconBtn } from "./ui";
 import { BrandMark } from "./Brand";
-import { USER, type ChatMessage } from "../lib/data";
+import { initialsOf, inr, type ChatMessage, type UserProfile } from "../lib/data";
 
 /* ───────────────────────── Chat ───────────────────────── */
 
@@ -100,45 +100,80 @@ export function ChatScreen({ messages, typing, onSend, onBack }: {
 
 /* ───────────────────────── Profile ───────────────────────── */
 
-export type ProfileKey = "orders" | "history" | "amc" | "addresses" | "payments" | "notifications" | "help" | "about";
+export type ProfileKey =
+  | "edit" | "orders" | "history" | "wallet" | "offers" | "referral" | "reviews" | "amc"
+  | "addresses" | "payments" | "notifications" | "help" | "about";
 
-const MENU: { key: ProfileKey; label: string; Icon: (p: { s?: number; c?: string; w?: number }) => React.ReactElement }[] = [
-  { key: "orders", label: "My Orders", Icon: BagIcon },
-  { key: "history", label: "Service History", Icon: HistoryIcon },
-  { key: "amc", label: "AMC Plans", Icon: ShieldIcon },
-  { key: "addresses", label: "Addresses", Icon: PinIcon },
-  { key: "payments", label: "Payment Methods", Icon: CardIcon },
-  { key: "notifications", label: "Notifications", Icon: BellIcon },
-  { key: "help", label: "Help & Support", Icon: HelpIcon },
-  { key: "about", label: "About Us", Icon: InfoIcon },
+type MenuIcon = (p: { s?: number; c?: string; w?: number }) => React.ReactElement;
+
+const MENU: { title: string; items: { key: ProfileKey; label: string; Icon: MenuIcon }[] }[] = [
+  { title: "Orders & services", items: [
+    { key: "orders", label: "My Orders", Icon: BagIcon },
+    { key: "history", label: "Service History", Icon: HistoryIcon },
+    { key: "amc", label: "AMC Plans", Icon: ShieldIcon },
+    { key: "reviews", label: "My Ratings & Reviews", Icon: StarLineIcon },
+  ] },
+  { title: "Payments & rewards", items: [
+    { key: "wallet", label: "Zavtoo Wallet", Icon: WalletIcon },
+    { key: "offers", label: "Offers & Coupons", Icon: TagIcon },
+    { key: "referral", label: "Refer & Earn", Icon: GiftIcon },
+    { key: "payments", label: "Payment Methods", Icon: CardIcon },
+  ] },
+  { title: "Account", items: [
+    { key: "addresses", label: "Saved Addresses", Icon: PinIcon },
+    { key: "notifications", label: "Notifications", Icon: BellIcon },
+    { key: "help", label: "Help & Support", Icon: HelpIcon },
+    { key: "about", label: "About Us", Icon: InfoIcon },
+  ] },
 ];
 
-export function ProfileScreen({ stats, onMenu, onLogout }: {
-  stats: { orders: number; services: number; amcDays: number }; onMenu: (k: ProfileKey) => void; onLogout: () => void;
+export function ProfileScreen({ user, stats, walletBalance, unreadNotifs, onMenu, onLogout }: {
+  user: UserProfile; stats: { orders: number; services: number; amcDays: number }; walletBalance: number; unreadNotifs: number;
+  onMenu: (k: ProfileKey) => void; onLogout: () => void;
 }) {
+  // Nudge until the optional fields are filled in.
+  const filled = [user.name, user.email, user.phone, user.gender, user.dob].filter(Boolean).length;
+  const complete = Math.round((filled / 5) * 100);
   return (
     <div style={{ paddingBottom: 12 }}>
-      <PageHeader title="Your Profile" right={<button aria-label="Settings" className="press" style={iconBtn}><GearIcon s={22} c="var(--text-secondary)" /></button>} />
+      <PageHeader title="Your Profile" right={<button aria-label="Edit profile" onClick={() => onMenu("edit")} className="press" style={iconBtn}><GearIcon s={22} c="var(--text-secondary)" /></button>} />
 
       {/* Identity card */}
       <div style={{ padding: "0 16px" }}>
         <div style={{ ...card, padding: "18px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{
-              width: 58, height: 58, borderRadius: "50%", flexShrink: 0,
-              background: "linear-gradient(135deg,var(--blue),var(--blue-dark))", color: "white",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, fontWeight: 700,
-              boxShadow: "0 4px 12px rgba(11,92,255,0.3)",
-            }}>{USER.initials}</div>
+            <Avatar initials={initialsOf(user.name)} size={58} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 19, fontWeight: 700, color: "var(--ink)" }}>{USER.name}</p>
-              <p style={{ margin: "1px 0 0", fontSize: 13, color: "var(--text-muted)" }}>{USER.email}</p>
-              <p style={{ margin: "1px 0 0", fontSize: 12.5, color: "var(--text-muted)" }}>{USER.phone}</p>
+              <p style={{ margin: 0, fontSize: 19, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</p>
+              <p style={{ margin: "1px 0 0", fontSize: 13, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</p>
+              <p style={{ margin: "1px 0 0", fontSize: 12.5, color: "var(--text-muted)" }}>{user.phone}</p>
             </div>
-            <button style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--blue)", fontSize: 12.5, fontWeight: 600, letterSpacing: "0.03em", alignSelf: "flex-start" }}>EDIT</button>
+            <button onClick={() => onMenu("edit")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--blue)", fontSize: 12.5, fontWeight: 600, letterSpacing: "0.03em", alignSelf: "flex-start" }}>EDIT</button>
           </div>
           <span style={{ display: "inline-block", marginTop: 14, background: "var(--green)", color: "white", fontSize: 11, fontWeight: 600, padding: "5px 11px", borderRadius: 6, letterSpacing: "0.02em" }}>AMC ACTIVE</span>
+          {complete < 100 && (
+            <button onClick={() => onMenu("edit")} style={{ display: "block", width: "100%", marginTop: 14, background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 600 }}>
+                <span style={{ color: "var(--ink-soft)" }}>Profile {complete}% complete</span><span style={{ color: "var(--blue)" }}>Complete now →</span>
+              </div>
+              <div style={{ height: 5, borderRadius: 3, background: "var(--line)", marginTop: 6 }}>
+                <div style={{ width: `${complete}%`, height: "100%", borderRadius: 3, background: "var(--blue)" }} />
+              </div>
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* Wallet + refer shortcuts */}
+      <div style={{ padding: "12px 16px 0", display: "flex", gap: 10 }}>
+        <button onClick={() => onMenu("wallet")} className="press" style={{ ...card, flex: 1, border: "none", padding: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 12, background: "var(--blue-tint)", display: "flex", alignItems: "center", justifyContent: "center" }}><WalletIcon s={20} c="var(--blue)" /></div>
+          <div><p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>Wallet</p><p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>{inr(walletBalance)}</p></div>
+        </button>
+        <button onClick={() => onMenu("referral")} className="press" style={{ ...card, flex: 1, border: "none", padding: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 12, background: "var(--gold-tint)", display: "flex", alignItems: "center", justifyContent: "center" }}><GiftIcon s={20} c="var(--gold-dark)" /></div>
+          <div><p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>Refer &amp; earn</p><p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>₹250</p></div>
+        </button>
       </div>
 
       {/* Snapshot strip */}
@@ -154,19 +189,26 @@ export function ProfileScreen({ stats, onMenu, onLogout }: {
       </div>
 
       {/* Menu — flat rows on the canvas, split by hairlines */}
-      <div style={{ padding: "18px 16px 0" }}>
-        {MENU.map(({ key, label, Icon }, i) => (
-          <button key={key} onClick={() => onMenu(key)} className="press" style={{
-            width: "100%", display: "flex", alignItems: "center", gap: 16, padding: "16px 2px",
-            background: "none", border: "none", borderTop: i === 0 ? "none" : "1px solid var(--line)",
-            cursor: "pointer", textAlign: "left",
-          }}>
-            <Icon s={22} c="var(--text-muted)" w={1.6} />
-            <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: "var(--text-secondary)" }}>{label}</span>
-            <ChevronRight s={16} c="var(--ink-mute)" />
-          </button>
-        ))}
-      </div>
+      {MENU.map((group) => (
+        <div key={group.title} style={{ padding: "18px 16px 0" }}>
+          <p style={{ margin: "0 2px 2px", fontSize: 11.5, fontWeight: 700, color: "var(--ink-mute)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{group.title}</p>
+          {group.items.map(({ key, label, Icon }, i) => (
+            <button key={key} onClick={() => onMenu(key)} className="press" style={{
+              width: "100%", display: "flex", alignItems: "center", gap: 16, padding: "15px 2px",
+              background: "none", border: "none", borderTop: i === 0 ? "none" : "1px solid var(--line)",
+              cursor: "pointer", textAlign: "left",
+            }}>
+              <Icon s={22} c="var(--text-muted)" w={1.6} />
+              <span style={{ flex: 1, fontSize: 15, fontWeight: 500, color: "var(--text-secondary)" }}>{label}</span>
+              {key === "notifications" && unreadNotifs > 0 && (
+                <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 10, background: "var(--red)", color: "white", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{unreadNotifs}</span>
+              )}
+              {key === "wallet" && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)" }}>{inr(walletBalance)}</span>}
+              <ChevronRight s={16} c="var(--ink-mute)" />
+            </button>
+          ))}
+        </div>
+      ))}
 
       <div style={{ padding: "22px 16px 12px" }}>
         <button onClick={onLogout} className="press" style={{
