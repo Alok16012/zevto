@@ -58,6 +58,18 @@ Operations console at http://localhost:3000/admin (demo login: `admin@zavtoo.in`
 
 Sample data lives in `app/lib/adminData.ts` and resets on refresh; it isn't connected to the customer or technician apps yet.
 
+## Apps talking to each other (demo bridge)
+
+Until the backend is live, the three apps share a little state through `localStorage` (`app/lib/bridge.ts`), so open them in separate tabs of the same browser:
+
+1. **Customer** books a service → a few seconds later ops "assigns" Rohit Kumar and the booking appears in the **technician** app (tagged APP BOOKING, usually under Upcoming). The customer sees who is coming and a start code — **but no location yet**.
+2. **Technician** taps **Start Travel** → only now does the customer's Track Service screen show a **live map** with the technician's photo moving along the route, ETA and distance. Location is never shared on accept/assign.
+3. Technician taps **I've Arrived** → the customer is told to share the start code; entering it in the technician app moves the customer's job to *In Progress* and location sharing stops. Closing the job moves the customer to rating.
+4. **Technician tasks** — from Jobs → *Create a new task*, a technician can **keep it** (added to their own jobs as MY TASK) or **send it to ops** (shows in the **admin** Service Jobs list as *Raised by …*). When admin assigns or cancels it, the technician's *Sent to ops* list updates, and a task assigned to Rohit lands in his jobs.
+5. **Technician photo** — Profile → 📷 / *Add your photo* (cropped to 256 px). Until then each technician has an illustrated portrait in Zavtoo uniform. The photo shows in the technician app, on the customer's Track Service / technician profile / live map, and in admin.
+
+No second tab? The customer's Track Service screen has demo buttons that stand in for the technician (start ride → arrive → start job). Reloading the customer app clears bookings and rides from the bridge.
+
 ## Where things live
 
 - `app/CustomerApp.tsx` — app shell, navigation and demo state
@@ -70,5 +82,8 @@ Sample data lives in `app/lib/adminData.ts` and resets on refresh; it isn't conn
 - `app/technician/` — technician partner app (`TechnicianApp.tsx` shell, `JobScreens.tsx`, `PartnerScreens.tsx`)
 - `app/lib/techData.ts` — sample jobs, parts, stock and earnings for the partner app
 - `app/admin/` — admin console (`AdminApp.tsx` shell + login, `Dashboard.tsx`, `Operations.tsx`, `People.tsx`, `Catalog.tsx`, `kit.tsx` table/modal/badge components)
+- `app/lib/bridge.ts` — demo bridge between the three apps (bookings, rides, ops tasks, technician photos)
+- `app/components/TechAvatar.tsx`, `LiveTracking.tsx` — technician photo/portrait and the customer's live-location map
+- `app/technician/NewTask.tsx` — technician's new-task form and "Sent to ops" list
 - `app/lib/adminData.ts` — sample customers, orders, jobs, stock and reporting for the admin console
 - `public/zavtoo-*.png` — logo assets cut from `assets/zavtoo-logo-source.jpeg`

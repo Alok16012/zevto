@@ -58,6 +58,8 @@ export interface Job {
   completedAt?: string;
   customerRating?: number;
   rescheduleReason?: string;
+  /** Where the job came from, when it isn't normal dispatch. */
+  source?: "Self-created" | "Customer app";
 }
 
 export const TECH_ID = "t1";

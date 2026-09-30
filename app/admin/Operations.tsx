@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { StarIcon } from "../components/icons";
+import TechAvatar from "../components/TechAvatar";
 import { SERVICE_CATALOG, inr } from "../lib/data";
 import {
   ORDER_FLOW, TODAY,
   type AdminCustomer, type AdminJob, type AdminJobStatus, type AdminOrder, type AdminOrderStatus, type AdminTech,
 } from "../lib/adminData";
-import { Badge, Btn, Filter, Initials, Modal, Panel, SearchBox, Table, muted, type Tone } from "./kit";
+import { Badge, Btn, Filter, Modal, Panel, SearchBox, Table, muted, type Tone } from "./kit";
 
 export const ORDER_TONE: Record<AdminOrderStatus, Tone> = { Placed: "purple", Shipped: "amber", Delivered: "green", Cancelled: "grey" };
 export const JOB_TONE: Record<AdminJobStatus, Tone> = {
@@ -15,6 +16,7 @@ export const JOB_TONE: Record<AdminJobStatus, Tone> = {
 };
 
 export const customerName = (all: AdminCustomer[], id: string) => all.find((c) => c.id === id)?.name ?? id;
+const jobCustomer = (all: AdminCustomer[], j: AdminJob) => j.customerLabel ?? customerName(all, j.customerId);
 
 /* ───────────────────────── Orders ───────────────────────── */
 
@@ -90,7 +92,7 @@ export function ServicesSection({ jobs, customers, techs, onUpdate, notify }: {
   const [assigning, setAssigning] = useState<AdminJob | null>(null);
 
   const rows = jobs.filter((j) => (f === "All" || j.status === f) &&
-    (!q.trim() || `${j.id} ${j.type} ${j.area} ${customerName(customers, j.customerId)}`.toLowerCase().includes(q.trim().toLowerCase())));
+    (!q.trim() || `${j.id} ${j.type} ${j.area} ${jobCustomer(customers, j)} ${j.raisedBy ?? ""}`.toLowerCase().includes(q.trim().toLowerCase())));
   const counts = Object.fromEntries((["All", "Unassigned", "Assigned", "In Progress", "Rescheduled", "Completed"] as JobFilter[]).map((s) => [s, s === "All" ? jobs.length : jobs.filter((j) => j.status === s).length]));
   const techName = (id: string | null) => techs.find((t) => t.id === id)?.name;
 
@@ -114,7 +116,10 @@ export function ServicesSection({ jobs, customers, techs, onUpdate, notify }: {
         </div>
         <Table rows={rows} rowKey={(j) => j.id} empty="No jobs match." cols={[
           { key: "id", head: "Job", render: (j) => <><b>#{j.id}</b><div style={muted}>{j.type}</div></> },
-          { key: "c", head: "Customer", render: (j) => <>{customerName(customers, j.customerId)}<div style={muted}>{j.area}</div></> },
+          { key: "c", head: "Customer", render: (j) => <>
+            {jobCustomer(customers, j)}<div style={muted}>{j.area}</div>
+            {j.raisedBy && <div style={{ marginTop: 3 }}><Badge tone="purple">Raised by {j.raisedBy}</Badge></div>}
+          </> },
           { key: "w", head: "When", render: (j) => <>{j.date === TODAY ? "Today" : j.date}<div style={muted}>{j.slot}</div></> },
           { key: "t", head: "Technician", render: (j) => techName(j.techId) ?? <span style={{ color: "var(--error-text)", fontWeight: 600 }}>Not assigned</span> },
           { key: "s", head: "Status", render: (j) => <><Badge tone={JOB_TONE[j.status]}>{j.status}</Badge>{j.note && <div style={{ ...muted, marginTop: 3 }}>{j.note}</div>}</> },
@@ -150,9 +155,10 @@ function AssignModal({ job, techs, jobs, onClose, onAssign }: {
   const [pick, setPick] = useState<string | null>(job.techId);
   const [date, setDate] = useState(job.status === "Rescheduled" ? "30 Sep 2026" : job.date);
   const load = (id: string) => jobs.filter((j) => j.techId === id && j.date === date && ["Assigned", "In Progress"].includes(j.status)).length;
-  // Jobs list Noida by sector; other cities by name.
-  const city = job.area.startsWith("Sector") ? "Noida" : job.area;
-  const covers = (t: AdminTech) => t.area.includes(city);
+  // Jobs list Noida by sector; other areas carry the city name somewhere in them.
+  const where = job.area.startsWith("Sector") ? "Noida" : job.area;
+  const coveredCity = (t: AdminTech) => t.area.split("·").map((c) => c.trim()).find((c) => where.includes(c));
+  const covers = (t: AdminTech) => !!coveredCity(t);
   // Technicians who cover the city first, then the least busy, then the best rated.
   const ranked = [...eligible].sort((a, b) => Number(covers(b)) - Number(covers(a)) || load(a.id) - load(b.id) || b.rating - a.rating);
 
@@ -177,10 +183,10 @@ function AssignModal({ job, techs, jobs, onClose, onAssign }: {
               display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 12, cursor: "pointer", textAlign: "left",
               border: pick === t.id ? "2px solid var(--blue)" : "2px solid var(--line)", background: pick === t.id ? "var(--blue-tint)" : "var(--surface)",
             }}>
-              <Initials name={t.name} size={34} />
+              <TechAvatar id={t.id} name={t.name} size={36} />
               <span style={{ flex: 1 }}>
                 <span style={{ display: "block", fontSize: 13.5, fontWeight: 600 }}>{t.name} {i === 0 && covers(t) && <Badge tone="green">Best match</Badge>}</span>
-                <span style={{ ...muted, color: covers(t) ? "var(--success-text)" : "var(--ink-mute)" }}>{covers(t) ? `Covers ${city}` : `${t.area} · outside area`}</span>
+                <span style={{ ...muted, color: covers(t) ? "var(--success-text)" : "var(--ink-mute)" }}>{covers(t) ? `Covers ${coveredCity(t)}` : `${t.area} · outside area`}</span>
               </span>
               <span style={{ textAlign: "right" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "flex-end", fontSize: 12.5, fontWeight: 700 }}><StarIcon s={12} />{t.rating}</span>

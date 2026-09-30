@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckIcon, ChevronRight, ClockIcon, MinusIcon, PhoneIcon, PinIcon, PlusIcon } from "../components/icons";
 import { Avatar, BottomSheet, Footer, PageHeader, PrimaryButton, Tabs, Toggle, card, field, label, sectionTitle } from "../components/ui";
 import { SERVICE_ICON } from "../components/ServicesHub";
+import TechAvatar from "../components/TechAvatar";
 import { inr } from "../lib/data";
 import {
   CHECKLIST, JOB_FLOW, PARTS, TODAY, customerBill, jobPayout, partById, partsTotal,
@@ -34,9 +35,10 @@ const mapsUrl = (address: string) => `https://www.google.com/maps/search/?api=1&
 
 type JobTab = "today" | "upcoming" | "done";
 
-export function JobsScreen({ techName, techInitials, rating, online, onToggleOnline, jobs, incoming, onAccept, onReject, onOpen }: {
-  techName: string; techInitials: string; rating: number; online: boolean; onToggleOnline: (v: boolean) => void;
+export function JobsScreen({ techId, techName, rating, online, onToggleOnline, jobs, incoming, onAccept, onReject, onOpen, onNewTask, onProfile, footer }: {
+  techId: string; techName: string; rating: number; online: boolean; onToggleOnline: (v: boolean) => void;
   jobs: Job[]; incoming: Job | null; onAccept: () => void; onReject: () => void; onOpen: (id: string) => void;
+  onNewTask: () => void; onProfile: () => void; footer?: React.ReactNode;
 }) {
   const [tab, setTab] = useState<JobTab>("today");
   const active = (j: Job) => j.status !== "Completed" && j.status !== "Rejected" && j.status !== "Rescheduled";
@@ -50,7 +52,9 @@ export function JobsScreen({ techName, techInitials, rating, online, onToggleOnl
     <div style={{ paddingBottom: 12 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 16px 12px" }}>
-        <Avatar initials={techInitials} size={44} />
+        <button onClick={onProfile} aria-label="Open your profile" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", borderRadius: "50%" }}>
+          <TechAvatar id={techId} name={techName} size={46} ring />
+        </button>
         <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>Good day,</p>
           <p style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{techName}</p>
@@ -95,6 +99,17 @@ export function JobsScreen({ techName, techInitials, rating, online, onToggleOnl
           </button>
         )}
 
+        <button onClick={onNewTask} className="press" style={{
+          ...card, width: "100%", marginTop: 12, padding: "12px 14px", border: "1.5px dashed var(--blue)", background: "var(--blue-tint)", boxShadow: "none",
+          display: "flex", alignItems: "center", gap: 10, cursor: "pointer", textAlign: "left",
+        }}>
+          <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><PlusIcon s={18} c="white" /></span>
+          <span style={{ flex: 1 }}>
+            <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "var(--blue-dark)" }}>Create a new task</span>
+            <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>Do it yourself or send it to ops</span>
+          </span>
+        </button>
+
         <div style={{ marginTop: 16 }}>
           <Tabs<JobTab> value={tab} onChange={setTab} tabs={[{ id: "today", label: "Today" }, { id: "upcoming", label: "Upcoming" }, { id: "done", label: "History" }]} />
         </div>
@@ -102,6 +117,7 @@ export function JobsScreen({ techName, techInitials, rating, online, onToggleOnl
           {rows.map((j) => <JobCard key={j.id} job={j} onOpen={() => onOpen(j.id)} />)}
           {rows.length === 0 && <p style={{ textAlign: "center", color: "var(--ink-soft)", fontSize: 13.5, padding: "30px 0" }}>{tab === "done" ? "No finished jobs yet." : "No jobs here. Enjoy the break!"}</p>}
         </div>
+        {footer}
       </div>
     </div>
   );
@@ -114,7 +130,10 @@ function JobCard({ job, onOpen }: { job: Job; onOpen: () => void }) {
       <div style={{ width: 44, height: 44, borderRadius: 12, background: ic.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ic.Icon s={22} c={ic.fg} /></div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{job.type}{job.amc && job.type !== "AMC" && <span style={{ marginLeft: 6, fontSize: 10, color: "var(--gold-dark)" }}>AMC</span>}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>
+            {job.type}{job.amc && job.type !== "AMC" && <span style={{ marginLeft: 6, fontSize: 10, color: "var(--gold-dark)" }}>AMC</span>}
+            {job.source && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: job.source === "Self-created" ? "var(--teal-text)" : "var(--blue)" }}>{job.source === "Self-created" ? "MY TASK" : "APP BOOKING"}</span>}
+          </span>
           <JobStatusPill status={job.status} />
         </div>
         <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--text-secondary)", fontWeight: 500 }}>{job.customer.name} · {job.product}</p>
@@ -239,6 +258,16 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onComplete, onResc
             </div>
           )}
         </div>
+
+        {job.status === "Accepted" && (
+          <p style={{ margin: "10px 2px 0", fontSize: 12, color: "var(--ink-mute)" }}>🔒 Your location stays private until you tap Start Travel.</p>
+        )}
+        {job.status === "On the way" && (
+          <div className="fade-up" style={{ ...card, marginTop: 12, padding: 12, display: "flex", alignItems: "center", gap: 10, background: "var(--info-bg)", boxShadow: "none", border: "1px solid var(--info-border)" }}>
+            <span className="animate-pulse-dot" style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--blue)", flexShrink: 0 }} />
+            <p style={{ margin: 0, fontSize: 12.5, color: "var(--info-text)", fontWeight: 600 }}>Sharing live location with {job.customer.name.split(" ")[0]} until you arrive.</p>
+          </div>
+        )}
 
         {/* Arrived → OTP */}
         {job.status === "Arrived" && (

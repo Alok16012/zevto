@@ -7,6 +7,9 @@ import { Footer, PageHeader, PrimaryButton, StatusBadge, Tabs, card, field, labe
 import { CouponApply } from "./Offers";
 import { RateServiceCard, ServiceRatedCard } from "./Reviews";
 import { SERVICE_ICON } from "./ServicesHub";
+import TechAvatar from "./TechAvatar";
+import { LiveTrackingCard, LocationPendingCard } from "./LiveTracking";
+import type { Trip } from "../lib/bridge";
 import {
   PRODUCTS, SERVICE_CATALOG, TIME_SLOTS, couponByCode, couponDiscount, couponError, fmtDate, inr,
   type Order, type ServiceRating, type ServiceRequest, type ServiceType,
@@ -256,8 +259,8 @@ export function OrderDetailPage({ order, onBack, onHelp, onReview }: {
 
 /* ───────────────────────── Track service ───────────────────────── */
 
-export function TrackServicePage({ service, onBack, onChat, onRate, onOpenTech }: {
-  service: ServiceRequest; onBack: () => void; onChat: () => void; onRate: (r: ServiceRating) => void; onOpenTech: (id: string) => void;
+export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpenTech }: {
+  service: ServiceRequest; trip?: Trip; onBack: () => void; onChat: () => void; onRate: (r: ServiceRating) => void; onOpenTech: (id: string) => void;
 }) {
   const [showInfo, setShowInfo] = useState(false);
   const tech = service.technician;
@@ -308,12 +311,7 @@ export function TrackServicePage({ service, onBack, onChat, onRate, onOpenTech }
         {/* Technician */}
         {tech ? (
           <div style={{ ...card, padding: 14, marginTop: 12, display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              width: 50, height: 50, borderRadius: "50%", flexShrink: 0,
-              background: "linear-gradient(135deg,var(--blue),var(--blue-dark))", color: "white",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700,
-              border: "2.5px solid white", boxShadow: "0 2px 8px rgba(11,92,255,0.3)",
-            }}>{tech.initials}</div>
+            <TechAvatar id={tech.id} name={tech.name} size={50} ring />
             <button onClick={() => onOpenTech(tech.id)} style={{ flex: 1, background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>
               <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{tech.name}</p>
               <p style={{ margin: 0, fontSize: 12, color: "var(--blue)", fontWeight: 600 }}>View profile &amp; reviews</p>
@@ -329,6 +327,13 @@ export function TrackServicePage({ service, onBack, onChat, onRate, onOpenTech }
           </div>
         )}
 
+        {/* Location is shared only once the technician starts the ride — not when the job is assigned. */}
+        {tech && service.current === 1 && (
+          trip && (trip.status === "On the way" || trip.status === "Arrived")
+            ? <LiveTrackingCard trip={trip} tech={tech} address={service.address ?? "Your address"} otp={service.otp} />
+            : <LocationPendingCard techName={tech.name} />
+        )}
+
         {awaitingFeedback && <RateServiceCard techName={tech?.name} onSubmit={onRate} />}
         {service.rating && <ServiceRatedCard rating={service.rating} />}
 
@@ -339,7 +344,7 @@ export function TrackServicePage({ service, onBack, onChat, onRate, onOpenTech }
 
         {showInfo && (
           <div className="fade-up" style={{ ...card, padding: "6px 14px", marginTop: 12 }}>
-            {[["Service", service.type], ["Product", service.product], ["Date", service.date], ["Time slot", service.slot], ["Problem", service.description || "—"]].map(([k, v]) => (
+            {[["Service", service.type], ["Product", service.product], ["Date", service.date], ["Time slot", service.slot], ["Problem", service.description || "—"], ...(service.otp && service.current < 2 ? [["Start code", service.otp]] : [])].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}>
                 <span style={{ color: "var(--ink-soft)" }}>{k}</span><span style={{ fontWeight: 600, textAlign: "right" }}>{v}</span>
               </div>

@@ -83,6 +83,9 @@ export interface AdminJob {
   amount: number;
   rating?: number;
   note?: string;
+  /** Set for tasks a technician raised — the customer isn't in the CRM yet. */
+  customerLabel?: string;
+  raisedBy?: string;
 }
 
 export const JOBS: AdminJob[] = [

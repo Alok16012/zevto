@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandMark, Wordmark } from "../components/Brand";
+import { SERVICE_CATALOG } from "../lib/data";
+import { updateBridge, useBridge } from "../lib/bridge";
 import {
   ADMIN_COUPONS, ADMIN_DEMO, ADMIN_PRODUCTS, ADMIN_REVIEWS, ADMIN_TECHS, BROADCASTS, CUSTOMERS, JOBS, ORDERS, TODAY,
   type AdminCoupon, type AdminCustomer, type AdminJob, type AdminOrder, type AdminProduct, type AdminReview, type AdminTech, type Broadcast,
@@ -51,6 +53,8 @@ export default function AdminApp() {
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>(BROADCASTS);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const bridge = useBridge();
+  const seenTasks = useRef(new Set<string>());
 
   useEffect(() => { setAuthed(readSession()); }, []);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [section]);
@@ -62,6 +66,42 @@ export default function AdminApp() {
   };
 
   const go = (s: Section) => { setSection(s); setMenuOpen(false); };
+
+  // Tasks technicians send to ops (demo bridge) arrive as unassigned jobs.
+  useEffect(() => {
+    const fresh = bridge.opsTasks.filter((t) => t.status === "With ops" && !seenTasks.current.has(t.id));
+    if (!fresh.length) return;
+    fresh.forEach((t) => seenTasks.current.add(t.id));
+    setJobs((all) => [
+      ...fresh.filter((t) => !all.some((j) => j.id === t.id)).map((t): AdminJob => ({
+        id: t.id, customerId: "", customerLabel: t.customer.name, raisedBy: t.techName, type: t.type, product: t.product,
+        date: t.date, slot: t.slot, area: t.customer.address.split(",").slice(-2).join(",").trim() || t.customer.address,
+        techId: null, status: "Unassigned", amount: SERVICE_CATALOG.find((o) => o.type === t.type)?.price ?? 0, note: t.issue,
+      })),
+      ...all,
+    ]);
+    if (authed) notify(`New task from ${fresh[0].techName}${fresh.length > 1 ? ` + ${fresh.length - 1} more` : ""}`);
+    // notify only shows a toast.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bridge.opsTasks, authed]);
+
+  /** Dispatch changes on a technician-raised task go back to that technician's app. */
+  const updateJob = (id: string, p: Partial<AdminJob>) => {
+    setJobs(patchBy<AdminJob>((j) => j.id)(id, p));
+    if (!bridge.opsTasks.some((t) => t.id === id) || !p.status) return;
+    const tech = techs.find((t) => t.id === p.techId);
+    const task = bridge.opsTasks.find((t) => t.id === id)!;
+    updateBridge((b) => ({
+      ...b,
+      // Assigned tasks show up in the chosen technician's job list.
+      jobs: p.status === "Assigned" && tech
+        ? [...b.jobs.filter((j) => j.id !== id), { id, techId: tech.id, customer: task.customer, type: task.type, product: task.product, date: p.date ?? task.date, slot: task.slot, issue: task.issue, otp: String(1000 + Math.floor(Math.random() * 9000)) }]
+        : b.jobs.filter((j) => j.id !== id),
+      opsTasks: b.opsTasks.map((t) => t.id !== id ? t
+        : p.status === "Assigned" ? { ...t, status: "Assigned", assignedTo: tech?.name ?? "a technician", date: p.date ?? t.date }
+        : p.status === "Cancelled" ? { ...t, status: "Cancelled" } : t),
+    }));
+  };
 
   // Sidebar counters for work waiting on someone.
   const badges: Partial<Record<Section, number>> = {
@@ -137,7 +177,7 @@ export default function AdminApp() {
 
             {section === "dashboard" && <Dashboard orders={orders} jobs={jobs} customers={customers} techs={techs} products={products} reviews={reviews} go={go} />}
             {section === "orders" && <OrdersSection orders={orders} customers={customers} notify={notify} onUpdate={(id, p) => setOrders(patchBy<AdminOrder>((o) => o.id)(id, p))} />}
-            {section === "services" && <ServicesSection jobs={jobs} customers={customers} techs={techs} notify={notify} onUpdate={(id, p) => setJobs(patchBy<AdminJob>((j) => j.id)(id, p))} />}
+            {section === "services" && <ServicesSection jobs={jobs} customers={customers} techs={techs} notify={notify} onUpdate={updateJob} />}
             {section === "customers" && <CustomersSection customers={customers} orders={orders} jobs={jobs} notify={notify} onUpdate={(id, p) => setCustomers(patchBy<AdminCustomer>((c) => c.id)(id, p))} />}
             {section === "technicians" && <TechniciansSection techs={techs} jobs={jobs} notify={notify} onUpdate={(id, p) => setTechs(patchBy<AdminTech>((t) => t.id)(id, p))} />}
             {section === "products" && <ProductsSection products={products} notify={notify} onUpdate={(id, p) => setProducts(patchBy<AdminProduct>((x) => x.id)(id, p))} />}

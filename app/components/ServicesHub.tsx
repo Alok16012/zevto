@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { ArrowRight, CheckIcon, ChevronDown, ClockIcon, DropIcon, FilterIcon, PinIcon, SearchIcon, ShieldIcon, StarIcon, WrenchIcon } from "./icons";
-import { Avatar, Footer, PageHeader, PrimaryButton, card, sectionTitle } from "./ui";
+import TechAvatar from "./TechAvatar";
+import { Footer, PageHeader, PrimaryButton, card, sectionTitle } from "./ui";
 import { ReviewCard } from "./Reviews";
 import {
   SERVICE_CATALOG, TECHNICIANS, inr, offeringOf,
@@ -102,7 +103,7 @@ export function ServicesHubScreen({ services, onOpen, onTrack, onOpenTech }: {
         <div className="no-scroll" style={{ display: "flex", gap: 10, overflowX: "auto", margin: "0 -16px", padding: "0 16px 4px" }}>
           {TECHNICIANS.map((t) => (
             <button key={t.id} onClick={() => onOpenTech(t.id)} className="press" style={{ ...card, flex: "0 0 140px", border: "none", padding: 14, cursor: "pointer", textAlign: "center" }}>
-              <div style={{ display: "flex", justifyContent: "center" }}><Avatar initials={t.initials} size={50} /></div>
+              <div style={{ display: "flex", justifyContent: "center" }}><TechAvatar id={t.id} name={t.name} size={56} /></div>
               <p style={{ margin: "8px 0 0", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name}</p>
               <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--ink-soft)", display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}><StarIcon s={11} />{t.rating} · {t.years} yrs</p>
             </button>

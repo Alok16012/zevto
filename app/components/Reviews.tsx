@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChatIcon, PhoneIcon, StarIcon } from "./icons";
 import PurifierArt from "./PurifierArt";
+import TechAvatar from "./TechAvatar";
 import { Avatar, Footer, PageHeader, PrimaryButton, StarPicker, Stars, card, field, label, sectionTitle } from "./ui";
 import { RATING_TAGS, initialsOf, productById, type Review, type ServiceRating, type ServiceRequest, type Technician } from "../lib/data";
 
@@ -162,7 +163,7 @@ export function TechnicianPage({ tech, reviews, onBack, onChat }: { tech: Techni
       <PageHeader title="Technician" onBack={onBack} />
       <div style={{ padding: "0 16px 24px" }}>
         <div style={{ ...card, padding: 18, textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "center" }}><Avatar initials={tech.initials} size={76} /></div>
+          <div style={{ display: "flex", justifyContent: "center" }}><TechAvatar id={tech.id} name={tech.name} size={84} ring /></div>
           <p style={{ margin: "10px 0 0", fontSize: 18, fontWeight: 700 }}>{tech.name}</p>
           <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--success-text)", fontWeight: 600 }}>✓ Verified · background checked</p>
           <div style={{ display: "flex", marginTop: 14, borderTop: "1px solid var(--line)", paddingTop: 12 }}>

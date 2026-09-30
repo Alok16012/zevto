@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BrandMark, Wordmark } from "../components/Brand";
 import { PrimaryButton, field, label } from "../components/ui";
-import { INITIAL_REVIEWS, nowTime, techById } from "../lib/data";
+import { INITIAL_REVIEWS, SERVICE_CATALOG, nowTime, techById } from "../lib/data";
+import { setTrip, updateBridge, useBridge, type TripStatus } from "../lib/bridge";
 import { INCOMING_JOB, INITIAL_JOBS, INITIAL_STOCK, TECH_ID, TODAY, type Job } from "../lib/techData";
 import { JobDetailPage, JobsScreen } from "./JobScreens";
+import { NewTaskPage, SentToOpsList, type NewTask, type TaskRoute } from "./NewTask";
 import { EarningsScreen, InventoryScreen, PartnerProfileScreen } from "./PartnerScreens";
 
 const SHELL_MAX_W = 430;
@@ -31,9 +33,12 @@ export default function TechnicianApp() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const requestSent = useRef(false);
+  const [newTask, setNewTask] = useState(false);
+  const bridge = useBridge();
+  const taskSeq = useRef(0);
 
   useEffect(() => { setLoggedIn(readSession()); }, []);
-  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [tab, openJob]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [tab, openJob, newTask]);
 
   // Demo: dispatch sends one new request shortly after the partner goes online.
   useEffect(() => {
@@ -48,9 +53,61 @@ export default function TechnicianApp() {
     toastTimer.current = setTimeout(() => setToast(null), 1800);
   };
 
+  // Bookings the customer app handed over (demo bridge) join the job list.
+  useEffect(() => {
+    const mine = bridge.jobs.filter((b) => b.techId === TECH_ID);
+    if (!mine.length) return;
+    setJobs((all) => {
+      const fresh = mine.filter((b) => !all.some((j) => j.id === b.id));
+      if (!fresh.length) return all;
+      return [...fresh.map((b): Job => {
+        const offering = SERVICE_CATALOG.find((o) => o.type === b.type)!;
+        return {
+          id: b.id, type: b.type, product: b.product, date: b.date, slot: b.slot, issue: b.issue,
+          customer: { ...b.customer, distanceKm: 2.4 }, status: (bridge.trips[b.id]?.status as Job["status"]) ?? "Accepted",
+          visitCharge: b.type === "AMC" ? 0 : offering.price, amc: b.type === "AMC", otp: b.otp,
+          parts: [], checklist: [], tdsBefore: "", tdsAfter: "", notes: "", source: "Customer app",
+        };
+      }), ...all];
+    });
+  }, [bridge.jobs, bridge.trips]);
+
   /** Patches can be functions so quick successive taps (e.g. the checklist) build on the latest job. */
-  const updateJob = (id: string, patch: Partial<Job> | ((j: Job) => Partial<Job>)) =>
+  const updateJob = (id: string, patch: Partial<Job> | ((j: Job) => Partial<Job>)) => {
     setJobs((all) => all.map((j) => (j.id === id ? { ...j, ...(typeof patch === "function" ? patch(j) : patch) } : j)));
+    // Tell the customer where things stand. Location is shared from Start Travel onwards — never on accept.
+    const status = typeof patch === "function" ? undefined : patch.status;
+    const job = jobs.find((j) => j.id === id);
+    if (job && status && (["On the way", "Arrived", "In Progress", "Completed"] as string[]).includes(status)) {
+      const km = job.customer.distanceKm;
+      setTrip(id, {
+        techId: TECH_ID, status: status as TripStatus,
+        ...(status === "On the way" ? { startedAt: Date.now(), distanceKm: km, etaMin: Math.max(5, Math.round(km * 4)) } : {}),
+      });
+      if (status === "On the way") flash("Live location shared with the customer");
+    }
+  };
+
+  const submitTask = (t: NewTask, route: TaskRoute) => {
+    taskSeq.current += 1;
+    const id = `TSK${String(Date.now()).slice(-4)}${taskSeq.current}`;
+    if (route === "self") {
+      const offering = SERVICE_CATALOG.find((o) => o.type === t.type)!;
+      setJobs((all) => [{
+        id, type: t.type, product: t.product, date: t.date, slot: t.slot, issue: t.issue,
+        customer: { ...t.customer, distanceKm: 1.5 }, status: "Accepted", visitCharge: offering.price, amc: false,
+        otp: String(1000 + Math.floor(Math.random() * 9000)), parts: [], checklist: [], tdsBefore: "", tdsAfter: "", notes: "", source: "Self-created",
+      }, ...all]);
+      flash("Task added to your jobs");
+    } else {
+      const saved = updateBridge((b) => ({
+        ...b, opsTasks: [{ id, techId: TECH_ID, techName: tech.name, ...t, createdAt: `${TODAY}, ${nowTime()}`, status: "With ops" }, ...b.opsTasks],
+      }));
+      flash(saved ? "Sent to ops — they'll schedule it" : "Couldn't reach ops. Try again.");
+    }
+    setNewTask(false);
+  };
+  const sentToOps = bridge.opsTasks.filter((t) => t.techId === TECH_ID);
 
   const accept = () => {
     if (!incoming) return;
@@ -80,10 +137,10 @@ export default function TechnicianApp() {
     flash("Stock request sent");
   };
 
-  const logout = () => { writeSession(false); setLoggedIn(false); setTab("jobs"); setOpenJob(null); };
+  const logout = () => { writeSession(false); setLoggedIn(false); setTab("jobs"); setOpenJob(null); setNewTask(false); };
 
   const job = openJob ? jobs.find((j) => j.id === openJob) : undefined;
-  const showNav = loggedIn && !job;
+  const showNav = loggedIn && !job && !newTask;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
@@ -95,7 +152,9 @@ export default function TechnicianApp() {
             flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain",
             paddingBottom: showNav ? "calc(76px + env(safe-area-inset-bottom))" : undefined,
           }}>
-            {job ? (
+            {newTask ? (
+              <NewTaskPage onBack={() => setNewTask(false)} onSubmit={submitTask} />
+            ) : job ? (
               <JobDetailPage key={job.id} job={job} stock={stock} onBack={() => setOpenJob(null)}
                 onUpdate={(patch) => updateJob(job.id, patch)}
                 onComplete={(p) => complete(job, p)}
@@ -103,14 +162,16 @@ export default function TechnicianApp() {
             ) : (
               <>
                 {tab === "jobs" && (
-                  <JobsScreen techName={tech.name} techInitials={tech.initials} rating={tech.rating}
+                  <JobsScreen techId={tech.id} techName={tech.name} rating={tech.rating}
                     online={online} onToggleOnline={(v) => { setOnline(v); flash(v ? "You're online" : "You're offline"); }}
-                    jobs={jobs} incoming={incoming} onAccept={accept} onReject={reject} onOpen={setOpenJob} />
+                    jobs={jobs} incoming={incoming} onAccept={accept} onReject={reject} onOpen={setOpenJob}
+                    onNewTask={() => setNewTask(true)} onProfile={() => setTab("profile")}
+                    footer={<SentToOpsList tasks={sentToOps} />} />
                 )}
                 {tab === "inventory" && <InventoryScreen stock={stock} onRequest={restock} />}
                 {tab === "earnings" && <EarningsScreen jobs={jobs} />}
                 {tab === "profile" && (
-                  <PartnerProfileScreen tech={tech} reviews={INITIAL_REVIEWS} onLogout={logout}
+                  <PartnerProfileScreen tech={tech} reviews={INITIAL_REVIEWS} onLogout={logout} notify={flash}
                     jobsDone={jobs.filter((j) => j.status === "Completed").length} />
                 )}
               </>

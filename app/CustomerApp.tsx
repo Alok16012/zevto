@@ -13,6 +13,7 @@ import { AllReviewsPage, MyReviewsPage, TechnicianPage, WriteReviewPage } from "
 import { ServiceDetailPage, ServicesHubScreen } from "./components/ServicesHub";
 import { PrimaryButton, StatusBadge, card } from "./components/ui";
 import { ChevronRight, CardIcon, ShieldIcon } from "./components/icons";
+import { setTrip, updateBridge, useBridge } from "./lib/bridge";
 import {
   INITIAL_ADDRESSES, INITIAL_CHAT, INITIAL_NOTIFICATIONS, INITIAL_ORDERS, INITIAL_REFERRALS, INITIAL_REVIEWS, INITIAL_SERVICES,
   INITIAL_WALLET, REFERRAL_REWARD, SERVICE_STEPS, USER, inr, nowTime, productById, techById, todayLabel,
@@ -82,6 +83,8 @@ export default function CustomerApp() {
   const [reviews, setReviews] = useState<Review[]>(INITIAL_REVIEWS);
   const [coupon, setCoupon] = useState<string | null>(null);
   const [useWallet, setUseWallet] = useState(false);
+  const bridge = useBridge();
+  const seenTrips = useRef(new Set<string>());
   const [toast, setToast] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatOpen = useRef(false);
@@ -149,8 +152,10 @@ export default function CustomerApp() {
     const id = nextRef("SRV");
     const ref = nextRef("ZVT");
     const now = `${todayLabel()}, ${nowTime()}`;
+    const otp = String(1000 + Math.floor(Math.random() * 9000));
+    const address = defaultAddress ? `${defaultAddress.line} ${defaultAddress.pincode}` : "Address not set";
     const svc: ServiceRequest = {
-      id, ...req, current: 0, technician: null,
+      id, ...req, current: 0, technician: null, otp, address,
       timeline: SERVICE_STEPS.map((label, i) => ({ label, at: i === 0 ? now : null })),
     };
     setServices((s) => [svc, ...s]);
@@ -170,6 +175,14 @@ export default function CustomerApp() {
         timeline: s.timeline.map((st, i) => (i === 1 ? { ...st, at: `${todayLabel()}, ${nowTime()}` } : st)),
       }));
       setOrders((all) => all.map((o) => (o.serviceId === id ? { ...o, status: "In Progress" } : o)));
+      // Hand the job to the technician's app (demo bridge between tabs).
+      updateBridge((b) => ({
+        ...b,
+        jobs: [...b.jobs.filter((j) => j.id !== id), {
+          id, techId: tech.id, customer: { name: user.name, phone: user.phone, address },
+          type: req.type, product: req.product, date: req.date, slot: req.slot, issue: req.description || "No details given.", otp,
+        }],
+      }));
       notify({ kind: "service", title: "Technician assigned", body: `${tech.name} (★ ${tech.rating}) will visit on ${req.date}, ${req.slot}.`, link: { k: "track", id } });
     }, 5000);
   };
@@ -216,6 +229,37 @@ export default function CustomerApp() {
     setNotifs((all) => all.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
     if (n.link) push(n.link);
   };
+
+  // A fresh session has fresh booking ids, so drop what an earlier session left on the bridge.
+  useEffect(() => { updateBridge((b) => ({ ...b, jobs: [], trips: {} })); }, []);
+
+  // Follow the technician's progress from their app: ride started → arrived → working → done.
+  useEffect(() => {
+    Object.values(bridge.trips).forEach((t) => {
+      const s = services.find((x) => x.id === t.jobId);
+      const key = `${t.jobId}:${t.status}`;
+      if (!s || !s.technician || seenTrips.current.has(key)) return;
+      seenTrips.current.add(key);
+      const first = s.technician.name.split(" ")[0];
+      const stamp = `${todayLabel()}, ${nowTime()}`;
+      if (t.status === "On the way") {
+        notify({ kind: "service", title: `${first} is on the way`, body: `Track live — about ${t.etaMin} min away.`, link: { k: "track", id: s.id } });
+        flash(`${first} started the ride — track live`);
+      } else if (t.status === "Arrived") {
+        notify({ kind: "service", title: `${first} has arrived`, body: `Share your start code ${s.otp ?? ""} to begin the service.`, link: { k: "track", id: s.id } });
+      } else if (t.status === "In Progress" && s.current < 2) {
+        setServices((all) => all.map((x) => x.id !== s.id ? x : { ...x, current: 2, timeline: x.timeline.map((st, i) => (i === 2 ? { ...st, at: stamp } : st)) }));
+      } else if (t.status === "Completed" && s.current < 3) {
+        setServices((all) => all.map((x) => x.id !== s.id ? x : {
+          ...x, current: 4, timeline: x.timeline.map((st, i) => ((i === 2 && !st.at) || i === 3 ? { ...st, at: stamp } : st)),
+        }));
+        setOrders((all) => all.map((o) => (o.serviceId === s.id ? { ...o, status: "Completed" } : o)));
+        notify({ kind: "service", title: `${s.type} completed`, body: "How did it go? Rate your technician to help others.", link: { k: "track", id: s.id } });
+      }
+    });
+    // notify/flash only append state; they don't need to retrigger this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bridge.trips, services]);
 
   /** Demo helper: moves a running job one step along. */
   const advanceService = (id: string) => {
@@ -316,15 +360,25 @@ export default function CustomerApp() {
               const s = services.find((x) => x.id === detail.id);
               return s ? (
                 <>
-                  <TrackServicePage key={s.id} service={s} onBack={back} onChat={() => push({ k: "chat" })}
+                  <TrackServicePage key={s.id} service={s} trip={bridge.trips[s.id]} onBack={back} onChat={() => push({ k: "chat" })}
                     onRate={(r) => rateService(s.id, r)} onOpenTech={(id) => push({ k: "tech", id })} />
-                  {s.technician && s.current < 4 && (
-                    <div style={{ padding: "0 16px 24px", textAlign: "center" }}>
-                      <button onClick={() => advanceService(s.id)} style={{ background: "none", border: "1px dashed var(--line-strong)", borderRadius: 10, padding: "6px 12px", fontSize: 11.5, color: "var(--ink-mute)", cursor: "pointer" }}>
-                        Demo: move to next step
-                      </button>
-                    </div>
-                  )}
+                  {s.technician && s.current < 4 && (() => {
+                    // Single-tab demo: stand in for what the technician does in their app.
+                    const trip = bridge.trips[s.id];
+                    const techId = s.technician.id;
+                    const step = s.current !== 1 ? { label: "Demo: move to next step", run: () => advanceService(s.id) }
+                      : !trip ? { label: "Demo: technician starts the ride", run: () => setTrip(s.id, { techId, status: "On the way", startedAt: Date.now() }) }
+                      : trip.status === "On the way" ? { label: "Demo: technician arrives", run: () => setTrip(s.id, { techId, status: "Arrived" }) }
+                      : { label: "Demo: start the job", run: () => setTrip(s.id, { techId, status: "In Progress" }) };
+                    return (
+                      <div style={{ padding: "0 16px 24px", textAlign: "center" }}>
+                        <button onClick={step.run} style={{ background: "none", border: "1px dashed var(--line-strong)", borderRadius: 10, padding: "6px 12px", fontSize: 11.5, color: "var(--ink-mute)", cursor: "pointer" }}>
+                          {step.label}
+                        </button>
+                        {s.current === 1 && <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--ink-mute)" }}>Or open /technician in another tab and run the job there.</p>}
+                      </div>
+                    );
+                  })()}
                 </>
               ) : null;
             })()}

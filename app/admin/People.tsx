@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { StarIcon } from "../components/icons";
+import TechAvatar from "../components/TechAvatar";
 import { inr } from "../lib/data";
 import { TODAY, type AdminCustomer, type AdminJob, type AdminOrder, type AdminTech } from "../lib/adminData";
 import { Badge, Btn, Filter, Initials, Modal, Panel, SearchBox, Table, fieldLabel, input, muted } from "./kit";
@@ -121,7 +122,7 @@ export function TechniciansSection({ techs, jobs, onUpdate, notify }: {
         <Table rows={rows} rowKey={(t) => t.id} cols={[
           { key: "n", head: "Technician", render: (t) => (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Initials name={t.name} />
+              <TechAvatar id={t.id} name={t.name} size={34} />
               <div><b>{t.name}</b><div style={muted}>{t.phone.replace(/(\d{5})$/, "XXXXX")}</div></div>
             </div>
           ) },

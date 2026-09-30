@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { CheckIcon, PinIcon, StarIcon } from "../components/icons";
-import { Avatar, BottomSheet, PageHeader, PrimaryButton, Toggle, card, sectionTitle } from "../components/ui";
+import { BottomSheet, PageHeader, PrimaryButton, Toggle, card, sectionTitle } from "../components/ui";
+import TechAvatar, { photoToDataUrl } from "../components/TechAvatar";
+import { updateBridge, useBridge } from "../lib/bridge";
 import { ReviewCard } from "../components/Reviews";
 import { inr, type Review, type Technician } from "../lib/data";
 import { PARTS, PAYOUTS, PAYOUT, TODAY, WEEK_EARNINGS, jobPayout, type Job } from "../lib/techData";
@@ -170,9 +172,35 @@ export function EarningsScreen({ jobs }: { jobs: Job[] }) {
 
 /* ───────────────────────── Partner profile ───────────────────────── */
 
-export function PartnerProfileScreen({ tech, reviews, jobsDone, onLogout }: {
-  tech: Technician; reviews: Review[]; jobsDone: number; onLogout: () => void;
+export function PartnerProfileScreen({ tech, reviews, jobsDone, onLogout, notify }: {
+  tech: Technician; reviews: Review[]; jobsDone: number; onLogout: () => void; notify: (m: string) => void;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [photoErr, setPhotoErr] = useState<string | null>(null);
+  const hasPhoto = !!useBridge().photos[tech.id];
+
+  const pickPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const url = await photoToDataUrl(file);
+      const saved = updateBridge((b) => ({ ...b, photos: { ...b.photos, [tech.id]: url } }));
+      if (!saved) throw new Error("Not enough space to save the photo");
+      setPhotoErr(null);
+      notify("Photo updated — customers will see it");
+    } catch (e) {
+      setPhotoErr(e instanceof Error ? e.message : "Couldn't use that photo");
+    }
+    if (fileRef.current) fileRef.current.value = "";
+  };
+  const removePhoto = () => {
+    updateBridge((b) => {
+      const photos = { ...b.photos };
+      delete photos[tech.id];
+      return { ...b, photos };
+    });
+    notify("Photo removed");
+  };
+
   const [days, setDays] = useState<string[]>(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
   const [autoAccept, setAutoAccept] = useState(false);
   const mine = reviews.filter((r) => r.techId === tech.id);
@@ -183,13 +211,28 @@ export function PartnerProfileScreen({ tech, reviews, jobsDone, onLogout }: {
       <div style={{ padding: "0 16px" }}>
         <div style={{ ...card, padding: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <Avatar initials={tech.initials} size={62} />
+            <div style={{ position: "relative" }}>
+              <TechAvatar id={tech.id} name={tech.name} size={72} ring />
+              <button onClick={() => fileRef.current?.click()} aria-label="Change photo" className="press" style={{
+                position: "absolute", right: -4, bottom: -2, width: 28, height: 28, borderRadius: "50%", border: "2px solid white", cursor: "pointer",
+                background: "var(--blue)", color: "white", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center",
+              }}>📷</button>
+              <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => pickPhoto(e.target.files?.[0])} />
+            </div>
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{tech.name}</p>
               <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)" }}>Partner ID ZT-{tech.id.toUpperCase()}-0142</p>
               <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--success-text)", fontWeight: 600 }}>✓ KYC verified · background checked</p>
             </div>
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12 }}>
+            <button onClick={() => fileRef.current?.click()} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--blue)", fontSize: 12.5, fontWeight: 600 }}>
+              {hasPhoto ? "Change photo" : "Add your photo"}
+            </button>
+            {hasPhoto && <button onClick={removePhoto} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--red)", fontSize: 12.5, fontWeight: 600 }}>Remove</button>}
+            <span style={{ fontSize: 11, color: "var(--ink-mute)" }}>{hasPhoto ? "Shown to customers" : "Customers see this before you arrive"}</span>
+          </div>
+          {photoErr && <p role="alert" style={{ margin: "6px 0 0", fontSize: 12, color: "var(--error-text)", fontWeight: 600 }}>{photoErr}</p>}
           <div style={{ display: "flex", marginTop: 14, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
             {[[<><StarIcon key="s" s={14} /> {tech.rating}</>, "Rating"], [(tech.jobs + jobsDone).toLocaleString("en-IN"), "Jobs done"], [`${tech.years} yrs`, "Experience"]].map(([v, l], i) => (
               <div key={i} style={{ flex: 1, textAlign: "center", borderRight: i < 2 ? "1px solid var(--line)" : "none" }}>

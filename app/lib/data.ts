@@ -112,6 +112,10 @@ export interface ServiceRequest {
   timeline: TimelineStep[];
   technician: { id: string; name: string; initials: string; rating: number; phone: string } | null;
   rating?: ServiceRating;
+  /** Start code the customer gives the technician on arrival. */
+  otp?: string;
+  /** Where the technician is headed. */
+  address?: string;
 }
 
 export const SERVICE_STEPS = ["Service Requested", "Technician Assigned", "In Progress", "Completed", "Feedback"];
