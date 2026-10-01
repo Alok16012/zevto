@@ -6,21 +6,21 @@ import { BrandMark, Wordmark } from "../components/Brand";
 import { SERVICE_CATALOG } from "../lib/data";
 import { updateBridge, useBridge } from "../lib/bridge";
 import {
-  ADMIN_COUPONS, ADMIN_DEMO, ADMIN_PRODUCTS, ADMIN_REVIEWS, ADMIN_TECHS, BROADCASTS, CUSTOMERS, JOBS, ORDERS, TODAY,
+  ADMIN_COUPONS, ADMIN_DEMO, DEALERS, type Dealer, ADMIN_PRODUCTS, ADMIN_REVIEWS, ADMIN_TECHS, BROADCASTS, CUSTOMERS, JOBS, ORDERS, TODAY,
   type AdminCoupon, type AdminCustomer, type AdminJob, type AdminOrder, type AdminProduct, type AdminReview, type AdminTech, type Broadcast,
 } from "../lib/adminData";
 import { Btn, fieldLabel, input } from "./kit";
 import { Dashboard } from "./Dashboard";
 import { OrdersSection, ServicesSection } from "./Operations";
-import { CustomersSection, TechniciansSection } from "./People";
+import { CustomersSection, DealersSection, TechniciansSection } from "./People";
 import { BroadcastSection, CouponsSection, ProductsSection, ReviewsSection } from "./Catalog";
 
-export type Section = "dashboard" | "orders" | "services" | "customers" | "technicians" | "products" | "coupons" | "reviews" | "broadcast";
+export type Section = "dashboard" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "coupons" | "reviews" | "broadcast";
 
 const NAV: { group: string; items: { id: Section; label: string; icon: string }[] }[] = [
   { group: "Overview", items: [{ id: "dashboard", label: "Dashboard", icon: "▦" }] },
   { group: "Operations", items: [{ id: "orders", label: "Orders", icon: "🛒" }, { id: "services", label: "Service Jobs", icon: "🔧" }] },
-  { group: "People", items: [{ id: "customers", label: "Customers", icon: "👥" }, { id: "technicians", label: "Technicians", icon: "🧑‍🔧" }] },
+  { group: "People", items: [{ id: "customers", label: "Customers", icon: "👥" }, { id: "technicians", label: "Technicians", icon: "🧑‍🔧" }, { id: "dealers", label: "Dealers", icon: "🏪" }] },
   { group: "Catalogue & growth", items: [
     { id: "products", label: "Products & Stock", icon: "📦" }, { id: "coupons", label: "Offers & Coupons", icon: "🏷️" },
     { id: "reviews", label: "Reviews", icon: "⭐" }, { id: "broadcast", label: "Notifications", icon: "📣" },
@@ -28,7 +28,7 @@ const NAV: { group: string; items: { id: Section; label: string; icon: string }[
 ];
 
 const TITLES: Record<Section, string> = {
-  dashboard: "Dashboard", orders: "Orders", services: "Service Jobs & Dispatch", customers: "Customers", technicians: "Technicians",
+  dashboard: "Dashboard", orders: "Orders", services: "Service Jobs & Dispatch", customers: "Customers", technicians: "Technicians", dealers: "Dealers",
   products: "Products & Stock", coupons: "Offers & Coupons", reviews: "Reviews", broadcast: "Broadcast Notifications",
 };
 
@@ -50,6 +50,7 @@ export default function AdminApp() {
   const [products, setProducts] = useState<AdminProduct[]>(ADMIN_PRODUCTS);
   const [coupons, setCoupons] = useState<AdminCoupon[]>(ADMIN_COUPONS);
   const [reviews, setReviews] = useState<AdminReview[]>(ADMIN_REVIEWS);
+  const [dealers, setDealers] = useState<Dealer[]>(DEALERS);
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>(BROADCASTS);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -179,7 +180,11 @@ export default function AdminApp() {
             {section === "orders" && <OrdersSection orders={orders} customers={customers} notify={notify} onUpdate={(id, p) => setOrders(patchBy<AdminOrder>((o) => o.id)(id, p))} />}
             {section === "services" && <ServicesSection jobs={jobs} customers={customers} techs={techs} notify={notify} onUpdate={updateJob} />}
             {section === "customers" && <CustomersSection customers={customers} orders={orders} jobs={jobs} notify={notify} onUpdate={(id, p) => setCustomers(patchBy<AdminCustomer>((c) => c.id)(id, p))} />}
-            {section === "technicians" && <TechniciansSection techs={techs} jobs={jobs} notify={notify} onUpdate={(id, p) => setTechs(patchBy<AdminTech>((t) => t.id)(id, p))} />}
+            {section === "dealers" && (
+              <DealersSection dealers={dealers} techs={techs} notify={notify} onUpdate={(id, p) => setDealers(patchBy<Dealer>((d) => d.id)(id, p))}
+                onCreate={(d) => setDealers((all) => [...all, d])} />
+            )}
+            {section === "technicians" && <TechniciansSection techs={techs} jobs={jobs} dealers={dealers} notify={notify} onUpdate={(id, p) => setTechs(patchBy<AdminTech>((t) => t.id)(id, p))} />}
             {section === "products" && <ProductsSection products={products} notify={notify} onUpdate={(id, p) => setProducts(patchBy<AdminProduct>((x) => x.id)(id, p))} />}
             {section === "coupons" && (
               <CouponsSection coupons={coupons} notify={notify} onUpdate={(code, p) => setCoupons(patchBy<AdminCoupon>((c) => c.code)(code, p))}

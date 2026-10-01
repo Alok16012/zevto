@@ -4,8 +4,9 @@ import { useState } from "react";
 import { ChatIcon, PhoneIcon, StarIcon } from "./icons";
 import PurifierArt from "./PurifierArt";
 import TechAvatar from "./TechAvatar";
+import { useBridge } from "../lib/bridge";
 import { Avatar, Footer, PageHeader, PrimaryButton, StarPicker, Stars, card, field, label, sectionTitle } from "./ui";
-import { RATING_TAGS, initialsOf, productById, type Review, type ServiceRating, type ServiceRequest, type Technician } from "../lib/data";
+import { RATING_TAGS, initialsOf, productById, type Review, type ServiceRating, type ServiceRequest, type Technician, servicePincodes } from "../lib/data";
 
 const STAR_WORDS = ["", "Terrible", "Bad", "Okay", "Good", "Excellent"];
 
@@ -157,6 +158,7 @@ export function WriteReviewPage({ productId, existing, onBack, onSubmit }: {
 /* ───────────────────────── Technician profile ───────────────────────── */
 
 export function TechnicianPage({ tech, reviews, onBack, onChat }: { tech: Technician; reviews: Review[]; onBack: () => void; onChat: () => void }) {
+  const areas = useBridge().techAreas;
   const mine = reviews.filter((r) => r.techId === tech.id);
   return (
     <div>
@@ -165,7 +167,9 @@ export function TechnicianPage({ tech, reviews, onBack, onChat }: { tech: Techni
         <div style={{ ...card, padding: 18, textAlign: "center" }}>
           <div style={{ display: "flex", justifyContent: "center" }}><TechAvatar id={tech.id} name={tech.name} size={84} ring /></div>
           <p style={{ margin: "10px 0 0", fontSize: 18, fontWeight: 700 }}>{tech.name}</p>
+          <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--ink-soft)" }}>Technician ID <b style={{ color: "var(--ink)" }}>{tech.code}</b></p>
           <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--success-text)", fontWeight: 600 }}>✓ Verified · background checked</p>
+          <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--ink-mute)" }}>Serves pincodes {servicePincodes(tech, areas).join(", ")}</p>
           <div style={{ display: "flex", marginTop: 14, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
             {[[<><StarIcon s={14} /> {tech.rating}</>, "Rating"], [`${tech.jobs.toLocaleString("en-IN")}+`, "Jobs done"], [`${tech.years} yrs`, "Experience"]].map(([v, l], i) => (
               <div key={i} style={{ flex: 1, borderRight: i < 2 ? "1px solid var(--line)" : "none" }}>

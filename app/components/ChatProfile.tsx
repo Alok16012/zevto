@@ -178,6 +178,7 @@ export function ProfileScreen({ user, stats, walletBalance, unreadNotifs, onMenu
               <p style={{ margin: 0, fontSize: 19, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.name}</p>
               <p style={{ margin: "1px 0 0", fontSize: 13, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis" }}>{user.email}</p>
               <p style={{ margin: "1px 0 0", fontSize: 12.5, color: "var(--text-muted)" }}>{user.phone}</p>
+              <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--ink-soft)" }}>Customer ID <b style={{ color: "var(--ink)", letterSpacing: "0.03em" }}>{user.id}</b></p>
             </div>
             <button onClick={() => onMenu("edit")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--blue)", fontSize: 12.5, fontWeight: 600, letterSpacing: "0.03em", alignSelf: "flex-start" }}>EDIT</button>
           </div>

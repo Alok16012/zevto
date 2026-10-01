@@ -58,11 +58,13 @@ export interface BridgeState {
   opsTasks: OpsTask[];
   /** Technician profile photos as data URLs, by technician id. */
   photos: Record<string, string>;
+  /** Pincodes each technician serves (primary first), set in the partner app. */
+  techAreas: Record<string, string[]>;
 }
 
 const KEY = "zavtoo:bridge";
 const EVENT = "zavtoo-bridge";
-const EMPTY: BridgeState = { jobs: [], trips: {}, opsTasks: [], photos: {} };
+const EMPTY: BridgeState = { jobs: [], trips: {}, opsTasks: [], photos: {}, techAreas: {} };
 
 let cacheRaw: string | null = null;
 let cacheVal: BridgeState = EMPTY;

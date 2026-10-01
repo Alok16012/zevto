@@ -6,8 +6,10 @@ import { CheckIcon, PinIcon, StarIcon } from "../components/icons";
 import { BottomSheet, PageHeader, PrimaryButton, Toggle, card, sectionTitle } from "../components/ui";
 import TechAvatar, { photoToDataUrl } from "../components/TechAvatar";
 import { updateBridge, useBridge } from "../lib/bridge";
+import { DEALERS } from "../lib/adminData";
+import { ServiceAreaEditor, ServiceAreaSummary } from "./ServiceArea";
 import { ReviewCard } from "../components/Reviews";
-import { inr, type Review, type Technician } from "../lib/data";
+import { inr, servicePincodes, type Review, type Technician } from "../lib/data";
 import { PARTS, PAYOUTS, PAYOUT, TODAY, WEEK_EARNINGS, jobPayout, type Job } from "../lib/techData";
 
 const small: React.CSSProperties = { margin: "2px 0 0", fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 };
@@ -177,7 +179,11 @@ export function PartnerProfileScreen({ tech, reviews, jobsDone, onLogout, notify
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [photoErr, setPhotoErr] = useState<string | null>(null);
-  const hasPhoto = !!useBridge().photos[tech.id];
+  const bridge = useBridge();
+  const hasPhoto = !!bridge.photos[tech.id];
+  const pins = servicePincodes(tech, bridge.techAreas);
+  const [editArea, setEditArea] = useState(false);
+  const dealer = DEALERS.find((d) => d.id === tech.dealerId);
 
   const pickPhoto = async (file: File | undefined) => {
     if (!file) return;
@@ -221,7 +227,8 @@ export function PartnerProfileScreen({ tech, reviews, jobsDone, onLogout, notify
             </div>
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{tech.name}</p>
-              <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)" }}>Partner ID ZT-{tech.id.toUpperCase()}-0142</p>
+              <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)" }}>Technician ID <b style={{ color: "var(--ink)", letterSpacing: "0.03em" }}>{tech.code}</b></p>
+              {dealer && <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>Dealer: {dealer.name} · {dealer.id}</p>}
               <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--success-text)", fontWeight: 600 }}>✓ KYC verified · background checked</p>
             </div>
           </div>
@@ -244,10 +251,14 @@ export function PartnerProfileScreen({ tech, reviews, jobsDone, onLogout, notify
         </div>
 
         <h3 style={sectionTitle}>Service area</h3>
-        <div style={{ ...card, padding: 14, display: "flex", gap: 12, alignItems: "center" }}>
-          <PinIcon s={22} c="var(--blue)" />
-          <div style={{ flex: 1 }}><p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>Noida · Sectors 15 – 78</p><p style={small}>Up to 10 km from Sector 63 hub</p></div>
-        </div>
+        {editArea ? (
+          <div style={{ ...card, padding: 14 }}>
+            <ServiceAreaEditor initial={pins} onSave={(p) => {
+              updateBridge((b) => ({ ...b, techAreas: { ...b.techAreas, [tech.id]: p } }));
+              setEditArea(false); notify(`Service area saved · ${p.length} pincodes`);
+            }} />
+          </div>
+        ) : <ServiceAreaSummary pins={pins} onEdit={() => setEditArea(true)} />}
 
         <h3 style={sectionTitle}>Availability</h3>
         <div style={{ ...card, padding: 14 }}>

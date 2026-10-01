@@ -15,6 +15,7 @@ import { PrimaryButton, StatusBadge, card } from "./components/ui";
 import { ChevronRight, CardIcon, ShieldIcon } from "./components/icons";
 import { setTrip, updateBridge, useBridge } from "./lib/bridge";
 import {
+  techsForPincode,
   INITIAL_ADDRESSES, INITIAL_CHAT, INITIAL_NOTIFICATIONS, INITIAL_ORDERS, INITIAL_REFERRALS, INITIAL_REVIEWS, INITIAL_SERVICES,
   INITIAL_WALLET, REFERRAL_REWARD, SERVICE_STEPS, USER, inr, nowTime, productById, techById, todayLabel,
   type Address, type AppNotification, type ChatMessage, type NotifPrefs, type Order, type Referral, type Review,
@@ -158,12 +159,14 @@ export default function CustomerApp() {
     if (!ok) flash("Photos saved here, but couldn't sync to the technician");
   };
 
-  const bookService = ({ price, coupon: code, discount, ...req }: BookingRequest) => {
+  const bookService = ({ price, coupon: code, discount, address: where, techId: picked, ...req }: BookingRequest) => {
     const id = nextRef("SRV");
     const ref = nextRef("ZVT");
     const now = `${todayLabel()}, ${nowTime()}`;
     const otp = String(1000 + Math.floor(Math.random() * 9000));
-    const address = defaultAddress ? `${defaultAddress.line} ${defaultAddress.pincode}` : "Address not set";
+    const address = `${where.line} ${where.pincode}`;
+    // The customer's pick, else the best technician for their pincode, else ops' fallback.
+    const tech = (picked && techById(picked)) || techsForPincode(where.pincode, bridge.techAreas)[0]?.tech || techById("t1")!;
     const svc: ServiceRequest = {
       id, ...req, current: 0, technician: null, otp, address,
       timeline: SERVICE_STEPS.map((label, i) => ({ label, at: i === 0 ? now : null })),
@@ -178,7 +181,6 @@ export default function CustomerApp() {
 
     // Demo: ops assigns a technician a few seconds later.
     setTimeout(() => {
-      const tech = techById("t1")!;
       setServices((all) => all.map((s) => s.id !== id ? s : {
         ...s, current: 1,
         technician: { id: tech.id, name: tech.name, initials: tech.initials, rating: tech.rating, phone: tech.phone },
@@ -195,7 +197,7 @@ export default function CustomerApp() {
           photos: servicesRef.current.find((x) => x.id === id)?.photos ?? req.photos,
         }],
       }));
-      notify({ kind: "service", title: "Technician assigned", body: `${tech.name} (★ ${tech.rating}) will visit on ${req.date}, ${req.slot}.`, link: { k: "track", id } });
+      notify({ kind: "service", title: picked ? "Your technician confirmed" : "Technician assigned", body: `${tech.name} (${tech.code}, ★ ${tech.rating}) will visit on ${req.date}, ${req.slot}.`, link: { k: "track", id } });
     }, 5000);
   };
 
@@ -428,7 +430,10 @@ export default function CustomerApp() {
             )}
             {detail?.k === "addresses" && <AddressesPage addresses={addresses} onBack={back} onChange={setAddresses} />}
             {detail?.k === "orders" && <OrdersScreen orders={orders} onBack={back} onOpen={openOrder} />}
-            {detail?.k === "book" && <BookServiceScreen key={detail.type} initialType={detail.type} onBack={back} onSubmit={bookService} />}
+            {detail?.k === "book" && (
+              <BookServiceScreen key={detail.type} initialType={detail.type} onBack={back} onSubmit={bookService} addresses={addresses}
+                onAddAddress={(a) => setAddresses((all) => (a.isDefault || !all.length ? [...all.map((x) => ({ ...x, isDefault: false })), { ...a, isDefault: true }] : [...all, a]))} />
+            )}
             {detail?.k === "info" && (
               <ProfileInfo which={detail.key} onBack={back} services={services}
                 onTrack={(id) => push({ k: "track", id })} onRenew={() => push({ k: "book", type: "AMC" })} />

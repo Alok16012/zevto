@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { StarIcon } from "../components/icons";
 import TechAvatar from "../components/TechAvatar";
-import { inr } from "../lib/data";
-import { TODAY, type AdminCustomer, type AdminJob, type AdminOrder, type AdminTech } from "../lib/adminData";
+import { useBridge } from "../lib/bridge";
+import { PIN_AREAS, inr, isPincode, makeId, servicePincodes } from "../lib/data";
+import { TODAY, type Dealer, type AdminCustomer, type AdminJob, type AdminOrder, type AdminTech } from "../lib/adminData";
 import { Badge, Btn, Filter, Initials, Modal, Panel, SearchBox, Table, fieldLabel, input, muted } from "./kit";
 import { JOB_TONE, ORDER_TONE } from "./Operations";
 
@@ -34,7 +35,7 @@ export function CustomersSection({ customers, orders, jobs, onUpdate, notify }: 
         { key: "n", head: "Customer", render: (c) => (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Initials name={c.name} />
-            <div><b style={{ color: c.blocked ? "var(--ink-mute)" : "var(--ink)" }}>{c.name}</b><div style={muted}>{c.email}</div></div>
+            <div><b style={{ color: c.blocked ? "var(--ink-mute)" : "var(--ink)" }}>{c.name}</b><div style={muted}>{c.id} · {c.email}</div></div>
           </div>
         ) },
         { key: "p", head: "Phone", render: (c) => <span style={muted}>{c.phone}</span> },
@@ -101,9 +102,11 @@ function CustomerModal({ c, orders, jobs, onClose, onUpdate, notify }: {
 
 /* ───────────────────────── Technicians ───────────────────────── */
 
-export function TechniciansSection({ techs, jobs, onUpdate, notify }: {
+export function TechniciansSection({ techs, jobs, dealers, onUpdate, notify }: {
+  dealers: Dealer[];
   techs: AdminTech[]; jobs: AdminJob[]; onUpdate: (id: string, patch: Partial<AdminTech>) => void; notify: (m: string) => void;
 }) {
+  const areas = useBridge().techAreas;
   const [q, setQ] = useState("");
   const rows = techs.filter((t) => !q.trim() || `${t.name} ${t.area} ${t.skills.join(" ")}`.toLowerCase().includes(q.trim().toLowerCase()));
   const today = (id: string) => jobs.filter((j) => j.techId === id && j.date === TODAY && j.status !== "Cancelled");
@@ -123,10 +126,17 @@ export function TechniciansSection({ techs, jobs, onUpdate, notify }: {
           { key: "n", head: "Technician", render: (t) => (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <TechAvatar id={t.id} name={t.name} size={34} />
-              <div><b>{t.name}</b><div style={muted}>{t.phone.replace(/(\d{5})$/, "XXXXX")}</div></div>
+              <div><b>{t.name}</b><div style={muted}>{t.code}</div></div>
             </div>
           ) },
-          { key: "a", head: "Area", render: (t) => t.area },
+          { key: "a", head: "Pincodes", render: (t) => {
+            const pins = servicePincodes(t, areas);
+            return <><b>{pins[0]}</b> <span style={muted}>primary</span><div style={muted}>{pins.length > 1 ? `+ ${pins.slice(1).join(", ")}` : t.area}</div></>;
+          } },
+          { key: "d", head: "Dealer", render: (t) => {
+            const d = dealers.find((x) => x.id === t.dealerId);
+            return d ? <>{d.name}<div style={muted}>{d.id}</div></> : <span style={muted}>—</span>;
+          } },
           { key: "sk", head: "Skills", render: (t) => <span style={muted}>{t.skills.join(", ")}</span> },
           { key: "r", head: "Rating", render: (t) => t.rating ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontWeight: 700 }}><StarIcon s={12} />{t.rating}</span> : <span style={muted}>New</span> },
           { key: "j", head: "Today", align: "right", render: (t) => `${today(t.id).length} jobs` },
@@ -146,5 +156,76 @@ export function TechniciansSection({ techs, jobs, onUpdate, notify }: {
         ]} />
       </Panel>
     </div>
+  );
+}
+
+/* ───────────────────────── Dealers ───────────────────────── */
+
+export function DealersSection({ dealers, techs, onUpdate, onCreate, notify }: {
+  dealers: Dealer[]; techs: AdminTech[]; onUpdate: (id: string, patch: Partial<Dealer>) => void; onCreate: (d: Dealer) => void; notify: (m: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  return (
+    <Panel title={`Dealers (${dealers.length})`} pad={false} actions={<Btn onClick={() => setAdding(true)}>+ Add dealer</Btn>}>
+      <Table rows={dealers} rowKey={(d) => d.id} cols={[
+        { key: "n", head: "Dealer", render: (d) => <><b style={{ color: d.active ? "var(--ink)" : "var(--ink-mute)" }}>{d.name}</b><div style={muted}>{d.id}</div></> },
+        { key: "o", head: "Owner", render: (d) => <>{d.owner}<div style={muted}>{d.phone}</div></> },
+        { key: "c", head: "City", render: (d) => d.city },
+        { key: "p", head: "Pincodes", render: (d) => <span style={muted}>{d.pincodes.join(", ")}</span> },
+        { key: "t", head: "Technicians", render: (d) => {
+          const mine = techs.filter((t) => t.dealerId === d.id);
+          return mine.length ? <>{mine.length}<div style={muted}>{mine.map((t) => t.code).join(", ")}</div></> : <span style={muted}>None yet</span>;
+        } },
+        { key: "s", head: "Since", render: (d) => <span style={muted}>{d.since}</span> },
+        { key: "a", head: "Status", render: (d) => <Badge tone={d.active ? "green" : "grey"}>{d.active ? "Active" : "Paused"}</Badge> },
+        { key: "x", head: "", align: "right", render: (d) => (
+          <Btn small kind={d.active ? "danger" : "primary"} onClick={() => { onUpdate(d.id, { active: !d.active }); notify(d.active ? `${d.name} paused` : `${d.name} reactivated`); }}>
+            {d.active ? "Pause" : "Activate"}
+          </Btn>
+        ) },
+      ]} />
+      {adding && (
+        <DealerModal nextId={makeId("dealer", dealers.length + 1)} onClose={() => setAdding(false)}
+          onSave={(d) => { onCreate(d); notify(`${d.name} added · ${d.id}`); setAdding(false); }} />
+      )}
+    </Panel>
+  );
+}
+
+function DealerModal({ nextId, onClose, onSave }: { nextId: string; onClose: () => void; onSave: (d: Dealer) => void }) {
+  const [name, setName] = useState("");
+  const [owner, setOwner] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [pins, setPins] = useState("");
+  const pinList = pins.split(/[\s,]+/).filter(Boolean);
+  const badPin = pinList.find((p) => !isPincode(p));
+  const err = name.trim().length < 3 ? "Enter the dealer's business name"
+    : owner.trim().length < 2 ? "Enter the owner's name"
+    : !/^[6-9]\d{9}$/.test(phone) ? "Enter a 10-digit mobile number"
+    : !city.trim() ? "Enter the city"
+    : !pinList.length ? "Add at least one pincode"
+    : badPin ? `${badPin} isn't a valid pincode`
+    : null;
+
+  return (
+    <Modal title="Add dealer" onClose={onClose} footer={<>
+      <Btn kind="ghost" onClick={onClose}>Cancel</Btn>
+      <Btn disabled={!!err} onClick={() => onSave({
+        id: nextId, name: name.trim(), owner: owner.trim(), phone: `+91 ${phone.slice(0, 2)}XXX XX${phone.slice(-3)}`, city: city.trim(),
+        pincodes: Array.from(new Set(pinList)), since: "Oct 2026", active: true,
+      })}>Create dealer</Btn>
+    </>}>
+      <p style={{ margin: "0 0 12px", fontSize: 13 }}>Unique dealer ID: <b style={{ letterSpacing: "0.03em" }}>{nextId}</b></p>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <label style={{ gridColumn: "1 / -1" }}><span style={fieldLabel}>Business name</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="AquaCare Faridabad" style={input} /></label>
+        <label><span style={fieldLabel}>Owner</span><input value={owner} onChange={(e) => setOwner(e.target.value)} style={input} /></label>
+        <label><span style={fieldLabel}>Mobile</span><input value={phone} inputMode="numeric" onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} style={input} /></label>
+        <label><span style={fieldLabel}>City</span><input value={city} onChange={(e) => setCity(e.target.value)} style={input} /></label>
+        <label><span style={fieldLabel}>Pincodes covered</span><input value={pins} onChange={(e) => setPins(e.target.value)} placeholder="121001, 121002" style={input} /></label>
+      </div>
+      {pinList.length > 0 && !badPin && <p style={{ ...muted, margin: "8px 0 0" }}>{pinList.map((p) => PIN_AREAS[p] ? `${p} (${PIN_AREAS[p]})` : p).join(" · ")}</p>}
+      {err && (name || owner || phone || city || pins) ? <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p> : null}
+    </Modal>
   );
 }

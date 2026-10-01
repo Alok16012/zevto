@@ -11,7 +11,13 @@ import { SERVICE_ICON } from "./ServicesHub";
 import TechAvatar from "./TechAvatar";
 import { LiveTrackingCard, LocationPendingCard } from "./LiveTracking";
 import type { Trip } from "../lib/bridge";
+import { useBridge } from "../lib/bridge";
+import { TECHNICIANS } from "../lib/data";
+
+const TECH_CODES = Object.fromEntries(TECHNICIANS.map((t) => [t.id, t.code]));
+import { AddressSheet } from "./Account";
 import {
+  PIN_AREAS, techsForPincode, type Address,
   PRODUCTS, SERVICE_CATALOG, TIME_SLOTS, couponByCode, couponDiscount, couponError, fmtDate, inr,
   type Order, type ServiceRating, type ServiceRequest, type ServiceType,
 } from "../lib/data";
@@ -21,12 +27,22 @@ import {
 export interface BookingRequest {
   type: ServiceType; product: string; date: string; slot: string; description: string;
   price: number; coupon: string | null; discount: number; photos: string[];
+  address: Address; techId: string | null;
 }
 
-export function BookServiceScreen({ initialType = "Installation", onBack, onSubmit }: {
+export function BookServiceScreen({ initialType = "Installation", onBack, onSubmit, addresses, onAddAddress }: {
   initialType?: ServiceType; onBack?: () => void;
   onSubmit: (req: BookingRequest) => void;
+  addresses: Address[]; onAddAddress: (a: Address) => void;
 }) {
+  const [addingAddress, setAddingAddress] = useState(false);
+  const { techAreas } = useBridge();
+  const [addressId, setAddressId] = useState(() => (addresses.find((a) => a.isDefault) ?? addresses[0])?.id ?? "");
+  const address = addresses.find((a) => a.id === addressId);
+  // Only technicians who cover this pincode are offered; null = let ops pick the fastest.
+  const matches = address ? techsForPincode(address.pincode, techAreas) : [];
+  const [techChoice, setTechChoice] = useState<string | null>(null);
+  const chosen = matches.some((m) => m.tech.id === techChoice) ? techChoice : null;
   const [type, setType] = useState<ServiceType>(initialType);
   const [coupon, setCoupon] = useState<string | null>(null);
   const [product, setProduct] = useState("");
@@ -38,7 +54,7 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
 
   // Tomorrow is the earliest bookable day.
   const min = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  const ok = product && date && slot;
+  const ok = product && date && slot && address;
   const offering = SERVICE_CATALOG.find((o) => o.type === type)!;
   const price = offering.price;
   // Switching service type can make an applied coupon invalid — drop it quietly.
@@ -49,7 +65,7 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
   const submit = () => {
     setTouched(true);
     if (!ok) return;
-    onSubmit({ type, product, date: fmtDate(new Date(`${date}T00:00`)), slot, description: desc.trim(), price, coupon: valid?.code ?? null, discount, photos });
+    onSubmit({ type, product, date: fmtDate(new Date(`${date}T00:00`)), slot, description: desc.trim(), price, coupon: valid?.code ?? null, discount, photos, address: address!, techId: chosen });
   };
 
   const err = (v: string) => touched && !v ? { border: "1.5px solid var(--error-text)" } : {};
@@ -121,6 +137,53 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
           </div>
         </div>
 
+        {/* Where + who: the address's pincode decides which technicians are offered. */}
+        <div style={{ marginTop: 18 }}>
+          <span style={label}>Service address</span>
+          {addresses.length ? (
+            <div className="no-scroll" style={{ display: "flex", gap: 8, overflowX: "auto" }}>
+              {addresses.map((a) => {
+                const on = a.id === addressId;
+                return (
+                  <button key={a.id} onClick={() => setAddressId(a.id)} aria-pressed={on} style={{
+                    flex: "0 0 auto", maxWidth: 230, textAlign: "left", padding: "10px 12px", borderRadius: 14, cursor: "pointer",
+                    background: on ? "var(--blue-tint)" : "var(--surface)", border: on ? "1.5px solid var(--blue)" : "1.5px solid var(--line)",
+                  }}>
+                    <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: on ? "var(--blue)" : "var(--ink)" }}>{a.label} · {a.pincode}</span>
+                    <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.line}</span>
+                  </button>
+                );
+              })}
+              <button onClick={() => setAddingAddress(true)} style={{ flex: "0 0 auto", padding: "10px 14px", borderRadius: 14, border: "1.5px dashed var(--blue)", background: "transparent", color: "var(--blue)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>+ New</button>
+            </div>
+          ) : (
+            <button onClick={() => setAddingAddress(true)} style={{ ...field, textAlign: "left", cursor: "pointer", color: "var(--blue)", fontWeight: 600, ...(touched ? { border: "1.5px solid var(--error-text)" } : {}) }}>+ Add your home address to see technicians near you</button>
+          )}
+        </div>
+
+        {address && (
+          <div style={{ marginTop: 18 }}>
+            <span style={label}>Choose your technician</span>
+            <p style={{ margin: "-4px 0 8px", fontSize: 12, color: "var(--ink-soft)" }}>
+              {matches.length
+                ? `${matches.length} technician${matches.length > 1 ? "s serve" : " serves"} pincode ${address.pincode}${PIN_AREAS[address.pincode] ? ` (${PIN_AREAS[address.pincode]})` : ""}`
+                : `No Zavtoo technician covers ${address.pincode} yet — ops will arrange one for you.`}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <TechOption on={chosen === null} onClick={() => setTechChoice(null)}
+                title="⚡ Any available technician" sub={matches.length ? "Fastest — ops assigns the nearest free technician" : "Ops will find someone for your area"} />
+              {matches.map(({ tech, primary }) => (
+                <TechOption key={tech.id} on={chosen === tech.id} onClick={() => setTechChoice(tech.id)}
+                  avatar={<TechAvatar id={tech.id} name={tech.name} size={42} />}
+                  title={tech.name}
+                  badge={primary ? "Lives nearby" : undefined}
+                  sub={`★ ${tech.rating} · ${tech.jobs.toLocaleString("en-IN")} jobs · ${tech.years} yrs · ${tech.code}`}
+                  extra={tech.skills.slice(0, 3).join(" · ")} />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Photos matter most when something is wrong; new installs don't need them. */}
         {type !== "Installation" && (
           <div style={{ marginTop: 18, padding: 14, borderRadius: 16, background: "var(--surface)", boxShadow: "var(--shadow-card)" }}>
@@ -144,10 +207,35 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
             )}
           </div>
         )}
-        {touched && !ok && <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "var(--error-text)" }}>Please choose a product, date and time slot.</p>}
+        {touched && !ok && <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "var(--error-text)" }}>Please choose a product, address, date and time slot.</p>}
       </div>
+      {addingAddress && (
+        <AddressSheet initial={null} onClose={() => setAddingAddress(false)}
+          onSave={(a) => { onAddAddress(a); setAddressId(a.id); setAddingAddress(false); }} />
+      )}
       <Footer><PrimaryButton onClick={submit}>Book {type}{price ? ` · ${inr(price - discount)}` : ""}</PrimaryButton></Footer>
     </div>
+  );
+}
+
+function TechOption({ on, onClick, title, sub, extra, badge, avatar }: {
+  on: boolean; onClick: () => void; title: string; sub: string; extra?: string; badge?: string; avatar?: React.ReactNode;
+}) {
+  return (
+    <button onClick={onClick} aria-pressed={on} style={{
+      ...card, display: "flex", alignItems: "center", gap: 12, padding: 12, cursor: "pointer", textAlign: "left",
+      border: on ? "2px solid var(--blue)" : "2px solid transparent", background: on ? "var(--blue-tint)" : "var(--surface)",
+    }}>
+      {avatar}
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>
+          {title}{badge && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--success-text)", background: "var(--success)", padding: "2px 7px", borderRadius: 999 }}>{badge}</span>}
+        </span>
+        <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-soft)", marginTop: 1 }}>{sub}</span>
+        {extra && <span style={{ display: "block", fontSize: 11, color: "var(--ink-mute)", marginTop: 1 }}>{extra}</span>}
+      </span>
+      <span style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, border: on ? "6px solid var(--blue)" : "2px solid var(--line-strong)" }} />
+    </button>
   );
 }
 
@@ -324,6 +412,7 @@ export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpen
             <TechAvatar id={tech.id} name={tech.name} size={50} ring />
             <button onClick={() => onOpenTech(tech.id)} style={{ flex: 1, background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>
               <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{tech.name}</p>
+              <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>{TECH_CODES[tech.id] ?? ""}</p>
               <p style={{ margin: 0, fontSize: 12, color: "var(--blue)", fontWeight: 600 }}>View profile &amp; reviews</p>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}><StarIcon s={13} /><span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{tech.rating}</span></div>
             </button>

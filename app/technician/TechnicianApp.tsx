@@ -8,6 +8,7 @@ import { setTrip, updateBridge, useBridge, type TripStatus } from "../lib/bridge
 import { INCOMING_JOB, INITIAL_JOBS, INITIAL_STOCK, TECH_ID, TODAY, type Job } from "../lib/techData";
 import { JobDetailPage, JobsScreen } from "./JobScreens";
 import { NewTaskPage, SentToOpsList, type NewTask, type TaskRoute } from "./NewTask";
+import { ServiceAreaEditor } from "./ServiceArea";
 import { EarningsScreen, InventoryScreen, PartnerProfileScreen } from "./PartnerScreens";
 
 const SHELL_MAX_W = 430;
@@ -145,14 +146,27 @@ export default function TechnicianApp() {
   const logout = () => { writeSession(false); setLoggedIn(false); setTab("jobs"); setOpenJob(null); setNewTask(false); };
 
   const job = openJob ? jobs.find((j) => j.id === openJob) : undefined;
-  const showNav = loggedIn && !job && !newTask;
+  const showNav = loggedIn && !!bridge.techAreas[TECH_ID]?.length && !job && !newTask;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: SHELL_MAX_W, height: "100%", position: "relative", background: "var(--app-bg)", overflow: "hidden", boxShadow: "var(--shadow-float)", display: "flex", flexDirection: "column" }}>
         {loggedIn === false && <LoginScreen onDone={() => { writeSession(true); setLoggedIn(true); }} />}
 
-        {loggedIn && (
+        {/* Right after login: technicians say which pincodes they work in before they see jobs. */}
+        {loggedIn && !bridge.techAreas[TECH_ID]?.length && (
+          <div className="no-scroll fade-up" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 16px 24px" }}>
+            <span style={{ display: "inline-block", background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8 }}>STEP 2 OF 2</span>
+            <h1 style={{ margin: "10px 0 4px", fontSize: 24, fontWeight: 800 }}>Where do you work?</h1>
+            <p style={{ margin: "0 0 18px", fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+              Add your primary pincode and the nearby pincodes you can reach. Customers there will see you and can choose you.
+            </p>
+            <ServiceAreaEditor initial={tech.pincodes} saveLabel="Save & continue"
+              onSave={(p) => { updateBridge((b) => ({ ...b, techAreas: { ...b.techAreas, [TECH_ID]: p } })); flash(`You'll get jobs in ${p.length} pincodes`); }} />
+          </div>
+        )}
+
+        {loggedIn && !!bridge.techAreas[TECH_ID]?.length && (
           <div ref={scrollRef} className="no-scroll" style={{
             flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain",
             paddingBottom: showNav ? "calc(76px + env(safe-area-inset-bottom))" : undefined,
@@ -222,7 +236,7 @@ function LoginScreen({ onDone }: { onDone: () => void }) {
           <BrandMark size={48} />
           <Wordmark />
         </div>
-        <span style={{ alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>PARTNER APP</span>
+        <span style={{ alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>PARTNER APP · STEP 1 OF 2</span>
         <h1 style={{ margin: "12px 0 4px", fontSize: 26, fontWeight: 800 }}>Technician login</h1>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)" }}>Manage your jobs, parts and earnings.</p>
 

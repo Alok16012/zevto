@@ -136,7 +136,7 @@ export function AddressesPage({ addresses, onBack, onChange }: { addresses: Addr
 
 const textBtn = (c: string): React.CSSProperties => ({ background: "none", border: "none", padding: 0, cursor: "pointer", color: c, fontSize: 12.5, fontWeight: 600 });
 
-function AddressSheet({ initial, onClose, onSave }: { initial: Address | null; onClose: () => void; onSave: (a: Address) => void }) {
+export function AddressSheet({ initial, onClose, onSave }: { initial: Address | null; onClose: () => void; onSave: (a: Address) => void }) {
   const [lbl, setLbl] = useState<Address["label"]>(initial?.label ?? "Home");
   const [line, setLine] = useState(initial?.line ?? "");
   const [pin, setPin] = useState(initial?.pincode ?? "");

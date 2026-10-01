@@ -1,6 +1,22 @@
 /* Sample catalogue, orders and service jobs. Stand-ins until the Node.js API
  * from the PRD is live — every screen reads through these shapes. */
 
+/* Unique IDs — one series per role so an ID alone says who it is:
+ * CUS-100101 (customer), TEC-200101 (technician), DLR-300101 (dealer). */
+export const ID_PREFIX = { customer: "CUS", technician: "TEC", dealer: "DLR" } as const;
+const ID_BASE = { customer: 100100, technician: 200100, dealer: 300100 } as const;
+export const makeId = (role: keyof typeof ID_PREFIX, n: number) => `${ID_PREFIX[role]}-${ID_BASE[role] + n}`;
+
+/** Localities for the pincodes Zavtoo serves today — used as labels and suggestions. */
+export const PIN_AREAS: Record<string, string> = {
+  "201301": "Noida Sec 1–39", "201303": "Noida Sec 40–50", "201304": "Greater Noida", "201307": "Noida Sec 100+",
+  "201309": "Noida Sec 62–63", "201010": "Ghaziabad", "201014": "Indirapuram", "122001": "Gurugram City",
+  "122002": "DLF Cyber City", "122003": "Sohna Road", "122018": "Gurugram Sec 56",
+};
+
+/** Indian pincode: 6 digits, can't start with 0. */
+export const isPincode = (p: string) => /^[1-9]\d{5}$/.test(p);
+
 export type Category = "domestic" | "commercial" | "spare";
 export type ArtKind = "classic" | "pro" | "premium" | "commercial" | "spare" | "cartridge";
 
@@ -166,6 +182,8 @@ export const INITIAL_CHAT: ChatMessage[] = [
 ];
 
 export interface UserProfile {
+  /** Unique customer ID. */
+  id: string;
   name: string;
   email: string;
   phone: string;
@@ -173,7 +191,7 @@ export interface UserProfile {
   dob: string;
 }
 
-export const USER: UserProfile = { name: "Alok Kumar", email: "alok@gmail.com", phone: "+91 98XXX XX210", gender: "Male", dob: "" };
+export const USER: UserProfile = { id: makeId("customer", 1), name: "Alok Kumar", email: "alok@gmail.com", phone: "+91 98XXX XX210", gender: "Male", dob: "" };
 
 export const initialsOf = (name: string) =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
@@ -333,6 +351,8 @@ export const INITIAL_REVIEWS: Review[] = [
 
 export interface Technician {
   id: string;
+  /** Unique technician ID shown to customers, ops and dealers. */
+  code: string;
   name: string;
   initials: string;
   rating: number;
@@ -341,13 +361,30 @@ export interface Technician {
   skills: string[];
   languages: string;
   phone: string;
+  /** Pincodes they cover — the first one is their primary area. */
+  pincodes: string[];
+  /** Dealer the technician works under. */
+  dealerId: string;
 }
 
 export const TECHNICIANS: Technician[] = [
-  { id: "t1", name: "Rohit Kumar", initials: "RK", rating: 4.8, jobs: 1240, years: 6, skills: ["RO repair", "Installation", "Membrane change", "UV systems"], languages: "Hindi, English", phone: "+919800000000" },
-  { id: "t2", name: "Imran Ali", initials: "IA", rating: 4.7, jobs: 860, years: 4, skills: ["Commercial plants", "Installation", "Water testing"], languages: "Hindi, Urdu", phone: "+919800000001" },
-  { id: "t3", name: "Suresh Yadav", initials: "SY", rating: 4.9, jobs: 1580, years: 8, skills: ["AMC visits", "Filter change", "Leak repair"], languages: "Hindi, Bhojpuri", phone: "+919800000002" },
+  { id: "t1", name: "Rohit Kumar", initials: "RK", rating: 4.8, jobs: 1240, years: 6, skills: ["RO repair", "Installation", "Membrane change", "UV systems"], languages: "Hindi, English", phone: "+919800000000", code: makeId("technician", 1), pincodes: ["201309", "201301", "201307", "201304"], dealerId: makeId("dealer", 1) },
+  { id: "t2", name: "Imran Ali", initials: "IA", rating: 4.7, jobs: 860, years: 4, skills: ["Commercial plants", "Installation", "Water testing"], languages: "Hindi, Urdu", phone: "+919800000001", code: makeId("technician", 2), pincodes: ["201301", "201303", "201304", "201309"], dealerId: makeId("dealer", 1) },
+  { id: "t3", name: "Suresh Yadav", initials: "SY", rating: 4.9, jobs: 1580, years: 8, skills: ["AMC visits", "Filter change", "Leak repair"], languages: "Hindi, Bhojpuri", phone: "+919800000002", code: makeId("technician", 3), pincodes: ["201010", "201014", "201309", "201301"], dealerId: makeId("dealer", 2) },
+  { id: "t4", name: "Deepak Sharma", initials: "DS", rating: 4.6, jobs: 410, years: 3, skills: ["Installation", "Repair"], languages: "Hindi", phone: "+919800000003", code: makeId("technician", 4), pincodes: ["122002", "122001", "122018"], dealerId: makeId("dealer", 3) },
 ];
+
+/** A technician's own pincode list (set in the partner app) wins over the sample one. */
+export const servicePincodes = (t: Technician, overrides: Record<string, string[]> = {}) => overrides[t.id]?.length ? overrides[t.id] : t.pincodes;
+
+/** Technicians who serve a pincode — those whose primary area it is first, then by rating. */
+export function techsForPincode(pin: string, overrides: Record<string, string[]> = {}, pool: Technician[] = TECHNICIANS) {
+  return pool
+    .map((t) => ({ t, pins: servicePincodes(t, overrides) }))
+    .filter(({ pins }) => pins.includes(pin))
+    .sort((a, b) => Number(b.pins[0] === pin) - Number(a.pins[0] === pin) || b.t.rating - a.t.rating)
+    .map(({ t, pins }) => ({ tech: t, primary: pins[0] === pin }));
+}
 
 export const techById = (id: string) => TECHNICIANS.find((t) => t.id === id);
 
