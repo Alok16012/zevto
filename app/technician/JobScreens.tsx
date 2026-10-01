@@ -5,6 +5,7 @@ import { CheckIcon, ChevronRight, ClockIcon, MinusIcon, PhoneIcon, PinIcon, Plus
 import { Avatar, BottomSheet, Footer, PageHeader, PrimaryButton, Tabs, Toggle, card, field, label, sectionTitle } from "../components/ui";
 import { SERVICE_ICON } from "../components/ServicesHub";
 import TechAvatar from "../components/TechAvatar";
+import { PhotoStrip } from "../components/PhotoPicker";
 import { inr } from "../lib/data";
 import {
   CHECKLIST, JOB_FLOW, PARTS, TODAY, customerBill, jobPayout, partById, partsTotal,
@@ -133,6 +134,7 @@ function JobCard({ job, onOpen }: { job: Job; onOpen: () => void }) {
           <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>
             {job.type}{job.amc && job.type !== "AMC" && <span style={{ marginLeft: 6, fontSize: 10, color: "var(--gold-dark)" }}>AMC</span>}
             {job.source && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: job.source === "Self-created" ? "var(--teal-text)" : "var(--blue)" }}>{job.source === "Self-created" ? "MY TASK" : "APP BOOKING"}</span>}
+            {job.photos?.length ? <span style={{ marginLeft: 6, fontSize: 10.5, fontWeight: 600, color: "var(--ink-soft)" }}>📷 {job.photos.length}</span> : null}
           </span>
           <JobStatusPill status={job.status} />
         </div>
@@ -223,6 +225,12 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onComplete, onResc
             <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "var(--ink-mute)" }}>CUSTOMER&apos;S ISSUE</p>
             <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--ink)", lineHeight: 1.5 }}>{job.issue}</p>
           </div>
+          {job.photos?.length ? (
+            <div style={{ marginTop: 10 }}>
+              <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "var(--ink-mute)" }}>📷 CUSTOMER&apos;S PHOTOS ({job.photos.length}) · TAP TO ENLARGE</p>
+              <PhotoStrip photos={job.photos} size={72} />
+            </div>
+          ) : null}
         </div>
 
         {/* Progress */}

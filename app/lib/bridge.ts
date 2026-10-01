@@ -19,6 +19,8 @@ export interface BridgeJob {
   issue: string;
   /** Start code the customer reads out when the technician arrives. */
   otp: string;
+  /** Photos of the purifier the customer attached. */
+  photos?: string[];
 }
 
 export type TripStatus = "On the way" | "Arrived" | "In Progress" | "Completed";

@@ -5,16 +5,33 @@ import Link from "next/link";
 import { BackIcon, BagIcon, CardIcon, ChevronRight, ClipIcon, GearIcon, GiftIcon, HelpIcon, HistoryIcon, InfoIcon, PinIcon, SendIcon, ShieldIcon, BellIcon, StarLineIcon, TagIcon, WalletIcon } from "./icons";
 import { Avatar, PageHeader, card, iconBtn } from "./ui";
 import { BrandMark } from "./Brand";
+import { PhotoViewer, compressImage } from "./PhotoPicker";
 import { initialsOf, inr, type ChatMessage, type UserProfile } from "../lib/data";
 
 /* ───────────────────────── Chat ───────────────────────── */
 
-const QUICK = ["Share order number", "Filter change", "Water leakage", "AMC renewal"];
+const QUICK = ["📷 Send RO photo", "Share order number", "Filter change", "Water leakage", "AMC renewal"];
 
 export function ChatScreen({ messages, typing, onSend, onBack }: {
-  messages: ChatMessage[]; typing: boolean; onSend: (body: string) => void; onBack?: () => void;
+  messages: ChatMessage[]; typing: boolean; onSend: (body: string, image?: string) => void; onBack?: () => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [view, setView] = useState<string | null>(null);
+  const [photoErr, setPhotoErr] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const attach = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const img = await compressImage(file);
+      // Whatever is typed goes along as the caption.
+      onSend(draft.trim() || "Photo of my RO", img);
+      setDraft(""); setPhotoErr(null);
+    } catch (e) {
+      setPhotoErr(e instanceof Error ? e.message : "Couldn't send that photo.");
+    }
+    if (fileRef.current) fileRef.current.value = "";
+  };
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages.length, typing]);
@@ -57,7 +74,15 @@ export function ChatScreen({ messages, typing, onSend, onBack }: {
                   background: me ? "linear-gradient(135deg,var(--blue),var(--blue-dark))" : "var(--surface)",
                   color: me ? "white" : "var(--ink)",
                   boxShadow: me ? "0 4px 12px rgba(11,92,255,0.22)" : "var(--shadow-card)",
-                }}>{m.body}</div>
+                }}>
+                  {m.image && (
+                    <button onClick={() => setView(m.image!)} aria-label="View photo" style={{ display: "block", padding: 0, border: "none", background: "none", cursor: "zoom-in", margin: "-4px -8px 6px", borderRadius: 12, overflow: "hidden" }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={m.image} alt="Attached photo" style={{ display: "block", width: 200, maxWidth: "100%", height: 150, objectFit: "cover" }} />
+                    </button>
+                  )}
+                  {m.body}
+                </div>
                 <p style={{ margin: "3px 6px 0", fontSize: 10.5, color: "var(--ink-mute)", textAlign: me ? "right" : "left" }}>{m.at}{me && " · ✓✓"}</p>
               </div>
             </div>
@@ -71,21 +96,26 @@ export function ChatScreen({ messages, typing, onSend, onBack }: {
         <div ref={endRef} />
       </div>
 
+      {view && <PhotoViewer src={view} onClose={() => setView(null)} />}
+
       {/* Quick replies + composer — sits above the floating bottom nav */}
       <div style={{ padding: "6px 16px 0" }}>
         <div className="no-scroll" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
           {QUICK.map((q) => (
-            <button key={q} onClick={() => send(q === "Share order number" ? "My order number is ZVT1234" : q)} style={{
+            <button key={q} onClick={() => (q.startsWith("📷") ? fileRef.current?.click() : send(q === "Share order number" ? "My order number is ZVT1234" : q))} style={{
               flexShrink: 0, border: "1.5px solid var(--blue-ghost)", background: "var(--surface)", color: "var(--blue)",
               borderRadius: 999, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer",
             }}>{q}</button>
           ))}
         </div>
+        {photoErr && <p role="alert" style={{ margin: "0 4px 6px", fontSize: 12, color: "var(--error-text)", fontWeight: 600 }}>{photoErr}</p>}
         <form onSubmit={(e) => { e.preventDefault(); send(); }} style={{ display: "flex", alignItems: "center", gap: 10, paddingBottom: onBack ? "calc(12px + env(safe-area-inset-bottom))" : 10 }}>
           <label style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", borderRadius: 999, padding: "10px 14px", boxShadow: "var(--shadow-card)" }}>
             <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Type a message..."
               style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "var(--ink)" }} />
-            <span aria-label="Attach photo" style={{ display: "flex" }}><ClipIcon s={19} c="var(--ink-mute)" /></span>
+            <button type="button" onClick={() => fileRef.current?.click()} aria-label="Attach a photo of your RO" title="Attach a photo of your RO"
+              style={{ display: "flex", background: "none", border: "none", padding: 0, cursor: "pointer" }}><ClipIcon s={19} c="var(--blue)" /></button>
+            <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => attach(e.target.files?.[0])} />
           </label>
           <button type="submit" aria-label="Send" className="press" disabled={!draft.trim()} style={{
             width: 46, height: 46, borderRadius: "50%", border: "none", cursor: "pointer", flexShrink: 0,

@@ -116,6 +116,8 @@ export interface ServiceRequest {
   otp?: string;
   /** Where the technician is headed. */
   address?: string;
+  /** Photos of the purifier the customer attached (JPEG data URLs). */
+  photos?: string[];
 }
 
 export const SERVICE_STEPS = ["Service Requested", "Technician Assigned", "In Progress", "Completed", "Feedback"];
@@ -150,6 +152,8 @@ export interface ChatMessage {
   id: number;
   from: "me" | "agent";
   body: string;
+  /** Attached photo, as a data URL. */
+  image?: string;
   at: string;
 }
 

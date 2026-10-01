@@ -5,6 +5,7 @@ import { ArrowRight, CheckIcon, ChevronDown, ChevronRight, ChatIcon, PhoneIcon, 
 import PurifierArt from "./PurifierArt";
 import { Footer, PageHeader, PrimaryButton, StatusBadge, Tabs, card, field, label } from "./ui";
 import { CouponApply } from "./Offers";
+import { PhotoStrip, RoPhotoPicker } from "./PhotoPicker";
 import { RateServiceCard, ServiceRatedCard } from "./Reviews";
 import { SERVICE_ICON } from "./ServicesHub";
 import TechAvatar from "./TechAvatar";
@@ -19,7 +20,7 @@ import {
 
 export interface BookingRequest {
   type: ServiceType; product: string; date: string; slot: string; description: string;
-  price: number; coupon: string | null; discount: number;
+  price: number; coupon: string | null; discount: number; photos: string[];
 }
 
 export function BookServiceScreen({ initialType = "Installation", onBack, onSubmit }: {
@@ -32,6 +33,7 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
   const [date, setDate] = useState("");
   const [slot, setSlot] = useState("");
   const [desc, setDesc] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
   const [touched, setTouched] = useState(false);
 
   // Tomorrow is the earliest bookable day.
@@ -47,7 +49,7 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
   const submit = () => {
     setTouched(true);
     if (!ok) return;
-    onSubmit({ type, product, date: fmtDate(new Date(`${date}T00:00`)), slot, description: desc.trim(), price, coupon: valid?.code ?? null, discount });
+    onSubmit({ type, product, date: fmtDate(new Date(`${date}T00:00`)), slot, description: desc.trim(), price, coupon: valid?.code ?? null, discount, photos });
   };
 
   const err = (v: string) => touched && !v ? { border: "1.5px solid var(--error-text)" } : {};
@@ -118,6 +120,13 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
             })}
           </div>
         </div>
+
+        {/* Photos matter most when something is wrong; new installs don't need them. */}
+        {type !== "Installation" && (
+          <div style={{ marginTop: 18, padding: 14, borderRadius: 16, background: "var(--surface)", boxShadow: "var(--shadow-card)" }}>
+            <RoPhotoPicker photos={photos} onChange={setPhotos} recommended={type === "Repair" || type === "Filter Change"} />
+          </div>
+        )}
 
         <div style={{ marginTop: 18, marginBottom: 12 }}>
           <label style={label} htmlFor="svc-desc">Problem Description <span style={{ fontWeight: 400, color: "var(--ink-mute)" }}>(optional)</span></label>
@@ -259,8 +268,9 @@ export function OrderDetailPage({ order, onBack, onHelp, onReview }: {
 
 /* ───────────────────────── Track service ───────────────────────── */
 
-export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpenTech }: {
+export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpenTech, onPhotos }: {
   service: ServiceRequest; trip?: Trip; onBack: () => void; onChat: () => void; onRate: (r: ServiceRating) => void; onOpenTech: (id: string) => void;
+  onPhotos: (photos: string[]) => void;
 }) {
   const [showInfo, setShowInfo] = useState(false);
   const tech = service.technician;
@@ -332,6 +342,21 @@ export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpen
           trip && (trip.status === "On the way" || trip.status === "Arrived")
             ? <LiveTrackingCard trip={trip} tech={tech} address={service.address ?? "Your address"} otp={service.otp} />
             : <LocationPendingCard techName={tech.name} />
+        )}
+
+        {/* Customers can add photos until the visit starts; after that they're part of the record. */}
+        {service.current < 2 ? (
+          <div style={{ ...card, padding: 14, marginTop: 12 }}>
+            <RoPhotoPicker photos={service.photos ?? []} onChange={onPhotos} recommended={service.type !== "Installation"} />
+            {service.technician && (service.photos?.length ?? 0) > 0 && (
+              <p style={{ margin: "8px 2px 0", fontSize: 11.5, color: "var(--success-text)", fontWeight: 600 }}>✓ {service.technician.name.split(" ")[0]} can see these photos</p>
+            )}
+          </div>
+        ) : (service.photos?.length ?? 0) > 0 && (
+          <div style={{ ...card, padding: 14, marginTop: 12 }}>
+            <p style={{ margin: "0 0 8px", fontSize: 13.5, fontWeight: 600 }}>📷 Photos you shared</p>
+            <PhotoStrip photos={service.photos!} />
+          </div>
         )}
 
         {awaitingFeedback && <RateServiceCard techName={tech?.name} onSubmit={onRate} />}

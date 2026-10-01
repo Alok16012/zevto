@@ -58,6 +58,8 @@ export interface Job {
   completedAt?: string;
   customerRating?: number;
   rescheduleReason?: string;
+  /** Photos of the purifier the customer attached when booking. */
+  photos?: string[];
   /** Where the job came from, when it isn't normal dispatch. */
   source?: "Self-created" | "Customer app";
 }

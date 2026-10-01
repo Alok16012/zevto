@@ -66,10 +66,15 @@ export default function TechnicianApp() {
           id: b.id, type: b.type, product: b.product, date: b.date, slot: b.slot, issue: b.issue,
           customer: { ...b.customer, distanceKm: 2.4 }, status: (bridge.trips[b.id]?.status as Job["status"]) ?? "Accepted",
           visitCharge: b.type === "AMC" ? 0 : offering.price, amc: b.type === "AMC", otp: b.otp,
-          parts: [], checklist: [], tdsBefore: "", tdsAfter: "", notes: "", source: "Customer app",
+          parts: [], checklist: [], tdsBefore: "", tdsAfter: "", notes: "", source: "Customer app", photos: b.photos,
         };
       }), ...all];
     });
+    // Customers can still add photos after booking — refresh ours when theirs change.
+    setJobs((all) => all.map((j) => {
+      const b = mine.find((x) => x.id === j.id);
+      return b && b.photos !== j.photos ? { ...j, photos: b.photos } : j;
+    }));
   }, [bridge.jobs, bridge.trips]);
 
   /** Patches can be functions so quick successive taps (e.g. the checklist) build on the latest job. */

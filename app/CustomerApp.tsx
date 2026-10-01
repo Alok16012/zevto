@@ -85,6 +85,9 @@ export default function CustomerApp() {
   const [useWallet, setUseWallet] = useState(false);
   const bridge = useBridge();
   const seenTrips = useRef(new Set<string>());
+  // The assignment timer reads services after a delay, so keep a live handle on them.
+  const servicesRef = useRef(services);
+  useEffect(() => { servicesRef.current = services; }, [services]);
   const [toast, setToast] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatOpen = useRef(false);
@@ -148,6 +151,13 @@ export default function CustomerApp() {
     setStack([{ k: "placed", ref, title: "Order Placed!", next: { k: "order", id: ref } }]);
   };
 
+  /** Photos added or removed on Track Service also reach the technician's copy of the job. */
+  const setServicePhotos = (id: string, photos: string[]) => {
+    setServices((all) => all.map((x) => (x.id === id ? { ...x, photos } : x)));
+    const ok = updateBridge((b) => ({ ...b, jobs: b.jobs.map((j) => (j.id === id ? { ...j, photos } : j)) }));
+    if (!ok) flash("Photos saved here, but couldn't sync to the technician");
+  };
+
   const bookService = ({ price, coupon: code, discount, ...req }: BookingRequest) => {
     const id = nextRef("SRV");
     const ref = nextRef("ZVT");
@@ -181,6 +191,8 @@ export default function CustomerApp() {
         jobs: [...b.jobs.filter((j) => j.id !== id), {
           id, techId: tech.id, customer: { name: user.name, phone: user.phone, address },
           type: req.type, product: req.product, date: req.date, slot: req.slot, issue: req.description || "No details given.", otp,
+          // Latest photos — they may have been added on Track Service before assignment.
+          photos: servicesRef.current.find((x) => x.id === id)?.photos ?? req.photos,
         }],
       }));
       notify({ kind: "service", title: "Technician assigned", body: `${tech.name} (★ ${tech.rating}) will visit on ${req.date}, ${req.slot}.`, link: { k: "track", id } });
@@ -278,12 +290,12 @@ export default function CustomerApp() {
     }
   };
 
-  const sendChat = (body: string) => {
-    setChat((c) => [...c, { id: Date.now(), from: "me", body, at: nowTime() }]);
+  const sendChat = (body: string, image?: string) => {
+    setChat((c) => [...c, { id: Date.now(), from: "me", body, image, at: nowTime() }]);
     setTyping(true);
     setTimeout(() => {
       setTyping(false);
-      setChat((c) => [...c, { id: Date.now() + 1, from: "agent", body: autoReply(body), at: nowTime() }]);
+      setChat((c) => [...c, { id: Date.now() + 1, from: "agent", body: image ? "Thanks for the photo! Our expert is taking a look — we'll suggest a fix or book a visit." : autoReply(body), at: nowTime() }]);
       if (!chatOpen.current) setUnread((u) => u + 1);
     }, 1400);
   };
@@ -361,7 +373,8 @@ export default function CustomerApp() {
               return s ? (
                 <>
                   <TrackServicePage key={s.id} service={s} trip={bridge.trips[s.id]} onBack={back} onChat={() => push({ k: "chat" })}
-                    onRate={(r) => rateService(s.id, r)} onOpenTech={(id) => push({ k: "tech", id })} />
+                    onRate={(r) => rateService(s.id, r)} onOpenTech={(id) => push({ k: "tech", id })}
+                    onPhotos={(p) => setServicePhotos(s.id, p)} />
                   {s.technician && s.current < 4 && (() => {
                     // Single-tab demo: stand in for what the technician does in their app.
                     const trip = bridge.trips[s.id];
@@ -520,7 +533,7 @@ function ProfileInfo({ which, onBack, services, onTrack, onRenew }: {
     case "help":
       return (
         <InfoPage title="Help & Support" onBack={onBack}>
-          {[["How often should I change filters?", "Every 6–9 months, depending on your water TDS and usage."], ["Is installation free?", "Yes — free with every Zavtoo purifier."], ["What does AMC cover?", "3 service visits, 2 filter sets and priority repairs for one year."]].map(([q, a]) => (
+          {[["How often should I change filters?", "Every 6–9 months, depending on your water TDS and usage."], ["Is installation free?", "Yes — free with every Zavtoo purifier."], ["What does AMC cover?", "3 service visits, 2 filter sets and priority repairs for one year."], ["How do I send a photo of my RO?", "While booking: Service → pick a service → 'Photos of your RO'. After booking: open the job in My Orders → Track Service → 'Add photo'. Or tap 📎 in Chat to send one to support."]].map(([q, a]) => (
             <div key={q} style={{ ...card, padding: 14 }}><p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{q}</p><p style={small}>{a}</p></div>
           ))}
           <a href="tel:+911800000000" style={{ ...row, textDecoration: "none", color: "var(--ink)" }}>
