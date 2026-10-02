@@ -429,7 +429,7 @@ export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpen
         {/* Location is shared only once the technician starts the ride — not when the job is assigned. */}
         {tech && service.current === 1 && (
           trip && (trip.status === "On the way" || trip.status === "Arrived")
-            ? <LiveTrackingCard trip={trip} tech={tech} address={service.address ?? "Your address"} otp={service.otp} />
+            ? <LiveTrackingCard arrived={trip.status === "Arrived"} position={null} home={service.lat != null && service.lng != null ? { lat: service.lat, lng: service.lng } : null} etaMin={trip.etaMin} tripStartedAt={new Date(trip.startedAt).toISOString()} tech={tech} address={service.address ?? "Your address"} otp={service.otp} />
             : <LocationPendingCard techName={tech.name} />
         )}
 

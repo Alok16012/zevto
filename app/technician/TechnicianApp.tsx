@@ -64,7 +64,7 @@ export default function TechnicianApp() {
       return [...fresh.map((b): Job => {
         const offering = SERVICE_CATALOG.find((o) => o.type === b.type)!;
         return {
-          id: b.id, type: b.type, product: b.product, date: b.date, slot: b.slot, issue: b.issue,
+          id: b.id, ref: b.id, pincode: b.customer.address.match(/\b[1-9]\d{5}\b/)?.[0] ?? "", needsCode: true, isoDate: new Date(b.date + " 12:00:00").toISOString().slice(0, 10), type: b.type, product: b.product, date: b.date, slot: b.slot, issue: b.issue,
           customer: { ...b.customer, distanceKm: 2.4 }, status: (bridge.trips[b.id]?.status as Job["status"]) ?? "Accepted",
           visitCharge: b.type === "AMC" ? 0 : offering.price, amc: b.type === "AMC", otp: b.otp,
           parts: [], checklist: [], tdsBefore: "", tdsAfter: "", notes: "", source: "Customer app", photos: b.photos,
@@ -88,7 +88,7 @@ export default function TechnicianApp() {
       const km = job.customer.distanceKm;
       setTrip(id, {
         techId: TECH_ID, status: status as TripStatus,
-        ...(status === "On the way" ? { startedAt: Date.now(), distanceKm: km, etaMin: Math.max(5, Math.round(km * 4)) } : {}),
+        ...(status === "On the way" && km !== null ? { startedAt: Date.now(), distanceKm: km, etaMin: Math.max(5, Math.round(km * 4)) } : {}),
       });
       if (status === "On the way") flash("Live location shared with the customer");
     }
@@ -100,7 +100,7 @@ export default function TechnicianApp() {
     if (route === "self") {
       const offering = SERVICE_CATALOG.find((o) => o.type === t.type)!;
       setJobs((all) => [{
-        id, type: t.type, product: t.product, date: t.date, slot: t.slot, issue: t.issue,
+        id, ref: id, pincode: t.customer.address.match(/\b[1-9]\d{5}\b/)?.[0] ?? "", needsCode: true, isoDate: new Date(t.date + " 12:00:00").toISOString().slice(0, 10), type: t.type, product: t.product, date: t.date, slot: t.slot, issue: t.issue,
         customer: { ...t.customer, distanceKm: 1.5 }, status: "Accepted", visitCharge: offering.price, amc: false,
         otp: String(1000 + Math.floor(Math.random() * 9000)), parts: [], checklist: [], tdsBefore: "", tdsAfter: "", notes: "", source: "Self-created",
       }, ...all]);
@@ -146,6 +146,12 @@ export default function TechnicianApp() {
   const logout = () => { writeSession(false); setLoggedIn(false); setTab("jobs"); setOpenJob(null); setNewTask(false); };
 
   const job = openJob ? jobs.find((j) => j.id === openJob) : undefined;
+  if (!tech) return <main style={{ maxWidth: 430, margin: "40px auto", padding: 24 }}>
+    <h1>Technician account unavailable</h1>
+    <p>No technician profile is loaded. The partner account must be connected before jobs can be managed.</p>
+    <a href="/">Back to Zavtoo</a>
+  </main>;
+
   const showNav = loggedIn && !!bridge.techAreas[TECH_ID]?.length && !job && !newTask;
 
   return (

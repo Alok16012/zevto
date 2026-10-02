@@ -28,13 +28,16 @@ The root route now serves a desktop, tablet and mobile storefront. The original 
 | `/cart` | Quantity controls, removal, coupons and order totals |
 | `/checkout` | Validated demo checkout with supported-pincode checks |
 | `/orders` | Website demo orders stored in this browser |
-| `/services` | Existing service catalogue; links to the corresponding customer-app service screen |
+| `/services` | Service catalogue with website-native booking links |
+| `/services/[service]` | Responsive booking form, service area and appointment validation, and confirmation |
 
 The storefront reuses `PRODUCTS`, coupons, service areas and `SERVICE_CATALOG` from `app/lib/data.ts`. Its scoped styles are in `app/storefront/storefront.module.css`; UI and browser-local demo state live in `app/storefront/Storefront.tsx`. No new dependencies were added.
 
 Cart, saved favourites, coupon selection and website demo receipts persist under `zavtoo:storefront:v1` in localStorage. Website orders are separate from customer-app and admin sample orders. Checkout validates but does not persist contact/address fields. No payment gateway, order API, stock reservation, tax service, authentication or delivery integration is connected. Product illustrations and ratings are sample content. Live sales require those integrations and real catalogue assets before launch.
 
-Customer-app links accept `/app?screen=services&service=Repair` (or another catalogue service) and `/app?screen=chat`.
+Website service requests are saved separately under `zavtoo:website-service-bookings:v1` and shown on `/orders`. Contact/address/notes fields are validated but not persisted or sent; only service, purifier, pincode, appointment and price appear in the local receipt. Requests remain demo-only and do not dispatch technicians.
+
+Legacy customer-app links accept `/app?screen=services&service=Repair` (or another catalogue service) and `/app?screen=chat`.
 
 ## Project architecture
 

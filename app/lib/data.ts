@@ -1,5 +1,10 @@
-/* Sample catalogue, orders and service jobs. Stand-ins until the Node.js API
- * from the PRD is live — every screen reads through these shapes. */
+/* Shared shapes and the built-in starting catalogue.
+ *
+ * Live data comes from Supabase (see lib/catalog.ts and lib/db.ts). PRODUCTS,
+ * SERVICE_CATALOG, COUPONS and TECHNICIANS are filled with live rows in the
+ * browser; the values below match the database seed so server-rendered pages
+ * (the storefront) work before anything loads. No sample customers, orders,
+ * jobs or reviews live here any more. */
 
 /* Unique IDs — one series per role so an ID alone says who it is:
  * CUS-100101 (customer), TEC-200101 (technician), DLR-300101 (dealer). */
@@ -33,6 +38,9 @@ export interface Product {
   stages: string;
   warranty: string;
   description: string;
+  /** null = not tracked. */
+  stock?: number | null;
+  active?: boolean;
 }
 
 export const PRODUCTS: Product[] = [
@@ -84,10 +92,14 @@ export const productById = (id: string) => PRODUCTS.find((p) => p.id === id);
 
 export const inr = (n: number) => "₹" + n.toLocaleString("en-IN");
 
-export type OrderStatus = "Delivered" | "Shipped" | "Placed" | "Completed" | "In Progress" | "Requested";
+export type OrderStatus = "Delivered" | "Shipped" | "Placed" | "Completed" | "In Progress" | "Requested" | "Cancelled" | "Rescheduled";
+
+export interface OrderItem { id: string; name: string; qty: number; price: number; mrp: number; art?: ArtKind }
 
 export interface Order {
   id: string;
+  /** Human reference shown to people, e.g. ZVT1042 / SRV1017. */
+  ref: string;
   kind: "product" | "service";
   title: string;
   art: ArtKind;
@@ -101,6 +113,11 @@ export interface Order {
   coupon?: string;
   discount?: number;
   walletUsed?: number;
+  items?: OrderItem[];
+  payment?: string;
+  paymentStatus?: string;
+  address?: string;
+  createdAt?: string;
 }
 
 export interface TimelineStep {
@@ -116,8 +133,13 @@ export interface ServiceRating {
   comment: string;
 }
 
+/** Job status as stored in the database. */
+export type JobState = "Requested" | "With ops" | "Assigned" | "On the way" | "Arrived" | "In Progress" | "Completed" | "Rescheduled" | "Cancelled";
+
 export interface ServiceRequest {
   id: string;
+  ref: string;
+  status: JobState;
   type: ServiceType;
   product: string;
   date: string;
@@ -126,72 +148,50 @@ export interface ServiceRequest {
   /** Index into the timeline of the step currently running. */
   current: number;
   timeline: TimelineStep[];
-  technician: { id: string; name: string; initials: string; rating: number; phone: string } | null;
+  technician: { id: string; code: string; name: string; initials: string; rating: number; phone: string } | null;
+  /** Technician the customer picked, while they haven't accepted yet. */
+  preferredTechId?: string | null;
+  pincode?: string;
+  lat?: number | null;
+  lng?: number | null;
+  tripStartedAt?: string | null;
+  etaMin?: number | null;
+  distanceKm?: number | null;
+  price?: number;
+  discount?: number;
+  amount?: number;
+  rescheduleReason?: string | null;
   rating?: ServiceRating;
   /** Start code the customer gives the technician on arrival. */
   otp?: string;
   /** Where the technician is headed. */
   address?: string;
-  /** Photos of the purifier the customer attached (JPEG data URLs). */
+  /** Photos of the purifier — paths in the private "ro-photos" storage bucket. */
   photos?: string[];
 }
 
 export const SERVICE_STEPS = ["Service Requested", "Technician Assigned", "In Progress", "Completed", "Feedback"];
 
-export const INITIAL_SERVICES: ServiceRequest[] = [
-  {
-    id: "SRV1041",
-    type: "Repair",
-    product: "AquaPure RO Classic",
-    date: "26 Sep 2026",
-    slot: "10:00 AM – 12:00 PM",
-    description: "Water flow is very slow and the tank is not filling.",
-    current: 2,
-    timeline: [
-      { label: "Service Requested", at: "26 Sep 2026, 09:15 AM" },
-      { label: "Technician Assigned", at: "26 Sep 2026, 10:30 AM" },
-      { label: "In Progress", at: "26 Sep 2026, 12:40 PM" },
-      { label: "Completed", at: null },
-      { label: "Feedback", at: null },
-    ],
-    technician: { id: "t1", name: "Rohit Kumar", initials: "RK", rating: 4.8, phone: "+919800000000" },
-  },
-];
-
-export const INITIAL_ORDERS: Order[] = [
-  { id: "ZVT1234", kind: "product", title: "AquaPure RO Classic", art: "classic", amount: 12999, date: "18 Sep 2026", status: "Delivered", productIds: ["classic"] },
-  { id: "ZVT1233", kind: "service", title: "Service Booking · Repair", art: "spare", amount: 499, date: "26 Sep 2026", status: "In Progress", serviceId: "SRV1041" },
-  { id: "ZVT1232", kind: "product", title: "Filter Cartridges", art: "cartridge", amount: 1299, date: "05 Sep 2026", status: "Shipped", productIds: ["cartridges"] },
-];
-
 export interface ChatMessage {
-  id: number;
+  id: string;
   from: "me" | "agent";
   body: string;
-  /** Attached photo, as a data URL. */
+  /** Storage path of an attached photo (shown through a signed URL). */
   image?: string;
   at: string;
 }
 
-export const INITIAL_CHAT: ChatMessage[] = [
-  { id: 1, from: "agent", body: "Hello! How can we help you today?", at: "10:24 AM" },
-  { id: 2, from: "me", body: "I need help with my purifier, it's not working properly.", at: "10:26 AM" },
-  { id: 3, from: "agent", body: "Please share your order number or registered mobile number.", at: "10:27 AM" },
-  { id: 4, from: "me", body: "My order number is ZVT1234", at: "10:28 AM" },
-  { id: 5, from: "agent", body: "Thanks! Our technician will contact you shortly.", at: "10:28 AM" },
-];
-
 export interface UserProfile {
-  /** Unique customer ID. */
+  /** Unique customer ID, e.g. CUS-100101. */
   id: string;
+  /** Auth user id. */
+  uid?: string;
   name: string;
   email: string;
   phone: string;
   gender: "" | "Male" | "Female" | "Other";
   dob: string;
 }
-
-export const USER: UserProfile = { id: makeId("customer", 1), name: "Alok Kumar", email: "alok@gmail.com", phone: "+91 98XXX XX210", gender: "Male", dob: "" };
 
 export const initialsOf = (name: string) =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
@@ -216,12 +216,9 @@ export interface Address {
   line: string;
   pincode: string;
   isDefault: boolean;
+  lat?: number | null;
+  lng?: number | null;
 }
-
-export const INITIAL_ADDRESSES: Address[] = [
-  { id: "a1", label: "Home", line: "B-42, Sector 62, Noida, Uttar Pradesh", pincode: "201309", isDefault: true },
-  { id: "a2", label: "Office", line: "4th Floor, Tower C, Cyber City, Gurugram, Haryana", pincode: "122002", isDefault: false },
-];
 
 /* ───────────── Offers / coupons ───────────── */
 
@@ -236,6 +233,8 @@ export interface Coupon {
   minOrder: number;
   appliesTo: "product" | "service" | "all";
   expires: string;
+  active?: boolean;
+  used?: number;
 }
 
 export const COUPONS: Coupon[] = [
@@ -270,12 +269,6 @@ export interface WalletTxn {
   at: string;
 }
 
-export const INITIAL_WALLET: WalletTxn[] = [
-  { id: "w3", title: "Cashback · Order #ZVT1232", amount: 65, at: "05 Sep 2026" },
-  { id: "w2", title: "Referral bonus · Priya S.", amount: 250, at: "28 Aug 2026" },
-  { id: "w1", title: "Welcome bonus", amount: 100, at: "12 Aug 2026" },
-];
-
 /* ───────────── Referral ───────────── */
 
 export const REFERRAL_REWARD = 250;
@@ -285,11 +278,6 @@ export interface Referral {
   status: "Joined" | "Purchased";
   at: string;
 }
-
-export const INITIAL_REFERRALS: Referral[] = [
-  { name: "Priya S.", status: "Purchased", at: "28 Aug 2026" },
-  { name: "Mohit R.", status: "Joined", at: "19 Sep 2026" },
-];
 
 /* ───────────── Notifications ───────────── */
 
@@ -303,15 +291,8 @@ export interface AppNotification {
   at: string;
   read: boolean;
   /** Where tapping it goes. */
-  link?: { k: "order"; id: string } | { k: "track"; id: string } | { k: "offers" } | { k: "wallet" };
+  link?: { k: "order"; id: string } | { k: "track"; id: string } | { k: "offers" } | { k: "wallet" } | null;
 }
-
-export const INITIAL_NOTIFICATIONS: AppNotification[] = [
-  { id: "n4", kind: "service", title: "Technician on the job", body: "Rohit Kumar has started work on your AquaPure RO Classic.", at: "26 Sep 2026, 12:40 PM", read: false, link: { k: "track", id: "SRV1041" } },
-  { id: "n3", kind: "offer", title: "10% off purifiers 💧", body: "Use PURE10 and save up to ₹2,000 this festive season.", at: "25 Sep 2026, 09:00 AM", read: false, link: { k: "offers" } },
-  { id: "n2", kind: "service", title: "AMC renewal due", body: "Your AMC for AquaPure RO Classic expires on 10 Oct.", at: "24 Sep 2026, 10:00 AM", read: true },
-  { id: "n1", kind: "wallet", title: "₹65 cashback credited", body: "Cashback for order #ZVT1232 is in your Zavtoo wallet.", at: "05 Sep 2026, 06:12 PM", read: true, link: { k: "wallet" } },
-];
 
 export interface NotifPrefs {
   push: boolean;
@@ -334,21 +315,6 @@ export interface Review {
   mine?: boolean;
 }
 
-export const INITIAL_REVIEWS: Review[] = [
-  { id: "r1", productId: "classic", author: "Neha G.", stars: 5, body: "Taste improved instantly. Installation was done the same day the purifier arrived.", date: "20 Sep 2026" },
-  { id: "r2", productId: "classic", author: "Rajesh P.", stars: 4, body: "Good value. Tank indicator is handy, a bit noisy while filling.", date: "11 Sep 2026" },
-  { id: "r3", productId: "classic", author: "Sana K.", stars: 5, body: "Our TDS went from 480 to 60. Very happy.", date: "02 Sep 2026" },
-  { id: "r4", productId: "pro", author: "Vikram S.", stars: 5, body: "UV + mineral cartridge is worth the extra. Water tastes sweet.", date: "18 Sep 2026" },
-  { id: "r5", productId: "pro", author: "Anita M.", stars: 4, body: "Solid build. Delivery took 3 days.", date: "06 Sep 2026" },
-  { id: "r6", productId: "premium", author: "Karan J.", stars: 5, body: "The app alerts for filter change are really useful.", date: "15 Sep 2026" },
-  { id: "r7", productId: "spares", author: "Deepak T.", stars: 4, body: "Genuine parts, fit perfectly in my Classic.", date: "10 Sep 2026" },
-  { id: "r8", productId: "cartridges", author: "Ritu A.", stars: 4, body: "Fit my old Kent purifier without issues.", date: "01 Sep 2026" },
-  { id: "r9", productId: "commercial-50", author: "Cafe Brew, Noida", stars: 4, body: "Keeps up with our rush hours easily.", date: "22 Aug 2026" },
-  { id: "t1r1", techId: "t1", author: "Meena V.", stars: 5, body: "Polite, on time and explained what was wrong with the membrane.", date: "22 Sep 2026" },
-  { id: "t1r2", techId: "t1", author: "Arjun D.", stars: 5, body: "Fixed the leak in 20 minutes. Cleaned up afterwards too.", date: "14 Sep 2026" },
-  { id: "t1r3", techId: "t1", author: "Farah Q.", stars: 4, body: "Good work, came 15 minutes late but called ahead.", date: "03 Sep 2026" },
-];
-
 export interface Technician {
   id: string;
   /** Unique technician ID shown to customers, ops and dealers. */
@@ -365,20 +331,19 @@ export interface Technician {
   pincodes: string[];
   /** Dealer the technician works under. */
   dealerId: string;
+  photoUrl?: string;
 }
 
-export const TECHNICIANS: Technician[] = [
-  { id: "t1", name: "Rohit Kumar", initials: "RK", rating: 4.8, jobs: 1240, years: 6, skills: ["RO repair", "Installation", "Membrane change", "UV systems"], languages: "Hindi, English", phone: "+919800000000", code: makeId("technician", 1), pincodes: ["201309", "201301", "201307", "201304"], dealerId: makeId("dealer", 1) },
-  { id: "t2", name: "Imran Ali", initials: "IA", rating: 4.7, jobs: 860, years: 4, skills: ["Commercial plants", "Installation", "Water testing"], languages: "Hindi, Urdu", phone: "+919800000001", code: makeId("technician", 2), pincodes: ["201301", "201303", "201304", "201309"], dealerId: makeId("dealer", 1) },
-  { id: "t3", name: "Suresh Yadav", initials: "SY", rating: 4.9, jobs: 1580, years: 8, skills: ["AMC visits", "Filter change", "Leak repair"], languages: "Hindi, Bhojpuri", phone: "+919800000002", code: makeId("technician", 3), pincodes: ["201010", "201014", "201309", "201301"], dealerId: makeId("dealer", 2) },
-  { id: "t4", name: "Deepak Sharma", initials: "DS", rating: 4.6, jobs: 410, years: 3, skills: ["Installation", "Repair"], languages: "Hindi", phone: "+919800000003", code: makeId("technician", 4), pincodes: ["122002", "122001", "122018"], dealerId: makeId("dealer", 3) },
-];
-
-/** A technician's own pincode list (set in the partner app) wins over the sample one. */
-export const servicePincodes = (t: Technician, overrides: Record<string, string[]> = {}) => overrides[t.id]?.length ? overrides[t.id] : t.pincodes;
+/** Verified technicians — filled from the database (needs a login to read). */
+export const TECHNICIANS: Technician[] = [];
 
 /** Technicians who serve a pincode — those whose primary area it is first, then by rating. */
-export function techsForPincode(pin: string, overrides: Record<string, string[]> = {}, pool: Technician[] = TECHNICIANS) {
+export const servicePincodes = (t: Technician, overrides: Record<string, string[]> = {}) =>
+  overrides[t.id]?.length ? overrides[t.id] : t.pincodes;
+
+export function techsForPincode(pin: string, poolOrOverrides: Technician[] | Record<string, string[]> = TECHNICIANS, legacyPool: Technician[] = TECHNICIANS) {
+  const pool = Array.isArray(poolOrOverrides) ? poolOrOverrides : legacyPool;
+  const overrides = Array.isArray(poolOrOverrides) ? {} : poolOrOverrides;
   return pool
     .map((t) => ({ t, pins: servicePincodes(t, overrides) }))
     .filter(({ pins }) => pins.includes(pin))
@@ -400,8 +365,10 @@ export interface ServiceOffering {
   priceNote: string;
   duration: string;
   includes: string[];
+  /** Marketing placeholders for the storefront; the live catalogue sets 0 / "". */
   rating: number;
   bookings: string;
+  active?: boolean;
 }
 
 export const SERVICE_CATALOG: ServiceOffering[] = [
@@ -420,3 +387,16 @@ export const SERVICE_CATALOG: ServiceOffering[] = [
 ];
 
 export const offeringOf = (t: ServiceType) => SERVICE_CATALOG.find((s) => s.type === t)!;
+
+/** Empty initial state for screens that have not yet switched to live queries.
+ * Keep these exports during the migration; never seed another customer's data.
+ */
+export const INITIAL_ADDRESSES: Address[] = [];
+export const INITIAL_CHAT: ChatMessage[] = [];
+export const INITIAL_NOTIFICATIONS: AppNotification[] = [];
+export const INITIAL_ORDERS: Order[] = [];
+export const INITIAL_REFERRALS: Referral[] = [];
+export const INITIAL_REVIEWS: Review[] = [];
+export const INITIAL_SERVICES: ServiceRequest[] = [];
+export const INITIAL_WALLET: WalletTxn[] = [];
+export const USER: UserProfile = { id: "", name: "", email: "", phone: "", gender: "", dob: "" };

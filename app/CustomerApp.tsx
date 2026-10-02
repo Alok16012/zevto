@@ -152,7 +152,7 @@ export default function CustomerApp() {
     const ref = nextRef("ZVT");
     const title = cart.length > 1 ? `${first.name} + ${cart.length - 1} more` : first.name;
     setOrders((o) => [{
-      id: ref, kind: "product", title, art: first.art, amount: t.toPay, date: todayLabel(), status: "Placed",
+      id: ref, ref, kind: "product", title, art: first.art, amount: t.toPay, date: todayLabel(), status: "Placed",
       productIds: cart.map((l) => l.id), coupon: t.coupon ?? undefined, discount: t.discount || undefined, walletUsed: t.walletUsed || undefined,
     }, ...o]);
     if (t.walletUsed) creditWallet(`Paid for order #${ref}`, -t.walletUsed);
@@ -176,13 +176,14 @@ export default function CustomerApp() {
     const address = `${where.line} ${where.pincode}`;
     // The customer's pick, else the best technician for their pincode, else ops' fallback.
     const tech = (picked && techById(picked)) || techsForPincode(where.pincode, bridge.techAreas)[0]?.tech || techById("t1")!;
+    if (!tech) { flash("No technician is available for this pincode yet."); return; }
     const svc: ServiceRequest = {
-      id, ...req, current: 0, technician: null, otp, address,
+      id, ref: id, status: "Requested", ...req, current: 0, technician: null, otp, address,
       timeline: SERVICE_STEPS.map((label, i) => ({ label, at: i === 0 ? now : null })),
     };
     setServices((s) => [svc, ...s]);
     setOrders((o) => [{
-      id: ref, kind: "service", title: `Service Booking · ${req.type}`, art: "spare", amount: price - discount, date: todayLabel(),
+      id: ref, ref, kind: "service", title: `Service Booking · ${req.type}`, art: "spare", amount: price - discount, date: todayLabel(),
       status: "Requested", serviceId: id, coupon: code ?? undefined, discount: discount || undefined,
     }, ...o]);
     notify({ kind: "service", title: `${req.type} booked`, body: `${req.date}, ${req.slot}. We'll assign a technician shortly.`, link: { k: "track", id } });
@@ -192,7 +193,7 @@ export default function CustomerApp() {
     setTimeout(() => {
       setServices((all) => all.map((s) => s.id !== id ? s : {
         ...s, current: 1,
-        technician: { id: tech.id, name: tech.name, initials: tech.initials, rating: tech.rating, phone: tech.phone },
+        technician: { id: tech.id, code: tech.code, name: tech.name, initials: tech.initials, rating: tech.rating, phone: tech.phone },
         timeline: s.timeline.map((st, i) => (i === 1 ? { ...st, at: `${todayLabel()}, ${nowTime()}` } : st)),
       }));
       setOrders((all) => all.map((o) => (o.serviceId === id ? { ...o, status: "In Progress" } : o)));
@@ -302,11 +303,11 @@ export default function CustomerApp() {
   };
 
   const sendChat = (body: string, image?: string) => {
-    setChat((c) => [...c, { id: Date.now(), from: "me", body, image, at: nowTime() }]);
+    setChat((c) => [...c, { id: crypto.randomUUID(), from: "me", body, image, at: nowTime() }]);
     setTyping(true);
     setTimeout(() => {
       setTyping(false);
-      setChat((c) => [...c, { id: Date.now() + 1, from: "agent", body: image ? "Thanks for the photo! Our expert is taking a look — we'll suggest a fix or book a visit." : autoReply(body), at: nowTime() }]);
+      setChat((c) => [...c, { id: crypto.randomUUID(), from: "agent", body: image ? "Thanks for the photo! Our expert is taking a look — we'll suggest a fix or book a visit." : autoReply(body), at: nowTime() }]);
       if (!chatOpen.current) setUnread((u) => u + 1);
     }, 1400);
   };
@@ -425,10 +426,10 @@ export default function CustomerApp() {
               <OffersPage onBack={back} onShop={() => push({ k: "products" })} onBook={() => goTab("service")} />
             )}
             {detail?.k === "wallet" && (
-              <WalletPage balance={walletBalance} txns={wallet} onBack={back} onAddMoney={addMoney} onRefer={() => push({ k: "referral" })} />
+              <WalletPage balance={walletBalance} txns={wallet} onBack={back} onRefer={() => push({ k: "referral" })} />
             )}
             {detail?.k === "referral" && (
-              <ReferralPage code={referralCode} referrals={referrals} onBack={back} onSimulate={simulateReferral} />
+              <ReferralPage code={referralCode} referrals={referrals} onBack={back} />
             )}
             {detail?.k === "notifications" && (
               <NotificationsPage items={notifs} prefs={notifPrefs} onBack={back} onOpen={openNotif} onPrefs={setNotifPrefs}
@@ -437,7 +438,19 @@ export default function CustomerApp() {
             {detail?.k === "editProfile" && (
               <EditProfilePage user={user} onBack={back} onSave={(u) => { setUser(u); back(); flash("Profile updated"); }} />
             )}
-            {detail?.k === "addresses" && <AddressesPage addresses={addresses} onBack={back} onChange={setAddresses} />}
+            {detail?.k === "addresses" && <AddressesPage addresses={addresses} onBack={back}
+              onSave={async (a, isNew) => {
+                setAddresses(all => {
+                  const next = isNew ? [...all, a] : all.map(x => x.id === a.id ? a : x);
+                  return a.isDefault ? next.map(x => ({ ...x, isDefault: x.id === a.id })) : next;
+                });
+                return true;
+              }}
+              onDelete={id => setAddresses(all => {
+                const next = all.filter(a => a.id !== id);
+                return next.some(a => a.isDefault) ? next : next.map((a, i) => ({ ...a, isDefault: i === 0 }));
+              })}
+              onMakeDefault={id => setAddresses(all => all.map(a => ({ ...a, isDefault: a.id === id })))} />}
             {detail?.k === "orders" && <OrdersScreen orders={orders} onBack={back} onOpen={openOrder} />}
             {detail?.k === "book" && (
               <BookServiceScreen key={detail.type} initialType={detail.type} onBack={back} onSubmit={bookService} addresses={addresses}

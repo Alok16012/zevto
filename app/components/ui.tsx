@@ -50,6 +50,8 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: 
 }
 
 const TONES: Record<OrderStatus, { bg: string; fg: string; bd: string }> = {
+  Cancelled: { bg: "var(--error)", fg: "var(--error-text)", bd: "var(--error-border)" },
+  Rescheduled: { bg: "var(--warning)", fg: "var(--warning-text)", bd: "var(--warning-border)" },
   Delivered:     { bg: "var(--success)", fg: "var(--success-text)", bd: "var(--success-border)" },
   Completed:     { bg: "var(--success)", fg: "var(--success-text)", bd: "var(--success-border)" },
   Shipped:       { bg: "var(--warning)", fg: "var(--warning-text)", bd: "var(--warning-border)" },

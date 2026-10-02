@@ -2400,3 +2400,15 @@
 
 }
 
+
+/* Website service booking */
+.formGrid select,.formGrid textarea { width:100%; min-width:0; border:1px solid #ccdbe2; border-radius:4px; padding:12px; background:#fff; color:var(--navy); font:inherit; }
+.formGrid textarea { resize:vertical; }
+.bookingSummary>p { font-size:14px; }
+.bookingSummary ul { list-style:none; padding:0; margin:24px 0; display:grid; gap:13px; }
+.bookingSummary li { display:flex; align-items:flex-start; gap:9px; font-size:13px; line-height:1.6; }
+.bookingSummary li svg { flex-shrink:0; margin-top:3px; color:#428b7b; }
+.bookingSummary>div strong { text-align:right; }
+.bookingHistory { margin-bottom:45px; scroll-margin-top:24px; }
+.bookingHistory>p { font-size:14px; }
+@media(max-width:600px) { .bookingSummary>div { flex-wrap:wrap; } .bookingSummary>div strong { text-align:left; } }

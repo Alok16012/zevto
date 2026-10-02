@@ -1,20 +1,24 @@
 "use client";
 
-import { useBridge } from "../lib/bridge";
+import { TECHNICIANS } from "../lib/data";
 
 /* Technician picture: the photo the technician uploaded in the partner app, or
  * an illustrated portrait in Zavtoo uniform until they add one. */
 
-const LOOKS: Record<string, { skin: string; hair: string; style: "short" | "side" | "crop" | "wavy"; beard?: boolean; moustache?: boolean }> = {
-  t1: { skin: "#c68a5e", hair: "#1f1a17", style: "side", moustache: true },
-  t2: { skin: "#a8714a", hair: "#15110f", style: "short", beard: true },
-  t3: { skin: "#b97c52", hair: "#2b2320", style: "crop", moustache: true },
-  t4: { skin: "#d49a6a", hair: "#221b17", style: "wavy" },
-  t5: { skin: "#9c6642", hair: "#120e0c", style: "short" },
-};
+type Look = { skin: string; hair: string; style: "short" | "side" | "crop" | "wavy"; beard?: boolean; moustache?: boolean };
+const LOOKS: Look[] = [
+  { skin: "#c68a5e", hair: "#1f1a17", style: "side", moustache: true },
+  { skin: "#a8714a", hair: "#15110f", style: "short", beard: true },
+  { skin: "#b97c52", hair: "#2b2320", style: "crop", moustache: true },
+  { skin: "#d49a6a", hair: "#221b17", style: "wavy" },
+  { skin: "#9c6642", hair: "#120e0c", style: "short" },
+];
+/** Same technician → same portrait, every time. */
+const lookFor = (id: string) => LOOKS[[...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % LOOKS.length];
 
 function Portrait({ id, size }: { id: string; size: number }) {
-  const l = LOOKS[id] ?? LOOKS.t1;
+  const l = lookFor(id);
+  const uid = id.replace(/[^a-z0-9]/gi, "").slice(0, 12);
   const hair = {
     short: "M20 25c0-8 5.5-13 12-13s12 5 12 13c-2-3-5-5-12-5s-10 2-12 5z",
     side: "M19.5 26c-.5-9 5-14.5 12.5-14.5 7 0 12.5 4.5 12.5 12-3-4-8-6.5-15-5.5-4 .6-7 3.5-10 8z",
@@ -25,11 +29,11 @@ function Portrait({ id, size }: { id: string; size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" style={{ display: "block" }}>
       <defs>
-        <linearGradient id={`bg-${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#dce9fd" /><stop offset="1" stopColor="#b9d2fb" /></linearGradient>
-        <clipPath id={`clip-${id}`}><circle cx="32" cy="32" r="32" /></clipPath>
+        <linearGradient id={`bg-${uid}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#dce9fd" /><stop offset="1" stopColor="#b9d2fb" /></linearGradient>
+        <clipPath id={`clip-${uid}`}><circle cx="32" cy="32" r="32" /></clipPath>
       </defs>
-      <g clipPath={`url(#clip-${id})`}>
-        <rect width="64" height="64" fill={`url(#bg-${id})`} />
+      <g clipPath={`url(#clip-${uid})`}>
+        <rect width="64" height="64" fill={`url(#bg-${uid})`} />
         {/* Uniform */}
         <path d="M8 64c0-11 9-17.5 24-17.5S56 53 56 64z" fill="#0b5cff" />
         <path d="M25 47.5l7 7 7-7" fill="none" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
@@ -54,9 +58,8 @@ function Portrait({ id, size }: { id: string; size: number }) {
   );
 }
 
-export default function TechAvatar({ id, name, size = 44, ring }: { id: string; name: string; size?: number; ring?: boolean }) {
-  const { photos } = useBridge();
-  const photo = photos[id];
+export default function TechAvatar({ id, name, size = 44, ring, photoUrl }: { id: string; name: string; size?: number; ring?: boolean; photoUrl?: string | null }) {
+  const photo = photoUrl ?? TECHNICIANS.find((t) => t.id === id)?.photoUrl;
   return (
     <span role="img" aria-label={`Photo of ${name}`} style={{
       width: size, height: size, borderRadius: "50%", overflow: "hidden", flexShrink: 0, display: "inline-block",

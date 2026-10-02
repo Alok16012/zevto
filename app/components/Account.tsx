@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BellIcon, CheckIcon, CopyIcon, GiftIcon, PinIcon, PlusIcon, ShareIcon, TagIcon, TrashIcon, WalletIcon, WrenchIcon, BagIcon } from "./icons";
 import { Avatar, BottomSheet, Footer, PageHeader, PrimaryButton, Tabs, Toggle, card, field, label, sectionTitle } from "./ui";
 import {
-  REFERRAL_REWARD, initialsOf, inr,
+  REFERRAL_REWARD, initialsOf, inr, isPincode,
   type Address, type AppNotification, type NotifKind, type NotifPrefs, type Referral, type UserProfile, type WalletTxn,
 } from "../lib/data";
 
@@ -12,21 +12,20 @@ const small: React.CSSProperties = { margin: "2px 0 0", fontSize: 12.5, color: "
 
 /* ───────────────────────── Edit profile ───────────────────────── */
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function EditProfilePage({ user, onBack, onSave }: { user: UserProfile; onBack: () => void; onSave: (u: UserProfile) => void }) {
   const [f, setF] = useState(user);
   const [touched, setTouched] = useState(false);
   const errs = {
     name: f.name.trim().length < 2 ? "Enter your full name" : null,
-    email: !EMAIL_RE.test(f.email.trim()) ? "Enter a valid email" : null,
+    phone: f.phone && !/^(\+91)?[6-9]\d{9}$/.test(f.phone.replace(/\s/g, "")) ? "Enter a 10-digit mobile number" : null,
   };
-  const ok = !errs.name && !errs.email;
+  const ok = !errs.name && !errs.phone;
   const set = <K extends keyof UserProfile>(k: K, v: UserProfile[K]) => setF((x) => ({ ...x, [k]: v }));
 
   const save = () => {
     setTouched(true);
-    if (ok) onSave({ ...f, name: f.name.trim(), email: f.email.trim() });
+    if (ok) onSave({ ...f, name: f.name.trim(), phone: f.phone.replace(/\s/g, "") });
   };
 
   const errStyle = (e: string | null) => (touched && e ? { border: "1.5px solid var(--error-text)" } : {});
@@ -45,12 +44,12 @@ export function EditProfilePage({ user, onBack, onSave }: { user: UserProfile; o
         {touched && errs.name && <p style={errText}>{errs.name}</p>}
 
         <label style={{ ...label, marginTop: 16 }} htmlFor="pf-email">Email</label>
-        <input id="pf-email" type="email" value={f.email} onChange={(e) => set("email", e.target.value)} style={{ ...field, ...errStyle(errs.email) }} autoComplete="email" />
-        {touched && errs.email && <p style={errText}>{errs.email}</p>}
+        <input id="pf-email" type="email" value={f.email} disabled style={{ ...field, background: "var(--surface-dim)", color: "var(--ink-soft)" }} />
+        <p style={{ ...small, fontSize: 11.5 }}>This is your login email. Contact support to change it.</p>
 
         <label style={{ ...label, marginTop: 16 }} htmlFor="pf-phone">Mobile number</label>
-        <input id="pf-phone" value={f.phone} disabled style={{ ...field, background: "var(--surface-dim)", color: "var(--ink-soft)" }} />
-        <p style={{ ...small, fontSize: 11.5 }}>Your login number can't be changed here. Contact support to update it.</p>
+        <input id="pf-phone" inputMode="tel" value={f.phone} placeholder="+91 98765 43210" onChange={(e) => set("phone", e.target.value)} style={{ ...field, ...errStyle(errs.phone) }} autoComplete="tel" />
+        {touched && errs.phone && <p style={errText}>{errs.phone}</p>}
 
         <span style={{ ...label, marginTop: 16 }}>Gender</span>
         <div style={{ display: "flex", gap: 8 }}>
@@ -79,22 +78,17 @@ const errText: React.CSSProperties = { margin: "5px 2px 0", fontSize: 12, color:
 
 /* ───────────────────────── Addresses ───────────────────────── */
 
-export function AddressesPage({ addresses, onBack, onChange }: { addresses: Address[]; onBack: () => void; onChange: (a: Address[]) => void }) {
+export function AddressesPage({ addresses, onBack, onSave, onDelete, onMakeDefault }: {
+  addresses: Address[]; onBack: () => void;
+  onSave: (a: Address, isNew: boolean) => Promise<boolean>; onDelete: (id: string) => void; onMakeDefault: (id: string) => void;
+}) {
   const [editing, setEditing] = useState<Address | "new" | null>(null);
-
-  const makeDefault = (id: string) => onChange(addresses.map((a) => ({ ...a, isDefault: a.id === id })));
-  const remove = (id: string) => {
-    const rest = addresses.filter((a) => a.id !== id);
-    // Someone always has to be the default.
-    if (rest.length && !rest.some((a) => a.isDefault)) rest[0] = { ...rest[0], isDefault: true };
-    onChange(rest);
-  };
-  const save = (a: Address) => {
-    const exists = addresses.some((x) => x.id === a.id);
-    let next = exists ? addresses.map((x) => (x.id === a.id ? a : x)) : [...addresses, { ...a, isDefault: addresses.length === 0 }];
-    if (a.isDefault) next = next.map((x) => ({ ...x, isDefault: x.id === a.id }));
-    onChange(next);
-    setEditing(null);
+  const makeDefault = onMakeDefault;
+  const remove = onDelete;
+  const save = async (a: Address) => {
+    const isNew = editing === "new";
+    // The first address is always the default.
+    if (await onSave({ ...a, isDefault: a.isDefault || addresses.length === 0 }, isNew)) setEditing(null);
   };
 
   return (
@@ -142,12 +136,24 @@ export function AddressSheet({ initial, onClose, onSave }: { initial: Address | 
   const [pin, setPin] = useState(initial?.pincode ?? "");
   const [def, setDef] = useState(initial?.isDefault ?? false);
   const [touched, setTouched] = useState(false);
-  const ok = line.trim().length >= 8 && /^\d{6}$/.test(pin);
+  const [geo, setGeo] = useState<{ lat: number; lng: number } | null>(initial?.lat != null && initial?.lng != null ? { lat: initial.lat, lng: initial.lng } : null);
+  const [geoMsg, setGeoMsg] = useState<string | null>(null);
+  const ok = line.trim().length >= 8 && isPincode(pin);
+
+  const locate = () => {
+    if (!navigator.geolocation) { setGeoMsg("Location isn't available on this device"); return; }
+    setGeoMsg("Finding you…");
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setGeo({ lat: p.coords.latitude, lng: p.coords.longitude }); setGeoMsg(null); },
+      () => setGeoMsg("Couldn't get your location — allow location access and try again"),
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
+  };
 
   const submit = () => {
     setTouched(true);
     if (!ok) return;
-    onSave({ id: initial?.id ?? `a${Date.now()}`, label: lbl, line: line.trim(), pincode: pin, isDefault: def });
+    onSave({ id: initial?.id ?? `new-${Date.now()}`, label: lbl, line: line.trim(), pincode: pin, isDefault: def, lat: geo?.lat ?? null, lng: geo?.lng ?? null });
   };
 
   return (
@@ -166,12 +172,21 @@ export function AddressSheet({ initial, onClose, onSave }: { initial: Address | 
       <textarea id="ad-line" rows={2} value={line} onChange={(e) => setLine(e.target.value)} style={{ ...field, resize: "none", ...(touched && line.trim().length < 8 ? { border: "1.5px solid var(--error-text)" } : {}) }} />
       <label style={{ ...label, marginTop: 14 }} htmlFor="ad-pin">Pincode</label>
       <input id="ad-pin" inputMode="numeric" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-        style={{ ...field, ...(touched && !/^\d{6}$/.test(pin) ? { border: "1.5px solid var(--error-text)" } : {}) }} />
+        style={{ ...field, ...(touched && !isPincode(pin) ? { border: "1.5px solid var(--error-text)" } : {}) }} />
+      <button type="button" onClick={locate} style={{
+        marginTop: 12, width: "100%", padding: "11px 12px", borderRadius: 12, cursor: "pointer", fontSize: 13, fontWeight: 600, textAlign: "left",
+        border: geo ? "1.5px solid var(--success-border)" : "1.5px dashed var(--blue)", background: geo ? "var(--success)" : "var(--surface)",
+        color: geo ? "var(--success-text)" : "var(--blue)", display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <PinIcon s={16} c={geo ? "var(--success-text)" : "var(--blue)"} />
+        {geo ? "Location pinned — your technician's live ETA will be accurate" : "I'm here now — pin this location (optional)"}
+      </button>
+      {geoMsg && <p style={{ ...small, fontSize: 11.5 }}>{geoMsg}</p>}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "14px 2px 16px" }}>
         <span style={{ fontSize: 13.5, fontWeight: 600 }}>Make this my default address</span>
         <Toggle on={def} onChange={setDef} label="Default address" />
       </div>
-      {touched && !ok && <p style={{ ...errText, margin: "0 2px 10px" }}>Enter a full address and a 6-digit pincode.</p>}
+      {touched && !ok && <p style={{ ...errText, margin: "0 2px 10px" }}>Enter a full address and a valid 6-digit pincode.</p>}
       <PrimaryButton onClick={submit}>Save Address</PrimaryButton>
     </BottomSheet>
   );
@@ -179,14 +194,9 @@ export function AddressSheet({ initial, onClose, onSave }: { initial: Address | 
 
 /* ───────────────────────── Wallet ───────────────────────── */
 
-export function WalletPage({ balance, txns, onBack, onAddMoney, onRefer }: {
-  balance: number; txns: WalletTxn[]; onBack: () => void; onAddMoney: (n: number) => void; onRefer: () => void;
+export function WalletPage({ balance, txns, onBack, onRefer }: {
+  balance: number; txns: WalletTxn[]; onBack: () => void; onRefer: () => void;
 }) {
-  const [adding, setAdding] = useState(false);
-  const [amt, setAmt] = useState("500");
-  const n = Number(amt);
-  const valid = Number.isInteger(n) && n >= 100 && n <= 10000;
-
   return (
     <div>
       <PageHeader title="Zavtoo Wallet" onBack={onBack} />
@@ -199,15 +209,10 @@ export function WalletPage({ balance, txns, onBack, onAddMoney, onRefer }: {
           <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
             <WalletIcon s={20} c="var(--gold)" /><span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.8)", fontWeight: 500 }}>Available balance</span>
           </div>
-          <p style={{ margin: "6px 0 14px", fontSize: 32, fontWeight: 800, position: "relative" }}>{inr(balance)}</p>
-          <button onClick={() => setAdding(true)} className="press" style={{
-            position: "relative", background: "linear-gradient(135deg,var(--gold),var(--gold-dark))", color: "var(--blue-dark)",
-            border: "none", borderRadius: 12, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer",
-            display: "inline-flex", alignItems: "center", gap: 6,
-          }}><PlusIcon s={15} c="var(--blue-dark)" /> Add Money</button>
+          <p style={{ margin: "6px 0 4px", fontSize: 32, fontWeight: 800, position: "relative" }}>{inr(balance)}</p>
         </div>
 
-        <p style={{ ...small, fontSize: 12, margin: "10px 4px 0" }}>Wallet balance is applied automatically at checkout when you turn it on. It can&apos;t be withdrawn to your bank.</p>
+        <p style={{ ...small, fontSize: 12, margin: "10px 4px 0" }}>Money comes in from referral bonuses, refunds and Zavtoo credits. Turn on &ldquo;Use Zavtoo wallet&rdquo; at checkout to spend it. It can&apos;t be withdrawn to your bank.</p>
 
         <button onClick={onRefer} className="press" style={{ ...card, width: "100%", border: "none", marginTop: 14, padding: 14, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left" }}>
           <div style={{ width: 42, height: 42, borderRadius: 12, background: "var(--gold-tint)", display: "flex", alignItems: "center", justifyContent: "center" }}><GiftIcon s={22} c="var(--gold-dark)" /></div>
@@ -236,31 +241,19 @@ export function WalletPage({ balance, txns, onBack, onAddMoney, onRefer }: {
         </div>
       </div>
 
-      {adding && (
-        <BottomSheet title="Add money" onClose={() => setAdding(false)}>
-          <label style={label} htmlFor="w-amt">Amount</label>
-          <input id="w-amt" inputMode="numeric" value={amt} onChange={(e) => setAmt(e.target.value.replace(/\D/g, ""))} style={{ ...field, fontSize: 20, fontWeight: 700 }} />
-          <div style={{ display: "flex", gap: 8, margin: "10px 0 6px" }}>
-            {[500, 1000, 2000].map((v) => (
-              <button key={v} onClick={() => setAmt(String(v))} style={{ flex: 1, border: "1.5px solid var(--blue-ghost)", background: "var(--surface)", color: "var(--blue)", borderRadius: 999, padding: "7px 0", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>+{inr(v)}</button>
-            ))}
-          </div>
-          <p style={{ ...small, fontSize: 11.5, margin: "4px 2px 14px", color: valid || !amt ? "var(--ink-mute)" : "var(--error-text)" }}>Between ₹100 and ₹10,000. Demo: money is added instantly without a real payment.</p>
-          <PrimaryButton disabled={!valid} onClick={() => { onAddMoney(n); setAdding(false); }}>Add {valid ? inr(n) : ""}</PrimaryButton>
-        </BottomSheet>
-      )}
     </div>
   );
 }
 
 /* ───────────────────────── Referral ───────────────────────── */
 
-export function ReferralPage({ code, referrals, onBack, onSimulate }: {
-  code: string; referrals: Referral[]; onBack: () => void; onSimulate: () => void;
+export function ReferralPage({ code, referrals, onBack }: {
+  code: string; referrals: Referral[]; onBack: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const earned = referrals.filter((r) => r.status === "Purchased").length * REFERRAL_REWARD;
-  const message = `Get pure water at home with Zavtoo! Use my code ${code} to get ₹250 off your first purifier. Download: https://zavtoo.in/app?ref=${code}`;
+  const link = typeof window !== "undefined" ? `${window.location.origin}/app?ref=${code}` : `/app?ref=${code}`;
+  const message = `Get pure water at home with Zavtoo! Sign up with my referral code ${code}: ${link}`;
 
   const copy = async () => {
     try { await navigator.clipboard.writeText(code); } catch { /* ignore */ }
@@ -281,8 +274,8 @@ export function ReferralPage({ code, referrals, onBack, onSimulate }: {
           <div style={{ width: 64, height: 64, borderRadius: "50%", margin: "0 auto", background: "linear-gradient(135deg,var(--gold),var(--gold-dark))", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 18px rgba(245,166,35,0.35)" }}>
             <GiftIcon s={32} c="white" w={1.9} />
           </div>
-          <p style={{ margin: "14px 0 4px", fontSize: 20, fontWeight: 800 }}>Give ₹250, get {inr(REFERRAL_REWARD)}</p>
-          <p style={{ ...small, margin: "0 auto", maxWidth: 280 }}>Your friend saves ₹250 on their first purifier. You get {inr(REFERRAL_REWARD)} in your wallet once it&apos;s delivered.</p>
+          <p style={{ margin: "14px 0 4px", fontSize: 20, fontWeight: 800 }}>Earn {inr(REFERRAL_REWARD)} per friend</p>
+          <p style={{ ...small, margin: "0 auto", maxWidth: 280 }}>Your friend signs up with your code. When their first order is delivered, {inr(REFERRAL_REWARD)} lands in your wallet.</p>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0 12px", padding: "10px 10px 10px 16px", borderRadius: 14, border: "1.5px dashed var(--gold-dark)", background: "var(--surface)" }}>
             <span style={{ flex: 1, textAlign: "left", fontSize: 18, fontWeight: 800, letterSpacing: "0.08em", color: "var(--blue-dark)" }}>{code}</span>
@@ -304,7 +297,7 @@ export function ReferralPage({ code, referrals, onBack, onSimulate }: {
 
         <h3 style={sectionTitle}>How it works</h3>
         <div style={{ ...card, padding: "6px 14px" }}>
-          {["Share your code with friends and family", "They sign up and order a Zavtoo purifier", `You get ${inr(REFERRAL_REWARD)} in your wallet after delivery`].map((t, i) => (
+          {["Share your code with friends and family", "They enter it when they sign up and place an order", `You get ${inr(REFERRAL_REWARD)} in your wallet once it's delivered`].map((t, i) => (
             <div key={t} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: i ? "1px solid var(--line)" : "none" }}>
               <span style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--blue-tint)", color: "var(--blue)", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</span>
               <span style={{ fontSize: 13.5, color: "var(--text-secondary)" }}>{t}</span>
@@ -326,15 +319,11 @@ export function ReferralPage({ code, referrals, onBack, onSimulate }: {
                 ...(r.status === "Purchased"
                   ? { background: "var(--success)", color: "var(--success-text)", border: "1px solid var(--success-border)" }
                   : { background: "var(--warning)", color: "var(--warning-text)", border: "1px solid var(--warning-border)" }),
-              }}>{r.status === "Purchased" ? `+${inr(REFERRAL_REWARD)}` : "Joined · pending"}</span>
+              }}>{r.status === "Purchased" ? `+${inr(REFERRAL_REWARD)}` : "Joined · awaiting first delivery"}</span>
             </div>
           ))}
         </div>
-        <div style={{ textAlign: "center", marginTop: 16 }}>
-          <button onClick={onSimulate} style={{ background: "none", border: "1px dashed var(--line-strong)", borderRadius: 10, padding: "6px 12px", fontSize: 11.5, color: "var(--ink-mute)", cursor: "pointer" }}>
-            Demo: a friend buys a purifier
-          </button>
-        </div>
+        {referrals.length === 0 && <p style={{ ...card, margin: 0, padding: 16, textAlign: "center", color: "var(--ink-soft)", fontSize: 13 }}>No referrals yet — share your code to get started.</p>}
       </div>
     </div>
   );
