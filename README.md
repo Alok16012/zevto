@@ -1,10 +1,45 @@
-# Zavtoo — Website, Customer App & Operations
+# Zavtoo
 
-Mobile-first customer app for **Zavtoo Pani Filter Pvt Ltd**: buy RO purifiers and spares, book installation / repair / AMC visits, track orders and service jobs, and chat with support.
+Website, customer app, technician (partner) app and admin console for **Zavtoo Pani Filter Pvt Ltd**, running on **Supabase** (Postgres, Auth, Realtime, Storage) with Next.js 16. There is no demo data and there are no demo logins.
 
-Built with Next.js 16, React 19 and Poppins. The look (colours, cards, bottom nav) follows the CLATians student app.
+| Route | Who | Login |
+|---|---|---|
+| `/`, `/shop`, `/products/…`, `/services`, `/cart` | Website visitors | none — checkout and booking continue in `/app` |
+| `/app` | Customers | email + password (sign up in the app) |
+| `/technician` | Technicians | email + password created by an admin |
+| `/admin` | Super admin / admins | email + password |
 
-> **Demo build.** All data is sample data in `app/lib/data.ts` and lives in memory — orders, bookings, wallet, reviews, notifications and chat reset on refresh. Technician assignment and chat replies are simulated. A real backend (Supabase) will be wired in later.
+## Production setup
+
+1. **Database** — Supabase → SQL Editor → run `supabase/schema.sql`. It is safe to re-run and creates the tables, row-level security, server-side business functions, notification triggers, realtime, photo storage and the starting catalogue.
+2. **Environment** — set in `.env.local` locally **and** in Netlify → Site settings → Environment variables:
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public)
+   - `SUPABASE_SERVICE_ROLE_KEY` (**secret, server only** — used by `/api/signup` and `/api/admin/technicians`)
+3. **Super admin** — `node scripts/create-super-admin.mjs admin@zavtoo.in`; add `--reset` to issue a new password.
+4. **IDs** — after any testing, run `supabase/reset-id-counters.sql` so real IDs start cleanly.
+
+## Accounts and IDs
+
+- **Customers** sign up in `/app` (optionally with a friend's referral code). Accounts are created confirmed by the server because Supabase's built-in mailer only reaches the project team — add an SMTP provider before switching to email confirmation.
+- **Technicians** are created in Admin → Technicians → *Add technician*; the admin shares the email and password. At first login technicians set their primary + nearby pincodes.
+- **Admins** can reset technician and customer passwords (never staff passwords).
+- Unique IDs: `CUS-` customers, `TEC-` technicians, `DLR-` dealers, `ADM-` staff, `ZVT…` orders, `SRV…` service jobs.
+
+## How the apps work together
+
+- **Checkout** (`place_order`) and **booking** (`book_service`) run in the database: prices, stock, coupons and wallet balance are always recomputed server-side.
+- Customers pick a technician who serves their pincode, or leave it to ops. The chosen technician accepts or declines; ops assigns from Admin → Service Jobs.
+- Technicians tap **Start Travel** to share live GPS location. Only that customer can see it, only while the technician is on the way; sharing stops when the job starts. The customer reads a 4-digit **start code** that technicians cannot see; the server checks it.
+- Ratings update technician and product scores; referral bonuses (₹250) are paid when a referred customer's first order is delivered; every status change notifies the customer in-app.
+- Customers chat with support from the app; admins answer in Admin → Support Chat.
+- RO photos are stored privately (customer, their technician and staff only); technician photos are public.
+
+## Still needs third-party services
+
+- **Online payments** — orders paid "Online" are recorded as *Pending*. Connect a gateway (e.g. Razorpay) to collect and mark them *Paid*.
+- **Email / SMS / WhatsApp** — password-reset emails and messages need an SMTP / SMS provider; broadcasts currently go to the in-app notification centre.
+- **Maps** — live tracking uses OpenStreetMap tiles, fine for light use; move to a paid tile provider at scale.
+- **Support phone** — the app shows `1800-000-000` as a placeholder; replace it with your real number.
 
 ## Run locally
 
@@ -13,113 +48,12 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000 for the responsive e-commerce website. The existing phone-width customer app is at http://localhost:3000/app (capped at 430px).
-
-
-## Responsive e-commerce website
-
-The root route now serves a desktop, tablet and mobile storefront. The original customer app remains at `/app`; technician and admin routes are unchanged.
-
-| Route | Experience |
-| --- | --- |
-| `/` | Homepage, collections, featured products, service introduction and FAQs |
-| `/shop` | Product search, category filters, sorting and saved favourites |
-| `/products/[id]` | Shareable product pages with metadata, specifications and pincode checks |
-| `/cart` | Quantity controls, removal, coupons and order totals |
-| `/checkout` | Validated demo checkout with supported-pincode checks |
-| `/orders` | Website demo orders stored in this browser |
-| `/services` | Service catalogue with website-native booking links |
-| `/services/[service]` | Responsive booking form, service area and appointment validation, and confirmation |
-
-The storefront reuses `PRODUCTS`, coupons, service areas and `SERVICE_CATALOG` from `app/lib/data.ts`. Its scoped styles are in `app/storefront/storefront.module.css`; UI and browser-local demo state live in `app/storefront/Storefront.tsx`. No new dependencies were added.
-
-Cart, saved favourites, coupon selection and website demo receipts persist under `zavtoo:storefront:v1` in localStorage. Website orders are separate from customer-app and admin sample orders. Checkout validates but does not persist contact/address fields. No payment gateway, order API, stock reservation, tax service, authentication or delivery integration is connected. Product illustrations and ratings are sample content. Live sales require those integrations and real catalogue assets before launch.
-
-Website service requests are saved separately under `zavtoo:website-service-bookings:v1` and shown on `/orders`. Contact/address/notes fields are validated but not persisted or sent; only service, purifier, pincode, appointment and price appear in the local receipt. Requests remain demo-only and do not dispatch technicians.
-
-Legacy customer-app links accept `/app?screen=services&service=Repair` (or another catalogue service) and `/app?screen=chat`.
-
-## Project architecture
-
-- **Customer app:** `app/CustomerApp.tsx` owns the in-memory navigation, account, shopping, booking and chat state. Screens are in `app/components/`.
-- **Technician app:** `app/technician/TechnicianApp.tsx` owns job execution, van inventory, earnings and partner profile workflows.
-- **Admin console:** `app/admin/AdminApp.tsx` owns demo operations, dispatch, catalogue, offers, customers, technicians and dealers.
-- **Shared catalogue and types:** `app/lib/data.ts`; role-specific sample data is in `techData.ts` and `adminData.ts`.
-- **Cross-app demo bridge:** `app/lib/bridge.ts` uses localStorage and browser events for service jobs, technician trips, photos, areas and operations tasks. It is same-browser coordination, not a backend.
-- **Rendering:** Next.js App Router and React 19, with shared Poppins typography and global app tokens. Storefront CSS is isolated so the existing app layouts retain their appearance.
-
-## Screens
-
-Splash · Onboarding · Home · Product listing · Product details (+ ratings & reviews) · Cart & checkout (coupon, wallet, address) · Order placed · Services (catalogue, service details, FAQs) · Book service · My orders · Order details · Track service (+ service rating) · Technician profile & reviews · Chat · Profile (+ edit profile, saved addresses, wallet, offers & coupons, refer & earn, notifications centre & preferences, my ratings & reviews, service history, AMC plans, payments, help, about)
-
-### Customer features
-
-- **Customers & profile** — edit name, email, gender and date of birth (validated), profile-completion meter, add / edit / delete / set-default addresses; the default address is used at checkout.
-- **Offers / coupons** — offers page, coupon picker sheet in the cart and in service booking, min-order and product/service rules (`COUPONS` in `data.ts`).
-- **Wallet** — balance and transaction history, add money (demo, no gateway), pay part or all of an order from the wallet.
-- **Rating service** — after a job completes: stars, quick tags and a comment; the rating shows on the tracker and on the technician's profile.
-- **Referral** — personal code, share / copy, referral list and earnings; demo button credits the ₹250 bonus to the wallet.
-- **App notifications** — notification centre with unread badge on Home and Profile, filters, mark all read, deep links, and push / SMS / WhatsApp / offers preferences. Orders, bookings, technician assignment, job completion and wallet credits all create notifications.
-- **Technician & product reviews** — rating breakdown, sortable/filterable review list, write or edit a review from a delivered order or the product page, technician profiles with skills and reviews.
-- **Service page** — the Service tab is now a catalogue (Installation, Repair, AMC, Filter Change, Water Test, Uninstall) with running jobs, how-it-works, top technicians and FAQs; each service has a details page leading to booking.
-
-## Technician app — `/technician`
-
-A separate partner app for Zavtoo technicians at http://localhost:3000/technician (demo login: any 10-digit mobile number starting 6–9, OTP `1234`; logged in as technician Rohit Kumar).
-
-- **Jobs** — online/offline toggle, today's stats, a live incoming job request with a 60-second accept window, current-job banner, and Today / Upcoming / History lists.
-- **Job flow** — Accepted → Start travel (call + Google Maps navigation) → Arrived → customer start code (demo code shown) → In progress: service checklist, input/output TDS, parts from the van, notes → collect payment (UPI / cash / AMC covered) → completed with earning. Jobs can be rescheduled with a reason.
-- **Inventory** — van stock with low / out-of-stock flags, parts deducted when a job closes, and a stock request to the warehouse.
-- **Earnings** — last-7-days chart, today's jobs and payouts, cash in hand, weekly target bonus and payout history. Payout rule: 60% of the visit charge (₹250 for free jobs) + 10% on parts.
-- **Profile** — partner ID and KYC, service area, working days, auto-accept, skills, documents and customer reviews.
-
-Like the customer app, all data is in memory (`app/lib/techData.ts`) and resets on refresh; the two apps don't share state until the backend is wired in.
-
-## Admin console — `/admin`
-
-Operations console at http://localhost:3000/admin (demo login: `admin@zavtoo.in` / `zavtoo@demo`, kept for the browser session). Sidebar on desktop, drawer menu on phones.
-
-- **Dashboard** — revenue today, open / unassigned jobs, customers, service rating, 14-day revenue chart, a "needs attention" list and today's job breakdown.
-- **Orders** — filter and search; mark shipped → delivered; cancel with refund (or no refund for COD).
-- **Service jobs & dispatch** — filter by status; assign, reassign or re-book technicians, ranked by area coverage, workload that day and rating; cancel jobs.
-- **Customers** — search and AMC filters; customer detail with orders, jobs and wallet; add wallet credit; block / unblock.
-- **Technicians** — online / on-job / offline counts, approve KYC, activate / deactivate.
-- **Products & stock** — edit price, MRP and stock (price can't exceed MRP), low-stock flags, list / hide from the app.
-- **Offers & coupons** — pause / resume coupons, create new ones with validation.
-- **Reviews** — moderate flagged reviews: publish, hide or remove.
-- **Notifications** — compose a push / SMS / WhatsApp broadcast for an audience segment with a live preview and send history.
-
-Sample data lives in `app/lib/adminData.ts` and resets on refresh; it isn't connected to the customer or technician apps yet.
-
-## Apps talking to each other (demo bridge)
-
-Until the backend is live, the three apps share a little state through `localStorage` (`app/lib/bridge.ts`), so open them in separate tabs of the same browser:
-
-1. **Customer** books a service → a few seconds later ops "assigns" Rohit Kumar and the booking appears in the **technician** app (tagged APP BOOKING, usually under Upcoming). The customer sees who is coming and a start code — **but no location yet**.
-2. **Technician** taps **Start Travel** → only now does the customer's Track Service screen show a **live map** with the technician's photo moving along the route, ETA and distance. Location is never shared on accept/assign.
-3. Technician taps **I've Arrived** → the customer is told to share the start code; entering it in the technician app moves the customer's job to *In Progress* and location sharing stops. Closing the job moves the customer to rating.
-4. **Technician tasks** — from Jobs → *Create a new task*, a technician can **keep it** (added to their own jobs as MY TASK) or **send it to ops** (shows in the **admin** Service Jobs list as *Raised by …*). When admin assigns or cancels it, the technician's *Sent to ops* list updates, and a task assigned to Rohit lands in his jobs.
-5. **Photos of the RO** — customers attach up to 4 photos while booking (Service → pick a service → *📷 Photos of your RO*; recommended for repairs and filter changes, hidden for new installs), can add or remove them on Track Service until the visit starts, and can send one to support with 📎 / *📷 Send RO photo* in Chat. Photos are shrunk to ~720 px JPEGs and show up in the technician's job (📷 count on the card, tap to enlarge), updating live if the customer changes them.
-6. **Pincode matching** — after OTP login a technician sets their **primary pincode + nearby pincodes** (step 2 of 2; editable later in Profile → Service area). When booking, the customer picks the service address and sees **only technicians who cover that pincode** (primary-area technicians first, marked *Lives nearby*), and can choose one or leave it to ops ("Any available"). The job goes to the chosen technician. Uncovered pincodes fall back to ops.
-7. **Unique IDs** — one series per role: customers `CUS-100101…`, technicians `TEC-200101…`, dealers `DLR-300101…` (`makeId` in `app/lib/data.ts`). Shown on the customer profile, technician profile and Track Service, and in admin. Admin has a new **Dealers** section (add dealer with pincodes → next `DLR-` ID; technicians are linked to a dealer).
-8. **Technician photo** — Profile → 📷 / *Add your photo* (cropped to 256 px). Until then each technician has an illustrated portrait in Zavtoo uniform. The photo shows in the technician app, on the customer's Track Service / technician profile / live map, and in admin.
-
-No second tab? The customer's Track Service screen has demo buttons that stand in for the technician (start ride → arrive → start job). Reloading the customer app clears bookings and rides from the bridge.
-
 ## Where things live
 
-- `app/CustomerApp.tsx` — app shell, navigation and demo state
-- `app/components/` — screens and shared UI
-  - `Account.tsx` — edit profile, addresses, wallet, referral, notifications
-  - `Offers.tsx` — offers page and the apply-coupon sheet
-  - `Reviews.tsx` — product reviews, technician profile, service rating
-  - `ServicesHub.tsx` — service catalogue and service details
-- `app/lib/data.ts` — sample catalogue, orders, services and chat
-- `app/technician/` — technician partner app (`TechnicianApp.tsx` shell, `JobScreens.tsx`, `PartnerScreens.tsx`)
-- `app/lib/techData.ts` — sample jobs, parts, stock and earnings for the partner app
-- `app/admin/` — admin console (`AdminApp.tsx` shell + login, `Dashboard.tsx`, `Operations.tsx`, `People.tsx`, `Catalog.tsx`, `kit.tsx` table/modal/badge components)
-- `app/lib/bridge.ts` — demo bridge between the three apps (bookings, rides, ops tasks, technician photos)
-- `app/components/TechAvatar.tsx`, `LiveTracking.tsx` — technician photo/portrait and the customer's live-location map
-- `app/technician/NewTask.tsx` — technician's new-task form and "Sent to ops" list
-- `app/lib/adminData.ts` — sample customers, orders, jobs, stock and reporting for the admin console
-- `public/zavtoo-*.png` — logo assets cut from `assets/zavtoo-logo-source.jpeg`
+- `supabase/schema.sql` — the whole database: tables, security, functions, triggers, seed
+- `app/lib/supabase.ts` — browser clients (one login per app), live-data hook
+- `app/lib/supabaseServer.ts` — server-only service-key access (route handlers only)
+- `app/lib/catalog.ts`, `app/lib/db.ts`, `app/lib/adminData.ts` — loading and mapping data
+- `app/CustomerApp.tsx`, `app/technician/`, `app/admin/` — the three apps
+- `app/storefront/` — the public website
+- `scripts/create-super-admin.mjs` — creates or resets the super admin login

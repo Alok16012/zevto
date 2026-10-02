@@ -4,26 +4,38 @@ import { useState } from "react";
 import { Footer, PageHeader, PrimaryButton, card, field, label, sectionTitle } from "../components/ui";
 import { SERVICE_ICON } from "../components/ServicesHub";
 import { PRODUCTS, SERVICE_CATALOG, TIME_SLOTS, inr, type ServiceType } from "../lib/data";
-import type { OpsTask } from "../lib/bridge";
-import { TODAY } from "../lib/techData";
+import { todayIso } from "../lib/techData";
+import { fmtDay } from "../lib/catalog";
+import { isPincode } from "../lib/data";
 
 /* A task the technician raises in the field — a neighbour who wants a
  * purifier checked, a follow-up visit, a lead for a new sale. They either do
  * it themselves or hand it to ops to schedule. */
 
 export interface NewTask {
-  customer: { name: string; phone: string; address: string };
+  customer: { name: string; phone: string; address: string; pincode: string };
   type: ServiceType;
   product: string;
   issue: string;
+  /** "YYYY-MM-DD". */
   date: string;
   slot: string;
 }
 
+/** A task this technician raised and handed to ops. */
+export interface SentTask {
+  id: string; ref: string; type: ServiceType; customerName: string; isoDate: string; slot: string; raisedAt: string;
+  status: "With ops" | "Assigned" | "Cancelled" | "Done"; assignedTo?: string;
+}
+
 export type TaskRoute = "self" | "ops";
 
-const DAYS = [TODAY, "30 Sep 2026", "01 Oct 2026", "02 Oct 2026"];
-const dayLabel = (d: string) => (d === TODAY ? "Today" : d === DAYS[1] ? "Tomorrow" : d.slice(0, 6));
+const addDays = (iso: string, n: number) => {
+  const d = new Date(`${iso}T12:00:00`);
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+const dayLabel = (d: string) => (d === todayIso() ? "Today" : d === addDays(todayIso(), 1) ? "Tomorrow" : fmtDay(d).slice(0, 6));
 
 export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit: (t: NewTask, route: TaskRoute) => void }) {
   const [name, setName] = useState("");
@@ -32,7 +44,9 @@ export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit
   const [type, setType] = useState<ServiceType>("Repair");
   const [product, setProduct] = useState("");
   const [issue, setIssue] = useState("");
-  const [date, setDate] = useState(TODAY);
+  const DAYS = [0, 1, 2, 3].map((n) => addDays(todayIso(), n));
+  const [date, setDate] = useState(DAYS[0]);
+  const [pincode, setPincode] = useState("");
   const [slot, setSlot] = useState("");
   const [route, setRoute] = useState<TaskRoute>("self");
   const [touched, setTouched] = useState(false);
@@ -41,6 +55,7 @@ export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit
     name: name.trim().length < 2 ? "Enter the customer's name" : null,
     phone: !/^[6-9]\d{9}$/.test(phone) ? "Enter a 10-digit mobile number" : null,
     address: address.trim().length < 8 ? "Enter the full address" : null,
+    pincode: !isPincode(pincode) ? "Enter the 6-digit pincode" : null,
     product: !product ? "Pick the product" : null,
     // Ops can pick the slot themselves; you can't do a job without one.
     slot: route === "self" && !slot ? "Pick a time slot" : null,
@@ -53,7 +68,7 @@ export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit
     setTouched(true);
     if (!ok) return;
     onSubmit({
-      customer: { name: name.trim(), phone: `+91${phone}`, address: address.trim() },
+      customer: { name: name.trim(), phone: `+91${phone}`, address: address.trim(), pincode },
       type, product, issue: issue.trim() || "No details given.", date, slot: slot || "Any time",
     }, route);
   };
@@ -72,6 +87,8 @@ export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit
         </div>
         <label style={{ ...label, marginTop: 12 }} htmlFor="nt-addr">Address</label>
         <textarea id="nt-addr" rows={2} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House no., society, sector, city" style={{ ...field, resize: "none", ...bad("address") }} />
+        <label style={{ ...label, marginTop: 12 }} htmlFor="nt-pin">Pincode</label>
+        <input id="nt-pin" inputMode="numeric" value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))} style={{ ...field, ...bad("pincode") }} />
 
         <h3 style={sectionTitle}>Service</h3>
         <div className="no-scroll" style={{ display: "flex", gap: 8, overflowX: "auto", margin: "0 -16px", padding: "2px 16px 4px" }}>
@@ -150,10 +167,10 @@ const chip = (on: boolean): React.CSSProperties => ({
 });
 
 /** The technician's own list of tasks handed to ops, with where each one stands. */
-export function SentToOpsList({ tasks }: { tasks: OpsTask[] }) {
+export function SentToOpsList({ tasks }: { tasks: SentTask[] }) {
   if (!tasks.length) return null;
-  const tone = (s: OpsTask["status"]) =>
-    s === "Assigned" ? { bg: "var(--success)", fg: "var(--success-text)" } : s === "Cancelled" ? { bg: "var(--surface-dim)", fg: "var(--text-muted)" } : { bg: "var(--gold-tint)", fg: "var(--gold-dark)" };
+  const tone = (s: SentTask["status"]) =>
+    s === "Assigned" || s === "Done" ? { bg: "var(--success)", fg: "var(--success-text)" } : s === "Cancelled" ? { bg: "var(--surface-dim)", fg: "var(--text-muted)" } : { bg: "var(--gold-tint)", fg: "var(--gold-dark)" };
   return (
     <>
       <h3 style={sectionTitle}>Sent to ops ({tasks.length})</h3>
@@ -161,12 +178,12 @@ export function SentToOpsList({ tasks }: { tasks: OpsTask[] }) {
         {tasks.map((t) => (
           <div key={t.id} style={{ ...card, padding: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 700 }}>{t.type} · {t.customer.name}</span>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{t.type} · {t.customerName}</span>
               <span style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: tone(t.status).bg, color: tone(t.status).fg, whiteSpace: "nowrap" }}>
-                {t.status === "Assigned" ? `Assigned · ${t.assignedTo}` : t.status}
+                {t.status === "Assigned" && t.assignedTo ? `Assigned · ${t.assignedTo}` : t.status}
               </span>
             </div>
-            <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--ink-soft)" }}>#{t.id} · {dayLabel(t.date)}, {t.slot} · raised {t.createdAt}</p>
+            <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--ink-soft)" }}>#{t.ref} · {dayLabel(t.isoDate)}, {t.slot} · raised {t.raisedAt}</p>
           </div>
         ))}
       </div>

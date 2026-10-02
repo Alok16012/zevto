@@ -58,3 +58,10 @@ export const EditIcon = (p: P) => <Svg {...p}><path d="M4 20h4L19 9a2.8 2.8 0 0 
 export const CopyIcon = (p: P) => <Svg {...p}><rect x="8.5" y="8.5" width="12" height="12" rx="2.5" /><path d="M15.5 8.5V6a2.5 2.5 0 0 0-2.5-2.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5" /></Svg>;
 export const CloseIcon = (p: P) => <Svg {...p} w={p.w ?? 2.2}><path d="M6 6l12 12M18 6L6 18" /></Svg>;
 export const DropIcon = (p: P) => <Svg {...p}><path d="M12 3s-6.5 7.2-6.5 11.5a6.5 6.5 0 0 0 13 0C18.5 10.2 12 3 12 3z" /></Svg>;
+export const GridIcon = (p: P) => <Svg {...p}><rect x="3.5" y="3.5" width="7" height="7" rx="1.8" /><rect x="13.5" y="3.5" width="7" height="7" rx="1.8" /><rect x="3.5" y="13.5" width="7" height="7" rx="1.8" /><rect x="13.5" y="13.5" width="7" height="7" rx="1.8" /></Svg>;
+export const UsersIcon = (p: P) => <Svg {...p}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.2A6.5 6.5 0 0 1 21.5 20" /></Svg>;
+export const TechnicianIcon = (p: P) => <Svg {...p}><circle cx="10" cy="7.5" r="3.5" /><path d="M3.5 20a6.5 6.5 0 0 1 10.6-5" /><path d="M19.6 13.4a2.6 2.6 0 0 0-3.4 3.4l-2.6 2.6a1 1 0 0 0 1.4 1.4l2.6-2.6a2.6 2.6 0 0 0 3.4-3.4l-1.4 1.4-1.4-.4-.4-1.4z" /></Svg>;
+export const StoreIcon = (p: P) => <Svg {...p}><path d="M4 9.5V20h16V9.5" /><path d="M2.8 9.5 5 4h14l2.2 5.5a2.6 2.6 0 0 1-4.7 1.3 2.7 2.7 0 0 1-4.5 0 2.7 2.7 0 0 1-4.5 0A2.6 2.6 0 0 1 2.8 9.5z" /><path d="M10 20v-5h4v5" /></Svg>;
+export const BoxIcon = (p: P) => <Svg {...p}><path d="M12 3 20.5 7.5v9L12 21l-8.5-4.5v-9z" /><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9M7.8 5.3l8.5 4.5" /></Svg>;
+export const MegaphoneIcon = (p: P) => <Svg {...p}><path d="M3.5 10v4a1 1 0 0 0 1 1H7l7 4.5v-15L7 9H4.5a1 1 0 0 0-1 1z" /><path d="M18 9a4 4 0 0 1 0 6M7.5 15l1.2 4.5h2.4" /></Svg>;
+export const InboxIcon = (p: P) => <Svg {...p}><path d="M20 12.5a7.5 7.5 0 0 1-11.1 6.6L4 20.5l1.4-4.6A7.5 7.5 0 1 1 20 12.5z" /><path d="M8.5 11h7M8.5 14h4" /></Svg>;

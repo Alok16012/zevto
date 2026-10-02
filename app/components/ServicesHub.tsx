@@ -60,7 +60,7 @@ export function ServicesHubScreen({ services, onOpen, onTrack, onOpenTech }: {
             <span className="animate-pulse-dot" style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--blue)", flexShrink: 0 }} />
             <span style={{ flex: 1 }}>
               <span style={{ display: "block", fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{s.type} · {s.timeline[s.current].label}</span>
-              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>#{s.id} · {s.date}</span>
+              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>#{s.ref} · {s.date}</span>
             </span>
             <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--blue)" }}>Track →</span>
           </button>

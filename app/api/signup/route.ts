@@ -1,4 +1,4 @@
-import { EMAIL_RE, json, serverAdmin } from "../../lib/supabaseServer";
+import { EMAIL_RE, authAdmin, json, rest } from "../../lib/supabaseServer";
 
 /* Customer sign-up. Accounts are created already confirmed because Supabase's
  * built-in mailer only reaches the project team; once a real email service is
@@ -19,19 +19,18 @@ export async function POST(req: Request) {
   if (phone && !/^[6-9]\d{9}$/.test(phone)) return json({ error: "Enter a 10-digit mobile number" }, 400);
   if (referral && !/^CUS-\d{6}$/.test(referral)) return json({ error: "Referral codes look like CUS-100101" }, 400);
 
-  const sb = serverAdmin();
   if (referral) {
-    const { data } = await sb.from("profiles").select("id").eq("code", referral).maybeSingle();
-    if (!data) return json({ error: "That referral code doesn't exist" }, 400);
+    const { data } = await rest.select<{ id: string }>("profiles", `select=id&role=eq.customer&code=eq.${encodeURIComponent(referral)}`);
+    if (!data?.length) return json({ error: "That referral code doesn't exist" }, 400);
   }
 
-  const { error } = await sb.auth.admin.createUser({
+  const { error } = await authAdmin.createUser({
     email, password, email_confirm: true,
     user_metadata: { full_name: name, phone: phone ? `+91${phone}` : "", referred_by: referral },
   });
   if (error) {
-    const taken = /already|registered|exists/i.test(error.message);
-    return json({ error: taken ? "An account with this email already exists. Log in instead." : error.message }, taken ? 409 : 400);
+    const taken = /already|registered|exists/i.test(error);
+    return json({ error: taken ? "An account with this email already exists. Log in instead." : error }, taken ? 409 : 400);
   }
   return json({ ok: true });
 }

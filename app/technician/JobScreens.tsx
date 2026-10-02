@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CheckIcon, ChevronRight, ClockIcon, MinusIcon, PhoneIcon, PinIcon, PlusIcon } from "../components/icons";
 import { Avatar, BottomSheet, Footer, PageHeader, PrimaryButton, Tabs, Toggle, card, field, label, sectionTitle } from "../components/ui";
 import { SERVICE_ICON } from "../components/ServicesHub";
 import TechAvatar from "../components/TechAvatar";
 import { PhotoStrip } from "../components/PhotoPicker";
 import { inr } from "../lib/data";
+import { useSignedUrls } from "../lib/photos";
 import {
-  CHECKLIST, JOB_FLOW, PARTS, TODAY, customerBill, jobPayout, partById, partsTotal,
+  CHECKLIST, JOB_FLOW, PARTS, customerBill, jobPayout, partById, partsTotal, todayIso,
   type Job, type JobStatus,
 } from "../lib/techData";
+
+const whenLabel = (j: Job) => (j.isoDate === todayIso() ? "Today" : j.date);
 
 const small: React.CSSProperties = { margin: "2px 0 0", fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 };
 
@@ -36,16 +39,19 @@ const mapsUrl = (address: string) => `https://www.google.com/maps/search/?api=1&
 
 type JobTab = "today" | "upcoming" | "done";
 
-export function JobsScreen({ techId, techName, rating, online, onToggleOnline, jobs, incoming, onAccept, onReject, onOpen, onNewTask, onProfile, footer }: {
+export function JobsScreen({ techId, techName, rating, online, onToggleOnline, jobs, incoming, onRespond, onOpen, onNewTask, onProfile, footer, photoUrl }: {
   techId: string; techName: string; rating: number; online: boolean; onToggleOnline: (v: boolean) => void;
-  jobs: Job[]; incoming: Job | null; onAccept: () => void; onReject: () => void; onOpen: (id: string) => void;
-  onNewTask: () => void; onProfile: () => void; footer?: React.ReactNode;
+  jobs: Job[]; incoming: Job[]; onRespond: (j: Job, accept: boolean) => Promise<void>; onOpen: (id: string) => void;
+  onNewTask: () => void; onProfile: () => void; footer?: React.ReactNode; photoUrl?: string | null;
 }) {
   const [tab, setTab] = useState<JobTab>("today");
+  const today = todayIso();
   const active = (j: Job) => j.status !== "Completed" && j.status !== "Rejected" && j.status !== "Rescheduled";
   const rows = jobs.filter((j) =>
-    tab === "today" ? j.date === TODAY && active(j) : tab === "upcoming" ? j.date !== TODAY && active(j) : !active(j));
-  const doneToday = jobs.filter((j) => j.status === "Completed" && j.date === TODAY);
+    // Overdue open jobs stay on Today until they're done.
+    tab === "today" ? j.isoDate <= today && active(j) : tab === "upcoming" ? j.isoDate > today && active(j) : !active(j))
+    .sort((a, b) => (tab === "done" ? (b.completedIso ?? "").localeCompare(a.completedIso ?? "") : a.isoDate.localeCompare(b.isoDate)));
+  const doneToday = jobs.filter((j) => j.status === "Completed" && j.completedIso?.slice(0, 10) === today);
   const earnedToday = doneToday.reduce((s, j) => s + jobPayout(j), 0);
   const current = jobs.find((j) => ["On the way", "Arrived", "In Progress"].includes(j.status));
 
@@ -54,7 +60,7 @@ export function JobsScreen({ techId, techName, rating, online, onToggleOnline, j
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 16px 12px" }}>
         <button onClick={onProfile} aria-label="Open your profile" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", borderRadius: "50%" }}>
-          <TechAvatar id={techId} name={techName} size={46} ring />
+          <TechAvatar id={techId} name={techName} size={46} ring photoUrl={photoUrl} />
         </button>
         <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>Good day,</p>
@@ -72,7 +78,7 @@ export function JobsScreen({ techId, techName, rating, online, onToggleOnline, j
           borderRadius: 20, padding: 16, color: "white", display: "flex",
           background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(11,92,255,0.28)",
         }}>
-          {[[String(jobs.filter((j) => j.date === TODAY && j.status !== "Rejected").length), "Jobs today"], [String(doneToday.length), "Completed"], [inr(earnedToday), "Earned today"], [`${rating}★`, "Rating"]].map(([v, l], i) => (
+          {[[String(jobs.filter((j) => j.isoDate === today && j.status !== "Rejected").length), "Jobs today"], [String(doneToday.length), "Completed"], [inr(earnedToday), "Earned today"], [rating ? `${rating}★` : "New", "Rating"]].map(([v, l], i) => (
             <div key={l} style={{ flex: 1, textAlign: "center", borderRight: i < 3 ? "1px solid rgba(255,255,255,0.18)" : "none" }}>
               <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: i === 2 ? "var(--gold)" : "white" }}>{v}</p>
               <p style={{ margin: 0, fontSize: 10.5, color: "rgba(255,255,255,0.75)" }}>{l}</p>
@@ -86,7 +92,7 @@ export function JobsScreen({ techId, techName, rating, online, onToggleOnline, j
           </div>
         )}
 
-        {incoming && online && <IncomingRequest job={incoming} onAccept={onAccept} onReject={onReject} />}
+        {incoming.map((j) => <IncomingRequest key={j.id} job={j} onRespond={(a) => onRespond(j, a)} />)}
 
         {current && (
           <button onClick={() => onOpen(current.id)} className="press" style={{ ...card, width: "100%", marginTop: 12, padding: 14, border: "1.5px solid var(--blue)", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left" }}>
@@ -140,43 +146,31 @@ function JobCard({ job, onOpen }: { job: Job; onOpen: () => void }) {
         </div>
         <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--text-secondary)", fontWeight: 500 }}>{job.customer.name} · {job.product}</p>
         <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--ink-mute)", display: "flex", alignItems: "center", gap: 4 }}>
-          <ClockIcon s={12} c="var(--ink-mute)" /> {job.date === TODAY ? "Today" : job.date}, {job.slot} · {job.customer.distanceKm} km
+          <ClockIcon s={12} c="var(--ink-mute)" /> {whenLabel(job)}, {job.slot} · {job.pincode}
         </p>
       </div>
     </button>
   );
 }
 
-const REQUEST_SECONDS = 60;
-
-function IncomingRequest({ job, onAccept, onReject }: { job: Job; onAccept: () => void; onReject: () => void }) {
-  const [left, setLeft] = useState(REQUEST_SECONDS);
-  useEffect(() => {
-    const t = setInterval(() => setLeft((s) => s - 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-  // Unanswered requests pass to the next technician.
-  useEffect(() => { if (left <= 0) onReject(); }, [left, onReject]);
-
+/** A customer picked this technician; they confirm or pass it back to ops. */
+function IncomingRequest({ job, onRespond }: { job: Job; onRespond: (accept: boolean) => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const respond = async (accept: boolean) => { setBusy(true); await onRespond(accept); setBusy(false); };
   return (
     <div className="fade-up" style={{ ...card, marginTop: 12, padding: 16, border: "2px solid var(--gold)", boxShadow: "0 10px 24px rgba(245,166,35,0.25)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--gold-dark)", letterSpacing: "0.05em" }}>🔔 NEW JOB REQUEST</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: left <= 10 ? "var(--error-text)" : "var(--ink-soft)" }}>{left}s</span>
-      </div>
-      <div style={{ height: 4, borderRadius: 2, background: "var(--line)", margin: "8px 0 12px" }}>
-        <div style={{ width: `${(left / REQUEST_SECONDS) * 100}%`, height: "100%", borderRadius: 2, background: "var(--gold)", transition: "width 1s linear" }} />
-      </div>
-      <p style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{job.type} · {job.product}</p>
+      <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--gold-dark)", letterSpacing: "0.05em" }}>NEW JOB REQUEST · #{job.ref}</span>
+      <p style={{ margin: "8px 0 0", fontSize: 16, fontWeight: 700 }}>{job.type} · {job.product}</p>
       <p style={small}>{job.issue}</p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-        {[`📍 ${job.customer.distanceKm} km away`, `🕑 Today, ${job.slot}`, `💰 Earn ~${inr(jobPayout(job))}`].map((t) => (
+        {[`📍 ${job.pincode}`, `🕑 ${whenLabel(job)}, ${job.slot}`, `💰 Earn ~${inr(jobPayout(job))}`].map((t) => (
           <span key={t} style={{ fontSize: 11.5, fontWeight: 600, background: "var(--bg-secondary)", padding: "5px 10px", borderRadius: 999 }}>{t}</span>
         ))}
       </div>
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <button onClick={onReject} className="press" style={{ flex: 1, border: "1.5px solid var(--line-strong)", background: "var(--surface)", borderRadius: 14, padding: 13, fontSize: 14, fontWeight: 700, color: "var(--ink-soft)", cursor: "pointer" }}>Decline</button>
-        <PrimaryButton onClick={onAccept} style={{ flex: 2 }}>Accept Job</PrimaryButton>
+      <p style={{ ...small, fontSize: 11.5, marginTop: 8 }}>The customer chose you. If you decline, ops assigns someone else.</p>
+      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+        <button disabled={busy} onClick={() => respond(false)} className="press" style={{ flex: 1, border: "1.5px solid var(--line-strong)", background: "var(--surface)", borderRadius: 14, padding: 13, fontSize: 14, fontWeight: 700, color: "var(--ink-soft)", cursor: "pointer" }}>Decline</button>
+        <PrimaryButton disabled={busy} onClick={() => respond(true)} style={{ flex: 2 }}>Accept Job</PrimaryButton>
       </div>
     </div>
   );
@@ -184,12 +178,19 @@ function IncomingRequest({ job, onAccept, onReject }: { job: Job; onAccept: () =
 
 /* ───────────────────────── Job detail ───────────────────────── */
 
-export function JobDetailPage({ job, stock, onBack, onUpdate, onComplete, onReschedule }: {
+export function JobDetailPage({ job, stock, onBack, onUpdate, onStartJob, onComplete, onReschedule, sharing }: {
   job: Job; stock: Record<string, number>; onBack: () => void;
-  onUpdate: (patch: Partial<Job> | ((j: Job) => Partial<Job>)) => void; onComplete: (payment: NonNullable<Job["payment"]>) => void; onReschedule: (reason: string) => void;
+  onUpdate: (patch: Partial<Job> | ((j: Job) => Partial<Job>)) => void;
+  /** Server checks the start code; resolves to an error message or null. */
+  onStartJob: (code: string) => Promise<string | null>;
+  onComplete: (payment: NonNullable<Job["payment"]>) => void; onReschedule: (reason: string) => void;
+  /** Location-sharing status while on the way. */
+  sharing?: string | null;
 }) {
   const [otp, setOtp] = useState("");
-  const [otpErr, setOtpErr] = useState(false);
+  const [otpErr, setOtpErr] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const photoUrls = useSignedUrls("technician", job.photos);
   const [sheet, setSheet] = useState<"parts" | "bill" | "reschedule" | null>(null);
   const ic = SERVICE_ICON[job.type];
   const step = JOB_FLOW.indexOf(job.status);
@@ -199,9 +200,10 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onComplete, onResc
   const checklistDone = job.checklist.length === CHECKLIST.length;
   const canFinish = checklistDone && job.tdsAfter.trim() !== "";
 
-  const verifyOtp = () => {
-    if (otp === job.otp) onUpdate({ status: "In Progress" });
-    else setOtpErr(true);
+  const verifyOtp = async () => {
+    setStarting(true);
+    setOtpErr(await onStartJob(otp));
+    setStarting(false);
   };
 
   const toggleCheck = (c: string) =>
@@ -209,7 +211,7 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onComplete, onResc
 
   return (
     <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
-      <PageHeader title={`Job #${job.id}`} onBack={onBack} right={<JobStatusPill status={job.status} />} />
+      <PageHeader title={`Job #${job.ref}`} onBack={onBack} right={<JobStatusPill status={job.status} />} />
       <div style={{ padding: "0 16px", flex: 1 }}>
         {/* Summary */}
         <div style={{ ...card, padding: 14 }}>
@@ -220,7 +222,7 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onComplete, onResc
               <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)" }}>{job.product}</p>
             </div>
           </div>
-          <p style={{ ...small, marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}><ClockIcon s={14} c="var(--ink-soft)" /> {job.date === TODAY ? "Today" : job.date}, {job.slot}</p>
+          <p style={{ ...small, marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}><ClockIcon s={14} c="var(--ink-soft)" /> {whenLabel(job)}, {job.slot}</p>
           <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 12, background: "var(--bg-secondary)" }}>
             <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "var(--ink-mute)" }}>CUSTOMER&apos;S ISSUE</p>
             <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--ink)", lineHeight: 1.5 }}>{job.issue}</p>
@@ -228,7 +230,7 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onComplete, onResc
           {job.photos?.length ? (
             <div style={{ marginTop: 10 }}>
               <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "var(--ink-mute)" }}>📷 CUSTOMER&apos;S PHOTOS ({job.photos.length}) · TAP TO ENLARGE</p>
-              <PhotoStrip photos={job.photos} size={72} />
+              <PhotoStrip photos={job.photos.map((p) => photoUrls[p]).filter(Boolean)} size={72} />
             </div>
           ) : null}
         </div>
@@ -262,7 +264,7 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onComplete, onResc
           {!closed && (
             <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
               <a href={`tel:${job.customer.phone}`} className="press" style={actionLink("var(--success)", "var(--success-text)")}><PhoneIcon s={16} c="var(--success-text)" /> Call</a>
-              <a href={mapsUrl(job.customer.address)} target="_blank" rel="noreferrer" className="press" style={actionLink("var(--blue-tint)", "var(--blue)")}><PinIcon s={16} c="var(--blue)" /> Navigate · {job.customer.distanceKm} km</a>
+              <a href={mapsUrl(job.customer.address)} target="_blank" rel="noreferrer" className="press" style={actionLink("var(--blue-tint)", "var(--blue)")}><PinIcon s={16} c="var(--blue)" /> Navigate{job.customer.distanceKm != null ? ` · ${job.customer.distanceKm} km` : ""}</a>
             </div>
           )}
         </div>
@@ -273,20 +275,25 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onComplete, onResc
         {job.status === "On the way" && (
           <div className="fade-up" style={{ ...card, marginTop: 12, padding: 12, display: "flex", alignItems: "center", gap: 10, background: "var(--info-bg)", boxShadow: "none", border: "1px solid var(--info-border)" }}>
             <span className="animate-pulse-dot" style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--blue)", flexShrink: 0 }} />
-            <p style={{ margin: 0, fontSize: 12.5, color: "var(--info-text)", fontWeight: 600 }}>Sharing live location with {job.customer.name.split(" ")[0]} until you arrive.</p>
+            <p style={{ margin: 0, fontSize: 12.5, color: "var(--info-text)", fontWeight: 600 }}>{sharing ?? `Sharing live location with ${job.customer.name.split(" ")[0]} until you arrive.`}</p>
           </div>
         )}
 
         {/* Arrived → OTP */}
         {job.status === "Arrived" && (
           <div className="fade-up" style={{ ...card, padding: 16, marginTop: 12, textAlign: "center" }}>
-            <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Enter the customer&apos;s start code</p>
-            <p style={small}>The customer sees a 4-digit code in their Zavtoo app.</p>
-            <input value={otp} onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 4)); setOtpErr(false); }}
-              inputMode="numeric" aria-label="Start code" placeholder="• • • •"
-              style={{ ...field, marginTop: 12, textAlign: "center", fontSize: 24, fontWeight: 800, letterSpacing: "0.5em", ...(otpErr ? { border: "1.5px solid var(--error-text)" } : {}) }} />
-            {otpErr && <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>Wrong code — ask the customer to check again.</p>}
-            <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--ink-mute)" }}>Demo code: {job.otp}</p>
+            {job.needsCode ? (
+              <>
+                <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Enter the customer&apos;s start code</p>
+                <p style={small}>The customer sees a 4-digit code in their Zavtoo app.</p>
+                <input value={otp} onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 4)); setOtpErr(null); }}
+                  inputMode="numeric" aria-label="Start code" placeholder="• • • •"
+                  style={{ ...field, marginTop: 12, textAlign: "center", fontSize: 24, fontWeight: 800, letterSpacing: "0.5em", ...(otpErr ? { border: "1.5px solid var(--error-text)" } : {}) }} />
+              </>
+            ) : (
+              <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)" }}>This customer doesn&apos;t use the app, so no start code is needed.</p>
+            )}
+            {otpErr && <p role="alert" style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{otpErr}</p>}
           </div>
         )}
 
@@ -371,7 +378,7 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onComplete, onResc
         <Footer>
           {job.status === "Accepted" && <PrimaryButton onClick={() => onUpdate({ status: "On the way" })}>Start Travel</PrimaryButton>}
           {job.status === "On the way" && <PrimaryButton onClick={() => onUpdate({ status: "Arrived" })}>I&apos;ve Arrived</PrimaryButton>}
-          {job.status === "Arrived" && <PrimaryButton disabled={otp.length !== 4} onClick={verifyOtp}>Verify &amp; Start Job</PrimaryButton>}
+          {job.status === "Arrived" && <PrimaryButton disabled={(job.needsCode && otp.length !== 4) || starting} onClick={verifyOtp}>{starting ? "Checking…" : job.needsCode ? "Verify & Start Job" : "Start Job"}</PrimaryButton>}
           {working && <PrimaryButton tone="gold" disabled={!canFinish} onClick={() => setSheet("bill")}>Complete Job · Collect {inr(customerBill(job))}</PrimaryButton>}
         </Footer>
       )}

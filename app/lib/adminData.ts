@@ -1,17 +1,20 @@
-/* Sample data for the admin panel at /admin. Stand-ins until the admin API is
- * live; catalogue, coupons, technicians and reviews reuse the shared data. */
+"use client";
 
-import { COUPONS, INITIAL_REVIEWS, PRODUCTS, TECHNICIANS, makeId, type Coupon, type Review, type ServiceType, type Technician } from "./data";
+/* Admin console data: shapes the screens use, and one loader that reads them
+ * all from Supabase (row-level security lets staff see everything). */
 
-/** Demo credentials — the login screen shows them. */
-export const ADMIN_DEMO = { email: "admin@zavtoo.in", password: "zavtoo@demo" };
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { fmtDay, toTechnician, type DbTechnician } from "./catalog";
+import { fmtDateOnly, type DbOrder, type DbRequest, type DbReview } from "./db";
+import type { Coupon, Review, ServiceType, Technician } from "./data";
 
-export const TODAY = "29 Sep 2026";
-
-/* ───────────── Customers ───────────── */
+/* ───────────── Shapes ───────────── */
 
 export interface AdminCustomer {
+  /** Auth user id. */
   id: string;
+  /** Unique customer ID, e.g. CUS-100101. */
+  code: string;
   name: string;
   phone: string;
   email: string;
@@ -24,101 +27,59 @@ export interface AdminCustomer {
   blocked: boolean;
 }
 
-export const CUSTOMERS: AdminCustomer[] = [
-  { id: "CUS-100101", name: "Alok Kumar", phone: "+91 98XXX XX210", email: "alok@gmail.com", city: "Noida", joined: "12 Aug 2026", orders: 3, spent: 14797, wallet: 415, amc: "Expiring", blocked: false },
-  { id: "CUS-100102", name: "Neha Gupta", phone: "+91 97XXX XX118", email: "neha.g@gmail.com", city: "Noida", joined: "03 Sep 2026", orders: 1, spent: 18999, wallet: 100, amc: "Active", blocked: false },
-  { id: "CUS-100103", name: "Sana Khan", phone: "+91 99XXX XX402", email: "sana.k@yahoo.com", city: "Noida", joined: "18 Mar 2026", orders: 4, spent: 16296, wallet: 0, amc: "Active", blocked: false },
-  { id: "CUS-100104", name: "Rajesh Pandey", phone: "+91 98XXX XX771", email: "rajesh.p@gmail.com", city: "Noida", joined: "22 Jul 2026", orders: 2, spent: 1798, wallet: 250, amc: "None", blocked: false },
-  { id: "CUS-100105", name: "Vikram Singh", phone: "+91 96XXX XX035", email: "vikram.s@outlook.com", city: "Ghaziabad", joined: "01 Sep 2026", orders: 1, spent: 18999, wallet: 100, amc: "Active", blocked: false },
-  { id: "CUS-100106", name: "Meena Verma", phone: "+91 95XXX XX650", email: "meena.v@gmail.com", city: "Noida", joined: "11 Jan 2026", orders: 5, spent: 20644, wallet: 65, amc: "Active", blocked: false },
-  { id: "CUS-100107", name: "Karan Joshi", phone: "+91 98XXX XX909", email: "karan.j@gmail.com", city: "Noida", joined: "14 Sep 2026", orders: 1, spent: 24999, wallet: 0, amc: "Active", blocked: false },
-  { id: "CUS-100108", name: "Cafe Brew", phone: "+91 88XXX XX313", email: "orders@cafebrew.in", city: "Noida", joined: "02 Aug 2026", orders: 2, spent: 44298, wallet: 0, amc: "None", blocked: false },
-  { id: "CUS-100109", name: "Farah Qureshi", phone: "+91 90XXX XX227", email: "farah.q@gmail.com", city: "Gurugram", joined: "27 Jun 2026", orders: 2, spent: 13498, wallet: 250, amc: "Expiring", blocked: false },
-  { id: "CUS-100110", name: "Test Spam", phone: "+91 70XXX XX000", email: "spam123@mail.ru", city: "—", joined: "28 Sep 2026", orders: 0, spent: 0, wallet: 0, amc: "None", blocked: true },
-];
-
-/* ───────────── Orders ───────────── */
-
 export type AdminOrderStatus = "Placed" | "Shipped" | "Delivered" | "Cancelled";
 export const ORDER_FLOW: AdminOrderStatus[] = ["Placed", "Shipped", "Delivered"];
 
 export interface AdminOrder {
+  /** Database id (uuid). */
   id: string;
+  ref: string;
   customerId: string;
   items: string;
   amount: number;
-  payment: "UPI" | "Card" | "COD" | "Wallet";
+  payment: string;
+  paymentStatus: string;
   date: string;
+  /** "YYYY-MM-DD" for reporting. */
+  day: string;
   status: AdminOrderStatus;
+  address: string;
 }
 
-export const ORDERS: AdminOrder[] = [
-  { id: "ZVT1245", customerId: "CUS-100107", items: "AquaPure RO Premium", amount: 24999, payment: "Card", date: TODAY, status: "Placed" },
-  { id: "ZVT1244", customerId: "CUS-100104", items: "Spare Parts Kit × 2", amount: 998, payment: "COD", date: TODAY, status: "Placed" },
-  { id: "ZVT1243", customerId: "CUS-100101", items: "AquaPure RO Classic", amount: 11284, payment: "UPI", date: TODAY, status: "Placed" },
-  { id: "ZVT1240", customerId: "CUS-100108", items: "Zavtoo Commercial 50 LPH", amount: 42999, payment: "Card", date: "28 Sep 2026", status: "Shipped" },
-  { id: "ZVT1238", customerId: "CUS-100102", items: "AquaPure RO Pro", amount: 18999, payment: "UPI", date: "27 Sep 2026", status: "Shipped" },
-  { id: "ZVT1236", customerId: "CUS-100109", items: "Filter Cartridges", amount: 1299, payment: "Wallet", date: "26 Sep 2026", status: "Delivered" },
-  { id: "ZVT1235", customerId: "CUS-100106", items: "Spare Parts Kit", amount: 499, payment: "UPI", date: "24 Sep 2026", status: "Delivered" },
-  { id: "ZVT1234", customerId: "CUS-100101", items: "AquaPure RO Classic", amount: 12999, payment: "UPI", date: "18 Sep 2026", status: "Delivered" },
-  { id: "ZVT1232", customerId: "CUS-100101", items: "Filter Cartridges", amount: 1299, payment: "UPI", date: "05 Sep 2026", status: "Shipped" },
-  { id: "ZVT1229", customerId: "CUS-100105", items: "AquaPure RO Pro", amount: 18999, payment: "Card", date: "01 Sep 2026", status: "Delivered" },
-  { id: "ZVT1226", customerId: "CUS-100103", items: "Filter Cartridges", amount: 1299, payment: "COD", date: "29 Aug 2026", status: "Cancelled" },
-];
-
-/* ───────────── Service jobs ───────────── */
-
-export type AdminJobStatus = "Unassigned" | "Assigned" | "In Progress" | "Completed" | "Rescheduled" | "Cancelled";
+export type AdminJobStatus =
+  | "Awaiting tech" | "Unassigned" | "Assigned" | "On the way" | "Arrived" | "In Progress" | "Completed" | "Rescheduled" | "Cancelled";
 
 export interface AdminJob {
   id: string;
+  ref: string;
   customerId: string;
   type: ServiceType;
   product: string;
   date: string;
+  /** "YYYY-MM-DD" visit date. */
+  isoDate: string;
   slot: string;
   area: string;
+  pincode: string;
   techId: string | null;
+  preferredTechId: string | null;
   status: AdminJobStatus;
   amount: number;
   rating?: number;
   note?: string;
-  /** Set for tasks a technician raised — the customer isn't in the CRM yet. */
   customerLabel?: string;
+  customerPhone?: string;
   raisedBy?: string;
+  completedDay?: string | null;
 }
-
-export const JOBS: AdminJob[] = [
-  { id: "SRV1060", customerId: "CUS-100109", type: "Repair", product: "AquaPure RO Classic", date: "30 Sep 2026", slot: "10 AM – 12 PM", area: "Gurugram", techId: null, status: "Unassigned", amount: 499 },
-  { id: "SRV1059", customerId: "CUS-100105", type: "Installation", product: "AquaPure RO Pro", date: "30 Sep 2026", slot: "12 – 2 PM", area: "Ghaziabad", techId: null, status: "Unassigned", amount: 0 },
-  { id: "SRV1058", customerId: "CUS-100107", type: "Repair", product: "AquaPure RO Premium", date: TODAY, slot: "2 – 4 PM", area: "Sector 78", techId: "t1", status: "Assigned", amount: 499 },
-  { id: "SRV1047", customerId: "CUS-100103", type: "AMC", product: "AquaPure RO Classic", date: TODAY, slot: "4 – 6 PM", area: "Sector 74", techId: "t1", status: "Assigned", amount: 0 },
-  { id: "SRV1046", customerId: "CUS-100102", type: "Installation", product: "AquaPure RO Pro", date: TODAY, slot: "12 – 2 PM", area: "Sector 51", techId: "t1", status: "Rescheduled", amount: 0, note: "Customer not available" },
-  { id: "SRV1041", customerId: "CUS-100101", type: "Repair", product: "AquaPure RO Classic", date: TODAY, slot: "10 AM – 12 PM", area: "Sector 62", techId: "t1", status: "In Progress", amount: 499 },
-  { id: "SRV1044", customerId: "CUS-100108", type: "Filter Change", product: "Commercial 50 LPH", date: TODAY, slot: "8 – 10 AM", area: "Sector 18", techId: "t2", status: "In Progress", amount: 899 },
-  { id: "SRV1038", customerId: "CUS-100106", type: "Repair", product: "AquaPure RO Pro", date: TODAY, slot: "8 – 10 AM", area: "Sector 41", techId: "t1", status: "Completed", amount: 1319, rating: 5 },
-  { id: "SRV1035", customerId: "CUS-100104", type: "Water Test", product: "Other brand", date: "28 Sep 2026", slot: "10 AM – 12 PM", area: "Sector 27", techId: "t3", status: "Completed", amount: 199, rating: 4 },
-  { id: "SRV1031", customerId: "CUS-100103", type: "AMC", product: "AquaPure RO Classic", date: "27 Sep 2026", slot: "4 – 6 PM", area: "Sector 74", techId: "t3", status: "Completed", amount: 1999, rating: 5 },
-];
-
-/* ───────────── Technicians ───────────── */
 
 export interface AdminTech extends Technician {
   status: "Online" | "Offline" | "On job";
   area: string;
   kyc: "Verified" | "Pending";
   active: boolean;
+  email: string;
 }
-
-export const ADMIN_TECHS: AdminTech[] = [
-  { ...TECHNICIANS[0], status: "On job", area: "Noida", kyc: "Verified", active: true },
-  { ...TECHNICIANS[1], status: "On job", area: "Noida", kyc: "Verified", active: true },
-  { ...TECHNICIANS[2], status: "Online", area: "Noida · Ghaziabad", kyc: "Verified", active: true },
-  { ...TECHNICIANS[3], status: "Offline", area: "Gurugram", kyc: "Verified", active: true },
-  { id: "t5", code: makeId("technician", 5), name: "Amit Rawat", initials: "AR", rating: 0, jobs: 0, years: 2, skills: ["Repair", "Filter change"], languages: "Hindi, English", phone: "+919800000004", pincodes: ["122001", "122003"], dealerId: makeId("dealer", 3), status: "Offline", area: "Gurugram", kyc: "Pending", active: false },
-];
-
-/* ───────────── Catalogue, coupons, reviews ───────────── */
 
 export interface AdminProduct {
   id: string;
@@ -126,40 +87,21 @@ export interface AdminProduct {
   category: string;
   price: number;
   mrp: number;
-  stock: number;
+  /** null = not tracked. */
+  stock: number | null;
   active: boolean;
 }
-
-const STOCK: Record<string, number> = { classic: 42, pro: 18, premium: 6, "commercial-50": 4, "commercial-100": 0, spares: 120, cartridges: 64 };
-
-export const ADMIN_PRODUCTS: AdminProduct[] = PRODUCTS.map((p) => ({
-  id: p.id, name: p.name, category: p.category, price: p.price, mrp: p.mrp, stock: STOCK[p.id] ?? 0, active: true,
-}));
 
 export interface AdminCoupon extends Coupon {
   active: boolean;
   used: number;
+  /** "YYYY-MM-DD". */
+  expiresIso: string;
 }
-
-export const ADMIN_COUPONS: AdminCoupon[] = COUPONS.map((c, i) => ({ ...c, active: true, used: [214, 96, 58, 33, 141][i] ?? 0 }));
 
 export interface AdminReview extends Review {
   status: "Published" | "Hidden" | "Flagged";
 }
-
-export const ADMIN_REVIEWS: AdminReview[] = [
-  { id: "rf1", productId: "pro", author: "Unknown", stars: 1, body: "Worst purifier!!! Buy from XYZ-water dot com instead, cheaper!!!", date: "28 Sep 2026", status: "Flagged" },
-  ...INITIAL_REVIEWS.map((r) => ({ ...r, status: "Published" as const })),
-];
-
-/* ───────────── Reporting ───────────── */
-
-/** Revenue (₹) for the 14 days ending today. */
-export const REVENUE_14D = [
-  { d: "16", v: 38400 }, { d: "17", v: 52100 }, { d: "18", v: 61200 }, { d: "19", v: 29800 }, { d: "20", v: 44700 },
-  { d: "21", v: 71300 }, { d: "22", v: 35200 }, { d: "23", v: 48900 }, { d: "24", v: 40100 }, { d: "25", v: 66800 },
-  { d: "26", v: 58300 }, { d: "27", v: 49600 }, { d: "28", v: 81200 }, { d: "29", v: 37281 },
-];
 
 export interface Broadcast {
   id: string;
@@ -171,17 +113,12 @@ export interface Broadcast {
   reach: number;
 }
 
-export const BROADCASTS: Broadcast[] = [
-  { id: "b2", title: "10% off purifiers 💧", body: "Use PURE10 and save up to ₹2,000 this festive season.", audience: "All customers", channels: ["Push", "WhatsApp"], sentAt: "25 Sep 2026, 09:00 AM", reach: 4820 },
-  { id: "b1", title: "Time for a filter change?", body: "Book a filter change for ₹899, genuine parts included.", audience: "No AMC", channels: ["Push", "SMS"], sentAt: "15 Sep 2026, 11:00 AM", reach: 2210 },
-];
-
-export const AUDIENCES: Record<string, number> = { "All customers": 4820, "AMC active": 1630, "AMC expiring": 214, "No AMC": 2210, "Technicians": 42 };
-
-/* ───────────── Dealers ───────────── */
+export const AUDIENCES = ["All customers", "AMC active", "No AMC", "Technicians"] as const;
 
 export interface Dealer {
   id: string;
+  /** Unique dealer ID, e.g. DLR-300101. */
+  code: string;
   name: string;
   owner: string;
   phone: string;
@@ -191,8 +128,129 @@ export interface Dealer {
   active: boolean;
 }
 
-export const DEALERS: Dealer[] = [
-  { id: makeId("dealer", 1), name: "AquaCare Noida", owner: "Sanjay Mehta", phone: "+91 98XXX XX501", city: "Noida", pincodes: ["201301", "201303", "201304", "201307", "201309"], since: "Jan 2025", active: true },
-  { id: makeId("dealer", 2), name: "PureFlow Ghaziabad", owner: "Nitin Arora", phone: "+91 97XXX XX622", city: "Ghaziabad", pincodes: ["201010", "201014"], since: "Jun 2025", active: true },
-  { id: makeId("dealer", 3), name: "Gurgaon Water Solutions", owner: "Kavita Rao", phone: "+91 99XXX XX744", city: "Gurugram", pincodes: ["122001", "122002", "122003", "122018"], since: "Mar 2026", active: true },
-];
+export interface StockRequest {
+  id: string;
+  techId: string;
+  items: Record<string, number>;
+  status: "Pending" | "Approved" | "Rejected";
+  at: string;
+}
+
+export interface AdminData {
+  orders: AdminOrder[];
+  jobs: AdminJob[];
+  customers: AdminCustomer[];
+  techs: AdminTech[];
+  products: AdminProduct[];
+  coupons: AdminCoupon[];
+  reviews: AdminReview[];
+  dealers: Dealer[];
+  broadcasts: Broadcast[];
+  stockRequests: StockRequest[];
+}
+
+/* ───────────── Loader ───────────── */
+
+const jobStatus = (r: DbRequest): AdminJobStatus =>
+  r.status === "Requested" ? (r.preferred_tech_id ? "Awaiting tech" : "Unassigned")
+    : r.status === "With ops" ? "Unassigned" : (r.status as AdminJobStatus);
+
+const areaOf = (address: string, pincode: string) => {
+  const parts = address.replace(/^\w+ · /, "").split(",").map((s) => s.trim()).filter(Boolean);
+  return parts.length > 1 ? parts.slice(-2).join(", ").replace(/\s*\d{6}$/, "") : pincode;
+};
+
+async function all<T>(q: PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
+  const [orders, requests, profiles, techs, products, coupons, reviews, dealers, broadcasts, wallet, stock] = await Promise.all([
+    all<DbOrder>(sb.from("orders").select("*").order("created_at", { ascending: false }).limit(2000)),
+    all<DbRequest>(sb.from("service_requests").select("*").order("created_at", { ascending: false }).limit(2000)),
+    all<{ id: string; code: string; full_name: string; email: string | null; phone: string | null; blocked: boolean; created_at: string; role: string }>(
+      sb.from("profiles").select("id, code, full_name, email, phone, blocked, created_at, role").eq("role", "customer").order("created_at", { ascending: false }).limit(5000)),
+    all<DbTechnician>(sb.from("technicians").select("*").order("created_at")),
+    all<{ id: string; name: string; category: string; price: number; mrp: number; stock: number | null; active: boolean }>(sb.from("products").select("id, name, category, price, mrp, stock, active").order("sort")),
+    all<{ code: string; title: string; descr: string; kind: "flat" | "percent"; value: number; max_off: number | null; min_order: number; applies_to: "product" | "service" | "all"; expires: string; active: boolean; used: number }>(
+      sb.from("coupons").select("*").order("created_at", { ascending: false })),
+    all<DbReview>(sb.from("reviews").select("*").order("created_at", { ascending: false }).limit(1000)),
+    all<{ id: string; code: string; name: string; owner: string; phone: string; city: string; pincodes: string[]; active: boolean; created_at: string }>(sb.from("dealers").select("*").order("created_at")),
+    all<{ id: string; title: string; body: string; audience: string; channels: string[]; reach: number; created_at: string }>(sb.from("broadcasts").select("*").order("created_at", { ascending: false }).limit(100)),
+    all<{ user_id: string; amount: number }>(sb.from("wallet_txns").select("user_id, amount").limit(20000)),
+    all<{ id: string; tech_id: string; items: Record<string, number>; status: StockRequest["status"]; created_at: string }>(sb.from("stock_requests").select("*").order("created_at", { ascending: false }).limit(200)),
+  ]);
+
+  const techById = new Map(techs.map((t) => [t.id, t]));
+  const walletBy = new Map<string, number>();
+  wallet.forEach((w) => walletBy.set(w.user_id, (walletBy.get(w.user_id) ?? 0) + w.amount));
+
+  // AMC is active for a year after a completed AMC visit; "Expiring" in its last 30 days.
+  const amcUntil = new Map<string, number>();
+  requests.filter((r) => r.type === "AMC" && r.status === "Completed" && r.customer_id && r.completed_at).forEach((r) => {
+    const until = new Date(r.completed_at!).getTime() + 365 * 864e5;
+    amcUntil.set(r.customer_id!, Math.max(amcUntil.get(r.customer_id!) ?? 0, until));
+  });
+
+  const lastAddress = new Map<string, string>();
+  [...requests].reverse().forEach((r) => { if (r.customer_id) lastAddress.set(r.customer_id, r.address); });
+  [...orders].reverse().forEach((o) => lastAddress.set(o.customer_id, o.address));
+
+  return {
+    orders: orders.map((o) => ({
+      id: o.id, ref: o.ref, customerId: o.customer_id, items: o.items.map((i) => (i.qty > 1 ? `${i.name} × ${i.qty}` : i.name)).join(", "),
+      amount: o.amount, payment: o.payment, paymentStatus: o.payment_status, date: fmtDateOnly(o.created_at), day: o.created_at.slice(0, 10),
+      status: o.status, address: o.address,
+    })),
+    jobs: requests.map((r) => ({
+      id: r.id, ref: r.ref, customerId: r.customer_id ?? "", type: r.type, product: r.product, date: fmtDay(r.visit_date), isoDate: r.visit_date,
+      slot: r.slot, area: areaOf(r.address, r.pincode), pincode: r.pincode, techId: r.tech_id, preferredTechId: r.preferred_tech_id,
+      status: jobStatus(r), amount: r.amount, rating: r.rating ?? undefined,
+      note: r.reschedule_reason ?? r.note ?? (r.description || undefined),
+      customerLabel: r.customer_name, customerPhone: r.customer_phone,
+      raisedBy: r.source === "technician" && r.raised_by ? techById.get(r.raised_by)?.name : undefined,
+      completedDay: r.completed_at?.slice(0, 10) ?? null,
+    })),
+    customers: profiles.map((p) => {
+      const mine = orders.filter((o) => o.customer_id === p.id && o.status !== "Cancelled");
+      const jobsSpent = requests.filter((r) => r.customer_id === p.id && r.status === "Completed").reduce((s, r) => s + r.amount, 0);
+      const until = amcUntil.get(p.id) ?? 0;
+      const addr = lastAddress.get(p.id) ?? "";
+      return {
+        id: p.id, code: p.code, name: p.full_name || "(no name)", phone: p.phone ?? "", email: p.email ?? "",
+        city: addr ? areaOf(addr, "—") : "—", joined: fmtDateOnly(p.created_at), orders: mine.length,
+        spent: mine.reduce((s, o) => s + o.amount, 0) + jobsSpent, wallet: walletBy.get(p.id) ?? 0,
+        amc: until > Date.now() ? (until - Date.now() < 30 * 864e5 ? "Expiring" : "Active") : "None", blocked: p.blocked,
+      };
+    }),
+    techs: techs.map((t) => ({
+      ...toTechnician(t), status: t.status, kyc: t.kyc, active: t.active, email: t.email ?? "",
+      area: t.pincodes?.length ? t.pincodes.join(", ") : "No pincodes yet",
+    })),
+    products: products.map((p) => ({ ...p })),
+    coupons: coupons.map((c) => ({
+      code: c.code, title: c.title, desc: c.descr, kind: c.kind, value: c.value, maxOff: c.max_off ?? undefined, minOrder: c.min_order,
+      appliesTo: c.applies_to, expires: fmtDay(c.expires), expiresIso: c.expires, active: c.active, used: c.used,
+    })),
+    reviews: reviews.map((r) => ({
+      id: r.id, productId: r.product_id ?? undefined, techId: r.tech_id ?? undefined, author: r.author_name, stars: r.stars, body: r.body,
+      date: fmtDateOnly(r.created_at), status: r.status,
+    })),
+    dealers: dealers.map((d) => ({
+      id: d.id, code: d.code, name: d.name, owner: d.owner, phone: d.phone, city: d.city, pincodes: d.pincodes ?? [],
+      since: fmtDateOnly(d.created_at).slice(3), active: d.active,
+    })),
+    broadcasts: broadcasts.map((b) => ({
+      id: b.id, title: b.title, body: b.body, audience: b.audience, channels: b.channels, reach: b.reach,
+      sentAt: new Date(b.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }),
+    })),
+    stockRequests: stock.map((s) => ({ id: s.id, techId: s.tech_id, items: s.items, status: s.status, at: fmtDateOnly(s.created_at) })),
+  };
+}
+
+/** Tables whose changes should refresh the console. */
+export const ADMIN_WATCH = [
+  "orders", "service_requests", "profiles", "technicians", "products", "coupons", "reviews", "dealers", "broadcasts", "stock_requests",
+].map((table) => ({ table }));

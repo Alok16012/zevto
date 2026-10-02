@@ -2,22 +2,25 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { CheckIcon, PinIcon, StarIcon } from "../components/icons";
-import { BottomSheet, PageHeader, PrimaryButton, Toggle, card, sectionTitle } from "../components/ui";
+import { CheckIcon, StarIcon } from "../components/icons";
+import { BottomSheet, PageHeader, PrimaryButton, card, sectionTitle } from "../components/ui";
 import TechAvatar, { photoToDataUrl } from "../components/TechAvatar";
-import { updateBridge, useBridge } from "../lib/bridge";
-import { DEALERS } from "../lib/adminData";
 import { ServiceAreaEditor, ServiceAreaSummary } from "./ServiceArea";
 import { ReviewCard } from "../components/Reviews";
-import { inr, servicePincodes, type Review, type Technician } from "../lib/data";
-import { PARTS, PAYOUTS, PAYOUT, TODAY, WEEK_EARNINGS, jobPayout, type Job } from "../lib/techData";
+import { inr, type Review, type Technician } from "../lib/data";
+import { PARTS, PAYOUT, jobPayout, todayIso, type Job } from "../lib/techData";
+
+export interface Payout { id: string; period: string; amount: number; status: "Pending" | "Paid"; paidAt: string | null }
+export interface MyStockRequest { id: string; items: Record<string, number>; status: "Pending" | "Approved" | "Rejected"; at: string }
 
 const small: React.CSSProperties = { margin: "2px 0 0", fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 };
 const LOW_STOCK = 2;
 
 /* ───────────────────────── Van inventory ───────────────────────── */
 
-export function InventoryScreen({ stock, onRequest }: { stock: Record<string, number>; onRequest: (items: Record<string, number>) => void }) {
+export function InventoryScreen({ stock, requests, onRequest }: {
+  stock: Record<string, number>; requests: MyStockRequest[]; onRequest: (items: Record<string, number>) => Promise<boolean>;
+}) {
   const [asking, setAsking] = useState(false);
   const [req, setReq] = useState<Record<string, number>>({});
   const low = PARTS.filter((p) => (stock[p.id] ?? 0) <= LOW_STOCK);
@@ -60,6 +63,24 @@ export function InventoryScreen({ stock, onRequest }: { stock: Record<string, nu
           })}
         </div>
         <PrimaryButton onClick={openRequest} style={{ marginTop: 14 }}>Request stock from warehouse</PrimaryButton>
+        {requests.length > 0 && (
+          <>
+            <h3 style={sectionTitle}>Your requests</h3>
+            <div style={{ ...card, padding: "4px 14px" }}>
+              {requests.slice(0, 10).map((r, i) => (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 0", borderTop: i ? "1px solid var(--line)" : "none" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{Object.entries(r.items).map(([id, n]) => `${PARTS.find((p) => p.id === id)?.name ?? id} × ${n}`).join(", ")}</p>
+                    <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-mute)" }}>{r.at}</p>
+                  </div>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: 999, whiteSpace: "nowrap",
+                    background: r.status === "Approved" ? "var(--success)" : r.status === "Rejected" ? "var(--error)" : "var(--warning)",
+                    color: r.status === "Approved" ? "var(--success-text)" : r.status === "Rejected" ? "var(--error-text)" : "var(--warning-text)" }}>{r.status}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
         <p style={{ ...small, textAlign: "center", fontSize: 11.5 }}>Parts used on a job are deducted when you close it.</p>
       </div>
 
@@ -78,8 +99,11 @@ export function InventoryScreen({ stock, onRequest }: { stock: Record<string, nu
               );
             })}
           </div>
-          <p style={{ ...small, fontSize: 12, margin: "10px 4px 14px" }}>Pick up from the Sector 63 warehouse after 6 PM. Demo: stock is added straight away.</p>
-          <PrimaryButton disabled={!Object.values(req).some(Boolean)} onClick={() => { onRequest(req); setAsking(false); }}>Send Request</PrimaryButton>
+          <p style={{ ...small, fontSize: 12, margin: "10px 4px 14px" }}>Ops reviews the request. Once approved, it&apos;s added to your van stock here.</p>
+          <PrimaryButton disabled={!Object.values(req).some(Boolean)} onClick={async () => {
+            const items = Object.fromEntries(Object.entries(req).filter(([, n]) => n > 0));
+            if (await onRequest(items)) setAsking(false);
+          }}>Send Request</PrimaryButton>
         </BottomSheet>
       )}
     </div>
@@ -90,14 +114,24 @@ const qtyBtn: React.CSSProperties = { width: 30, height: 30, border: "none", bor
 
 /* ───────────────────────── Earnings ───────────────────────── */
 
-export function EarningsScreen({ jobs }: { jobs: Job[] }) {
-  const doneToday = jobs.filter((j) => j.status === "Completed" && j.date === TODAY);
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const localIso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+export function EarningsScreen({ jobs, payouts }: { jobs: Job[]; payouts: Payout[] }) {
+  const done = jobs.filter((j) => j.status === "Completed" && j.completedIso);
+  const dayOf = (j: Job) => localIso(new Date(j.completedIso!));
+  const todayKey = todayIso();
+  const doneToday = done.filter((j) => dayOf(j) === todayKey);
   const today = doneToday.reduce((s, j) => s + jobPayout(j), 0);
-  const week = [...WEEK_EARNINGS, { day: "Today", amount: today, jobs: doneToday.length }];
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    const key = localIso(d);
+    const mine = done.filter((j) => dayOf(j) === key);
+    return { day: i === 6 ? "Today" : DAY_NAMES[d.getDay()], amount: mine.reduce((s, j) => s + jobPayout(j), 0), jobs: mine.length };
+  });
   const weekTotal = week.reduce((s, d) => s + d.amount, 0);
   const max = Math.max(...week.map((d) => d.amount), 1);
   const cash = doneToday.filter((j) => j.payment === "Cash").reduce((s, j) => s + (j.amc ? 0 : j.visitCharge), 0);
-  // Weekly incentive: ₹500 bonus for 35+ jobs in the last 7 days.
   const weekJobs = week.reduce((s, d) => s + d.jobs, 0);
 
   return (
@@ -105,7 +139,7 @@ export function EarningsScreen({ jobs }: { jobs: Job[] }) {
       <PageHeader title="Earnings" />
       <div style={{ padding: "0 16px" }}>
         <div style={{ borderRadius: 22, padding: 18, color: "white", background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(11,92,255,0.28)" }}>
-          <p style={{ margin: 0, fontSize: 12.5, color: "rgba(255,255,255,0.8)" }}>Last 7 days · 23 – 29 Sep</p>
+          <p style={{ margin: 0, fontSize: 12.5, color: "rgba(255,255,255,0.8)" }}>Last 7 days</p>
           <p style={{ margin: "4px 0 14px", fontSize: 30, fontWeight: 800 }}>{inr(weekTotal)}</p>
           {/* Bar chart */}
           <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 90 }}>
@@ -127,15 +161,6 @@ export function EarningsScreen({ jobs }: { jobs: Job[] }) {
           ))}
         </div>
 
-        <div style={{ ...card, padding: 14, marginTop: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
-            <span>🎯 Weekly target bonus · ₹500</span><span style={{ color: "var(--blue)" }}>{Math.min(weekJobs, 35)}/35 jobs</span>
-          </div>
-          <div style={{ height: 7, borderRadius: 4, background: "var(--line)", marginTop: 8 }}>
-            <div style={{ width: `${Math.min(100, (weekJobs / 35) * 100)}%`, height: "100%", borderRadius: 4, background: "linear-gradient(90deg,var(--gold),var(--gold-dark))" }} />
-          </div>
-          <p style={{ ...small, fontSize: 11.5 }}>{weekJobs >= 35 ? "Bonus unlocked! It'll be added to Monday's payout." : `${35 - weekJobs} more jobs to unlock the bonus.`}</p>
-        </div>
 
         <h3 style={sectionTitle}>Today&apos;s jobs</h3>
         <div style={{ ...card, padding: "4px 14px" }}>
@@ -143,7 +168,7 @@ export function EarningsScreen({ jobs }: { jobs: Job[] }) {
             <div key={j.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 0", borderTop: i ? "1px solid var(--line)" : "none" }}>
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{j.type} · {j.customer.name}</p>
-                <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-mute)" }}>#{j.id} · {j.payment}</p>
+                <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-mute)" }}>#{j.ref} · {j.payment}</p>
               </div>
               <span style={{ fontSize: 14, fontWeight: 700, color: "var(--success-text)" }}>+{inr(jobPayout(j))}</span>
             </div>
@@ -156,16 +181,19 @@ export function EarningsScreen({ jobs }: { jobs: Job[] }) {
 
         <h3 style={sectionTitle}>Weekly payouts</h3>
         <div style={{ ...card, padding: "4px 14px" }}>
-          {PAYOUTS.map((p, i) => (
+          {payouts.map((p, i) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 0", borderTop: i ? "1px solid var(--line)" : "none" }}>
-              <span style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--success)", display: "flex", alignItems: "center", justifyContent: "center" }}><CheckIcon s={13} c="var(--success-text)" /></span>
+              <span style={{ width: 26, height: 26, borderRadius: "50%", background: p.status === "Paid" ? "var(--success)" : "var(--warning)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {p.status === "Paid" ? <CheckIcon s={13} c="var(--success-text)" /> : <span style={{ fontSize: 12, color: "var(--warning-text)" }}>…</span>}
+              </span>
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{p.period}</p>
-                <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-mute)" }}>Paid to bank · {p.at}</p>
+                <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-mute)" }}>{p.status === "Paid" ? `Paid to bank · ${p.paidAt ?? ""}` : "Being processed"}</p>
               </div>
               <span style={{ fontSize: 14, fontWeight: 700 }}>{inr(p.amount)}</span>
             </div>
           ))}
+          {payouts.length === 0 && <p style={{ margin: 0, padding: "16px 0", textAlign: "center", fontSize: 13, color: "var(--ink-mute)" }}>No payouts yet. Zavtoo settles completed jobs weekly.</p>}
         </div>
       </div>
     </div>
@@ -174,41 +202,31 @@ export function EarningsScreen({ jobs }: { jobs: Job[] }) {
 
 /* ───────────────────────── Partner profile ───────────────────────── */
 
-export function PartnerProfileScreen({ tech, reviews, jobsDone, onLogout, notify }: {
-  tech: Technician; reviews: Review[]; jobsDone: number; onLogout: () => void; notify: (m: string) => void;
+export function PartnerProfileScreen({ tech, kyc, email, dealer, reviews, onLogout, onPhoto, onSavePincodes }: {
+  tech: Technician; kyc: "Pending" | "Verified"; email: string; dealer: { name: string; code: string } | null; reviews: Review[];
+  onLogout: () => void; onPhoto: (dataUrl: string | null) => Promise<boolean>; onSavePincodes: (pins: string[]) => Promise<boolean>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [photoErr, setPhotoErr] = useState<string | null>(null);
-  const bridge = useBridge();
-  const hasPhoto = !!bridge.photos[tech.id];
-  const pins = servicePincodes(tech, bridge.techAreas);
+  const [busy, setBusy] = useState(false);
+  const hasPhoto = !!tech.photoUrl;
+  const pins = tech.pincodes;
   const [editArea, setEditArea] = useState(false);
-  const dealer = DEALERS.find((d) => d.id === tech.dealerId);
 
   const pickPhoto = async (file: File | undefined) => {
     if (!file) return;
+    setBusy(true);
     try {
       const url = await photoToDataUrl(file);
-      const saved = updateBridge((b) => ({ ...b, photos: { ...b.photos, [tech.id]: url } }));
-      if (!saved) throw new Error("Not enough space to save the photo");
+      if (!(await onPhoto(url))) throw new Error("Couldn't upload the photo");
       setPhotoErr(null);
-      notify("Photo updated — customers will see it");
     } catch (e) {
       setPhotoErr(e instanceof Error ? e.message : "Couldn't use that photo");
     }
+    setBusy(false);
     if (fileRef.current) fileRef.current.value = "";
   };
-  const removePhoto = () => {
-    updateBridge((b) => {
-      const photos = { ...b.photos };
-      delete photos[tech.id];
-      return { ...b, photos };
-    });
-    notify("Photo removed");
-  };
-
-  const [days, setDays] = useState<string[]>(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
-  const [autoAccept, setAutoAccept] = useState(false);
+  const removePhoto = () => { void onPhoto(null); };
   const mine = reviews.filter((r) => r.techId === tech.id);
 
   return (
@@ -218,7 +236,7 @@ export function PartnerProfileScreen({ tech, reviews, jobsDone, onLogout, notify
         <div style={{ ...card, padding: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ position: "relative" }}>
-              <TechAvatar id={tech.id} name={tech.name} size={72} ring />
+              <TechAvatar id={tech.id} name={tech.name} size={72} ring photoUrl={tech.photoUrl ?? null} />
               <button onClick={() => fileRef.current?.click()} aria-label="Change photo" className="press" style={{
                 position: "absolute", right: -4, bottom: -2, width: 28, height: 28, borderRadius: "50%", border: "2px solid white", cursor: "pointer",
                 background: "var(--blue)", color: "white", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center",
@@ -228,20 +246,23 @@ export function PartnerProfileScreen({ tech, reviews, jobsDone, onLogout, notify
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{tech.name}</p>
               <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)" }}>Technician ID <b style={{ color: "var(--ink)", letterSpacing: "0.03em" }}>{tech.code}</b></p>
-              {dealer && <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>Dealer: {dealer.name} · {dealer.id}</p>}
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--success-text)", fontWeight: 600 }}>✓ KYC verified · background checked</p>
+              {dealer && <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>Dealer: {dealer.name} · {dealer.code}</p>}
+              <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)", overflowWrap: "anywhere" }}>{email}</p>
+              {kyc === "Verified"
+                ? <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--success-text)", fontWeight: 600 }}>✓ KYC verified</p>
+                : <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--warning-text)", fontWeight: 600 }}>KYC pending — Zavtoo will verify your documents</p>}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 12 }}>
             <button onClick={() => fileRef.current?.click()} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--blue)", fontSize: 12.5, fontWeight: 600 }}>
-              {hasPhoto ? "Change photo" : "Add your photo"}
+              {busy ? "Uploading…" : hasPhoto ? "Change photo" : "Add your photo"}
             </button>
             {hasPhoto && <button onClick={removePhoto} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--red)", fontSize: 12.5, fontWeight: 600 }}>Remove</button>}
             <span style={{ fontSize: 11, color: "var(--ink-mute)" }}>{hasPhoto ? "Shown to customers" : "Customers see this before you arrive"}</span>
           </div>
           {photoErr && <p role="alert" style={{ margin: "6px 0 0", fontSize: 12, color: "var(--error-text)", fontWeight: 600 }}>{photoErr}</p>}
           <div style={{ display: "flex", marginTop: 14, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-            {[[<><StarIcon key="s" s={14} /> {tech.rating}</>, "Rating"], [(tech.jobs + jobsDone).toLocaleString("en-IN"), "Jobs done"], [`${tech.years} yrs`, "Experience"]].map(([v, l], i) => (
+            {[[<><StarIcon key="s" s={14} /> {tech.rating || "New"}</>, "Rating"], [tech.jobs.toLocaleString("en-IN"), "Jobs done"], [`${tech.years} yrs`, "Experience"]].map(([v, l], i) => (
               <div key={i} style={{ flex: 1, textAlign: "center", borderRight: i < 2 ? "1px solid var(--line)" : "none" }}>
                 <p style={{ margin: 0, fontSize: 16, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>{v}</p>
                 <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-mute)" }}>{l}</p>
@@ -253,50 +274,21 @@ export function PartnerProfileScreen({ tech, reviews, jobsDone, onLogout, notify
         <h3 style={sectionTitle}>Service area</h3>
         {editArea ? (
           <div style={{ ...card, padding: 14 }}>
-            <ServiceAreaEditor initial={pins} onSave={(p) => {
-              updateBridge((b) => ({ ...b, techAreas: { ...b.techAreas, [tech.id]: p } }));
-              setEditArea(false); notify(`Service area saved · ${p.length} pincodes`);
-            }} />
+            <ServiceAreaEditor initial={pins} onSave={async (p) => { if (await onSavePincodes(p)) setEditArea(false); }} />
           </div>
         ) : <ServiceAreaSummary pins={pins} onEdit={() => setEditArea(true)} />}
 
-        <h3 style={sectionTitle}>Availability</h3>
-        <div style={{ ...card, padding: 14 }}>
-          <div style={{ display: "flex", gap: 6 }}>
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => {
-              const on = days.includes(d);
-              return (
-                <button key={d} onClick={() => setDays(on ? days.filter((x) => x !== d) : [...days, d])} aria-pressed={on} style={{
-                  flex: 1, padding: "9px 0", borderRadius: 10, cursor: "pointer", fontSize: 11.5, fontWeight: 700, border: "none",
-                  background: on ? "var(--blue)" : "var(--bg-secondary)", color: on ? "white" : "var(--ink-mute)",
-                }}>{d.slice(0, 2)}</button>
-              );
-            })}
-          </div>
-          <p style={{ ...small, fontSize: 12 }}>Working hours 8:00 AM – 6:00 PM</p>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
-            <div><p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>Auto-accept nearby jobs</p><p style={{ ...small, fontSize: 11.5 }}>Within 3 km, in your free slots</p></div>
-            <Toggle on={autoAccept} onChange={setAutoAccept} label="Auto-accept nearby jobs" />
-          </div>
-        </div>
 
         <h3 style={sectionTitle}>Skills</h3>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {tech.skills.map((s) => <span key={s} style={{ fontSize: 12, fontWeight: 600, color: "var(--blue)", background: "var(--blue-tint)", padding: "6px 12px", borderRadius: 999 }}>{s}</span>)}
         </div>
 
-        <h3 style={sectionTitle}>Documents</h3>
-        <div style={{ ...card, padding: "4px 14px" }}>
-          {[["Aadhaar card", "Verified"], ["Driving licence", "Verified"], ["Bank account ••4410", "Verified"], ["RO training certificate", "Expires Mar 2027"]].map(([d, s], i) => (
-            <div key={d} style={{ display: "flex", justifyContent: "space-between", padding: "11px 0", borderTop: i ? "1px solid var(--line)" : "none", fontSize: 13.5 }}>
-              <span>{d}</span><span style={{ fontSize: 12, fontWeight: 600, color: "var(--success-text)" }}>{s}</span>
-            </div>
-          ))}
-        </div>
 
         <h3 style={sectionTitle}>Customer reviews ({mine.length})</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {mine.map((r) => <ReviewCard key={r.id} r={r} />)}
+          {mine.length === 0 && <p style={{ ...card, margin: 0, padding: 16, textAlign: "center", color: "var(--ink-soft)", fontSize: 13 }}>Reviews from your customers will show up here.</p>}
         </div>
 
         <div style={{ marginTop: 22 }}>

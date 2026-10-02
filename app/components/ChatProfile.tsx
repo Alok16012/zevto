@@ -159,7 +159,7 @@ const MENU: { title: string; items: { key: ProfileKey; label: string; Icon: Menu
 ];
 
 export function ProfileScreen({ user, stats, walletBalance, unreadNotifs, onMenu, onLogout }: {
-  user: UserProfile; stats: { orders: number; services: number; amcDays: number }; walletBalance: number; unreadNotifs: number;
+  user: UserProfile; stats: { orders: number; services: number; amcDays: number | null }; walletBalance: number; unreadNotifs: number;
   onMenu: (k: ProfileKey) => void; onLogout: () => void;
 }) {
   // Nudge until the optional fields are filled in.
@@ -182,7 +182,7 @@ export function ProfileScreen({ user, stats, walletBalance, unreadNotifs, onMenu
             </div>
             <button onClick={() => onMenu("edit")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--blue)", fontSize: 12.5, fontWeight: 600, letterSpacing: "0.03em", alignSelf: "flex-start" }}>EDIT</button>
           </div>
-          <span style={{ display: "inline-block", marginTop: 14, background: "var(--green)", color: "white", fontSize: 11, fontWeight: 600, padding: "5px 11px", borderRadius: 6, letterSpacing: "0.02em" }}>AMC ACTIVE</span>
+          {stats.amcDays != null && <span style={{ display: "inline-block", marginTop: 14, background: "var(--green)", color: "white", fontSize: 11, fontWeight: 600, padding: "5px 11px", borderRadius: 6, letterSpacing: "0.02em" }}>AMC ACTIVE</span>}
           {complete < 100 && (
             <button onClick={() => onMenu("edit")} style={{ display: "block", width: "100%", marginTop: 14, background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 600 }}>
@@ -211,7 +211,7 @@ export function ProfileScreen({ user, stats, walletBalance, unreadNotifs, onMenu
       {/* Snapshot strip */}
       <div style={{ padding: "14px 16px 0" }}>
         <div style={{ ...card, padding: "14px 16px", display: "flex" }}>
-          {[[String(stats.orders), "Orders"], [String(stats.services), "Services"], [`${stats.amcDays}d`, "AMC left"]].map(([v, l], i) => (
+          {[[String(stats.orders), "Orders"], [String(stats.services), "Services"], [stats.amcDays != null ? `${stats.amcDays}d` : "—", "AMC left"]].map(([v, l], i) => (
             <div key={l} style={{ flex: 1, textAlign: "center", borderRight: i < 2 ? "1px solid var(--border)" : "none" }}>
               <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--ink)" }}>{v}</p>
               <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--text-muted)" }}>{l}</p>

@@ -1,277 +1,361 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrandMark, Wordmark } from "../components/Brand";
 import { PrimaryButton, field, label } from "../components/ui";
-import { INITIAL_REVIEWS, SERVICE_CATALOG, nowTime, techById } from "../lib/data";
-import { setTrip, updateBridge, useBridge, type TripStatus } from "../lib/bridge";
-import { INCOMING_JOB, INITIAL_JOBS, INITIAL_STOCK, TECH_ID, TODAY, type Job } from "../lib/techData";
+import { PARTS, type Job } from "../lib/techData";
+import { TECHNICIANS, type Review } from "../lib/data";
+import { friendly, roleOf, supabaseFor, useLive, useSession } from "../lib/supabase";
+import { toTechnician, useCatalog, type DbTechnician } from "../lib/catalog";
+import { etaMinutes, fmtDateOnly, fmtStamp, kmBetween, toJob, toReview, type DbRequest, type DbReview } from "../lib/db";
+import { uploadAvatar } from "../lib/photos";
 import { JobDetailPage, JobsScreen } from "./JobScreens";
-import { NewTaskPage, SentToOpsList, type NewTask, type TaskRoute } from "./NewTask";
+import { NewTaskPage, SentToOpsList, type NewTask, type SentTask, type TaskRoute } from "./NewTask";
 import { ServiceAreaEditor } from "./ServiceArea";
-import { EarningsScreen, InventoryScreen, PartnerProfileScreen } from "./PartnerScreens";
+import { EarningsScreen, InventoryScreen, PartnerProfileScreen, type MyStockRequest, type Payout } from "./PartnerScreens";
 
 const SHELL_MAX_W = 430;
-const SESSION_KEY = "zavtoo:partner";
-/** Demo: how long after opening the app a new job request pops up. */
-const INCOMING_AFTER_MS = 6000;
+const sb = () => supabaseFor("technician");
 
 type Tab = "jobs" | "inventory" | "earnings" | "profile";
 
-const readSession = () => { try { return localStorage.getItem(SESSION_KEY) === "1"; } catch { return false; } };
-const writeSession = (v: boolean) => { try { if (v) localStorage.setItem(SESSION_KEY, "1"); else localStorage.removeItem(SESSION_KEY); } catch { /* storage blocked */ } };
+interface TechData {
+  me: DbTechnician;
+  dealer: { name: string; code: string } | null;
+  requests: DbRequest[];
+  stock: Record<string, number>;
+  stockRequests: MyStockRequest[];
+  payouts: Payout[];
+  reviews: Review[];
+}
+
+async function loadTechData(client: ReturnType<typeof sb>, uid: string): Promise<TechData> {
+  const [me, reqs, stock, stockReqs, payouts, reviews] = await Promise.all([
+    client.from("technicians").select("*").eq("id", uid).maybeSingle(),
+    // Row-level security returns only this technician's jobs, requests to them and tasks they raised.
+    client.from("service_requests").select("*").order("visit_date", { ascending: true }).limit(500),
+    client.from("tech_stock").select("part_id, qty").eq("tech_id", uid),
+    client.from("stock_requests").select("*").eq("tech_id", uid).order("created_at", { ascending: false }).limit(20),
+    client.from("payouts").select("*").eq("tech_id", uid).order("created_at", { ascending: false }).limit(20),
+    client.from("reviews").select("*").eq("tech_id", uid).eq("status", "Published").order("created_at", { ascending: false }).limit(50),
+  ]);
+  if (me.error) throw me.error;
+  if (!me.data) throw new Error("NO_TECH");
+  if (reqs.error) throw reqs.error;
+  const t = me.data as DbTechnician;
+  let dealer: TechData["dealer"] = null;
+  if (t.dealer_id) {
+    const { data } = await client.from("dealers").select("name, code").eq("id", t.dealer_id).maybeSingle();
+    dealer = data ?? null;
+  }
+  return {
+    me: t, dealer,
+    requests: (reqs.data ?? []) as DbRequest[],
+    stock: Object.fromEntries((stock.data ?? []).map((r) => [r.part_id, r.qty])),
+    stockRequests: (stockReqs.data ?? []).map((r) => ({ id: r.id, items: r.items, status: r.status, at: fmtDateOnly(r.created_at) })),
+    payouts: (payouts.data ?? []).map((p) => ({ id: p.id, period: p.period, amount: p.amount, status: p.status, paidAt: p.paid_at ? fmtDateOnly(p.paid_at) : null })),
+    reviews: ((reviews.data ?? []) as DbReview[]).map((r) => toReview(r)),
+  };
+}
+
+/** Worksheet edits are saved shortly after the technician stops typing. */
+type Worksheet = Pick<Job, "checklist" | "tdsBefore" | "tdsAfter" | "parts" | "notes">;
 
 export default function TechnicianApp() {
-  const tech = techById(TECH_ID)!;
-  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
+  const session = useSession("technician");
+  const isTech = roleOf(session ?? null) === "technician";
+  const uid = isTech ? session!.user.id : null;
+  useCatalog("technician", session === undefined ? undefined : uid);
+  const live = useLive("technician", uid, (c) => loadTechData(c, uid!), [
+    { table: "service_requests" }, { table: "technicians", filter: `id=eq.${uid}` },
+    { table: "tech_stock", filter: `tech_id=eq.${uid}` }, { table: "stock_requests", filter: `tech_id=eq.${uid}` },
+  ]);
+  const data = live.data;
+
   const [tab, setTab] = useState<Tab>("jobs");
   const [openJob, setOpenJob] = useState<string | null>(null);
-  const [jobs, setJobs] = useState<Job[]>(INITIAL_JOBS);
-  const [incoming, setIncoming] = useState<Job | null>(null);
-  const [online, setOnline] = useState(true);
-  const [stock, setStock] = useState(INITIAL_STOCK);
-  const [toast, setToast] = useState<string | null>(null);
+  const [newTask, setNewTask] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, Partial<Worksheet>>>({});
+  const [toast, setToast] = useState<{ msg: string; bad?: boolean } | null>(null);
+  const [sharing, setSharing] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const requestSent = useRef(false);
-  const [newTask, setNewTask] = useState(false);
-  const bridge = useBridge();
-  const taskSeq = useRef(0);
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  useEffect(() => { setLoggedIn(readSession()); }, []);
   useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [tab, openJob, newTask]);
+  // Customer/admin accounts can't use the partner app.
+  useEffect(() => { if (session && !isTech) void sb().auth.signOut(); }, [session, isTech]);
 
-  // Demo: dispatch sends one new request shortly after the partner goes online.
-  useEffect(() => {
-    if (!loggedIn || !online || requestSent.current) return;
-    const t = setTimeout(() => { requestSent.current = true; setIncoming(INCOMING_JOB); }, INCOMING_AFTER_MS);
-    return () => clearTimeout(t);
-  }, [loggedIn, online]);
-
-  const flash = (msg: string) => {
-    setToast(msg);
+  const flash = (msg: string, bad = false) => {
+    setToast({ msg, bad });
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 1800);
+    toastTimer.current = setTimeout(() => setToast(null), bad ? 4500 : 2000);
+  };
+  const run = async (p: PromiseLike<{ error: unknown }>, ok?: string) => {
+    const { error } = await p;
+    if (error) { flash(friendly(error), true); return false; }
+    if (ok) flash(ok);
+    live.reload();
+    return true;
   };
 
-  // Bookings the customer app handed over (demo bridge) join the job list.
+  const me = data?.me;
+  const jobs: Job[] = (data?.requests ?? [])
+    .filter((r) => r.tech_id === uid)
+    .map((r) => {
+      const j = toJob(r, uid!);
+      return drafts[r.id] ? { ...j, ...drafts[r.id] } : j;
+    });
+  const incoming = (data?.requests ?? []).filter((r) => r.status === "Requested" && r.preferred_tech_id === uid).map((r) => toJob(r, uid!));
+  const sentToOps: SentTask[] = (data?.requests ?? []).filter((r) => r.raised_by === uid && r.tech_id !== uid).map((r) => ({
+    id: r.id, ref: r.ref, type: r.type, customerName: r.customer_name, isoDate: r.visit_date, slot: r.slot, raisedAt: fmtStamp(r.created_at) ?? "",
+    status: r.status === "Cancelled" ? "Cancelled" : r.status === "Completed" ? "Done" : r.tech_id ? "Assigned" : "With ops",
+    assignedTo: r.tech_id ? TECHNICIANS.find((t) => t.id === r.tech_id)?.name : undefined,
+  }));
+  const riding = jobs.find((j) => j.status === "On the way" || j.status === "Arrived");
+
+  /* ── Live location: shared only while a ride is on (the database refuses it otherwise). ── */
   useEffect(() => {
-    const mine = bridge.jobs.filter((b) => b.techId === TECH_ID);
-    if (!mine.length) return;
-    setJobs((all) => {
-      const fresh = mine.filter((b) => !all.some((j) => j.id === b.id));
-      if (!fresh.length) return all;
-      return [...fresh.map((b): Job => {
-        const offering = SERVICE_CATALOG.find((o) => o.type === b.type)!;
-        return {
-          id: b.id, ref: b.id, pincode: b.customer.address.match(/\b[1-9]\d{5}\b/)?.[0] ?? "", needsCode: true, isoDate: new Date(b.date + " 12:00:00").toISOString().slice(0, 10), type: b.type, product: b.product, date: b.date, slot: b.slot, issue: b.issue,
-          customer: { ...b.customer, distanceKm: 2.4 }, status: (bridge.trips[b.id]?.status as Job["status"]) ?? "Accepted",
-          visitCharge: b.type === "AMC" ? 0 : offering.price, amc: b.type === "AMC", otp: b.otp,
-          parts: [], checklist: [], tdsBefore: "", tdsAfter: "", notes: "", source: "Customer app", photos: b.photos,
-        };
-      }), ...all];
-    });
-    // Customers can still add photos after booking — refresh ours when theirs change.
-    setJobs((all) => all.map((j) => {
-      const b = mine.find((x) => x.id === j.id);
-      return b && b.photos !== j.photos ? { ...j, photos: b.photos } : j;
-    }));
-  }, [bridge.jobs, bridge.trips]);
+    if (!riding || !uid) { setSharing(null); return; }
+    if (!navigator.geolocation) { setSharing("This phone can't share location — the customer won't see you on the map."); return; }
+    let last = 0;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const now = Date.now();
+        if (now - last < 8000) return; // at most every 8 seconds
+        last = now;
+        void sb().from("tech_locations").upsert({
+          tech_id: uid, lat: pos.coords.latitude, lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy, heading: pos.coords.heading, updated_at: new Date().toISOString(),
+        }).then(({ error }) => setSharing(error ? `Location not sent: ${friendly(error)}` : null));
+      },
+      () => setSharing("Location is blocked — allow location for this site so the customer can track you."),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, [riding?.id, riding?.status, uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Patches can be functions so quick successive taps (e.g. the checklist) build on the latest job. */
-  const updateJob = (id: string, patch: Partial<Job> | ((j: Job) => Partial<Job>)) => {
-    setJobs((all) => all.map((j) => (j.id === id ? { ...j, ...(typeof patch === "function" ? patch(j) : patch) } : j)));
-    // Tell the customer where things stand. Location is shared from Start Travel onwards — never on accept.
-    const status = typeof patch === "function" ? undefined : patch.status;
-    const job = jobs.find((j) => j.id === id);
-    if (job && status && (["On the way", "Arrived", "In Progress", "Completed"] as string[]).includes(status)) {
-      const km = job.customer.distanceKm;
-      setTrip(id, {
-        techId: TECH_ID, status: status as TripStatus,
-        ...(status === "On the way" && km !== null ? { startedAt: Date.now(), distanceKm: km, etaMin: Math.max(5, Math.round(km * 4)) } : {}),
+  const currentPosition = () => new Promise<GeolocationPosition | null>((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: true, timeout: 10000 });
+  });
+
+  /* ── Job actions ── */
+  const saveWorksheet = (id: string) => {
+    clearTimeout(saveTimers.current[id]);
+    saveTimers.current[id] = setTimeout(async () => {
+      const j = jobs.find((x) => x.id === id);
+      const d = drafts[id];
+      if (!j || !d) return;
+      const w = { ...j, ...d };
+      const { error } = await sb().rpc("tech_save_worksheet", {
+        p_request: id, p_checklist: w.checklist, p_tds_before: w.tdsBefore, p_tds_after: w.tdsAfter, p_parts: w.parts, p_notes: w.notes,
       });
-      if (status === "On the way") flash("Live location shared with the customer");
+      if (error) flash(friendly(error), true);
+    }, 700);
+  };
+  // Re-run the save with the newest draft whenever one changes.
+  useEffect(() => { Object.keys(drafts).forEach(saveWorksheet); }, [drafts]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateJob = async (id: string, patch: Partial<Job> | ((j: Job) => Partial<Job>)) => {
+    const job = jobs.find((j) => j.id === id);
+    if (!job) return;
+    const p = typeof patch === "function" ? patch(job) : patch;
+    if (p.status === "On the way") {
+      const pos = await currentPosition();
+      const home = job.customer.lat != null && job.customer.lng != null ? { lat: job.customer.lat, lng: job.customer.lng } : null;
+      const km = pos && home ? kmBetween({ lat: pos.coords.latitude, lng: pos.coords.longitude }, home) : null;
+      await run(sb().rpc("tech_set_status", { p_request: id, p_status: "On the way", p_eta: km != null ? etaMinutes(km) : null, p_distance: km != null ? Number(km.toFixed(2)) : null }),
+        "Ride started — the customer can now see your live location");
+      return;
+    }
+    if (p.status === "Arrived") { await run(sb().rpc("tech_set_status", { p_request: id, p_status: "Arrived" }), "Marked as arrived"); return; }
+    // Everything else is the worksheet (checklist, TDS, parts, notes).
+    const fields: (keyof Worksheet)[] = ["checklist", "tdsBefore", "tdsAfter", "parts", "notes"];
+    const w = Object.fromEntries(Object.entries(p).filter(([k]) => fields.includes(k as keyof Worksheet)));
+    if (Object.keys(w).length) setDrafts((all) => ({ ...all, [id]: { ...all[id], ...w } }));
+  };
+
+  const startJob = async (id: string, code: string) => {
+    const { error } = await sb().rpc("tech_start_job", { p_request: id, p_code: code });
+    if (error) return friendly(error);
+    flash("Job started"); live.reload();
+    return null;
+  };
+  const complete = async (job: Job, payment: NonNullable<Job["payment"]>) => {
+    // Make sure the latest worksheet is saved before closing.
+    clearTimeout(saveTimers.current[job.id]);
+    const d = drafts[job.id];
+    if (d) {
+      const w = { ...job, ...d };
+      const { error } = await sb().rpc("tech_save_worksheet", {
+        p_request: job.id, p_checklist: w.checklist, p_tds_before: w.tdsBefore, p_tds_after: w.tdsAfter, p_parts: w.parts, p_notes: w.notes,
+      });
+      if (error) { flash(friendly(error), true); return; }
+    }
+    if (await run(sb().rpc("tech_complete_job", { p_request: job.id, p_payment: payment }), "Job closed. Great work!")) {
+      setDrafts((all) => { const n = { ...all }; delete n[job.id]; return n; });
     }
   };
-
-  const submitTask = (t: NewTask, route: TaskRoute) => {
-    taskSeq.current += 1;
-    const id = `TSK${String(Date.now()).slice(-4)}${taskSeq.current}`;
-    if (route === "self") {
-      const offering = SERVICE_CATALOG.find((o) => o.type === t.type)!;
-      setJobs((all) => [{
-        id, ref: id, pincode: t.customer.address.match(/\b[1-9]\d{5}\b/)?.[0] ?? "", needsCode: true, isoDate: new Date(t.date + " 12:00:00").toISOString().slice(0, 10), type: t.type, product: t.product, date: t.date, slot: t.slot, issue: t.issue,
-        customer: { ...t.customer, distanceKm: 1.5 }, status: "Accepted", visitCharge: offering.price, amc: false,
-        otp: String(1000 + Math.floor(Math.random() * 9000)), parts: [], checklist: [], tdsBefore: "", tdsAfter: "", notes: "", source: "Self-created",
-      }, ...all]);
-      flash("Task added to your jobs");
-    } else {
-      const saved = updateBridge((b) => ({
-        ...b, opsTasks: [{ id, techId: TECH_ID, techName: tech.name, ...t, createdAt: `${TODAY}, ${nowTime()}`, status: "With ops" }, ...b.opsTasks],
-      }));
-      flash(saved ? "Sent to ops — they'll schedule it" : "Couldn't reach ops. Try again.");
-    }
-    setNewTask(false);
+  const reschedule = (job: Job, reason: string) => run(sb().rpc("tech_reschedule", { p_request: job.id, p_reason: reason }), "Job sent back to ops");
+  const respond = async (job: Job, accept: boolean) => {
+    await run(sb().rpc("tech_respond", { p_request: job.id, p_accept: accept }), accept ? "Job accepted" : "Declined — ops will assign someone else");
   };
-  const sentToOps = bridge.opsTasks.filter((t) => t.techId === TECH_ID);
-
-  const accept = () => {
-    if (!incoming) return;
-    setJobs((all) => [{ ...incoming, status: "Accepted" }, ...all]);
-    setIncoming(null);
-    flash("Job accepted — added to today");
+  const submitTask = async (t: NewTask, route: TaskRoute) => {
+    const ok = await run(sb().rpc("tech_create_task", {
+      p_name: t.customer.name, p_phone: t.customer.phone, p_address: t.customer.address, p_pincode: t.customer.pincode,
+      p_type: t.type, p_product: t.product, p_date: t.date, p_slot: t.slot, p_issue: t.issue, p_keep: route === "self",
+    }), route === "self" ? "Task added to your jobs" : "Sent to ops — they'll schedule it");
+    if (ok) setNewTask(false);
   };
-  // Also called by the request's countdown, so it must keep a stable identity.
-  const reject = useCallback(() => setIncoming(null), []);
-
-  const complete = (job: Job, payment: NonNullable<Job["payment"]>) => {
-    updateJob(job.id, { status: "Completed", payment, completedAt: `${TODAY}, ${nowTime()}` });
-    setStock((s) => {
-      const next = { ...s };
-      job.parts.forEach((p) => { next[p.id] = Math.max(0, (next[p.id] ?? 0) - p.qty); });
-      return next;
-    });
-    flash("Job closed. Great work!");
+  const setOnline = (v: boolean) => run(sb().from("technicians").update({ status: v ? "Online" : "Offline" }).eq("id", uid!), v ? "You're online" : "You're offline");
+  const requestStock = (items: Record<string, number>) => run(sb().from("stock_requests").insert({ tech_id: uid, items }), "Stock request sent to ops");
+  const savePincodes = (pins: string[]) => run(sb().from("technicians").update({ pincodes: pins }).eq("id", uid!), `Service area saved · ${pins.length} pincodes`);
+  const setPhoto = async (dataUrl: string | null) => {
+    try {
+      const url = dataUrl ? await uploadAvatar("technician", dataUrl) : null;
+      return await run(sb().from("technicians").update({ photo_url: url }).eq("id", uid!), url ? "Photo updated — customers will see it" : "Photo removed");
+    } catch (e) { flash(friendly(e), true); return false; }
   };
+  const logout = () => { setTab("jobs"); setOpenJob(null); setNewTask(false); void sb().auth.signOut(); };
 
-  const restock = (items: Record<string, number>) => {
-    setStock((s) => {
-      const next = { ...s };
-      Object.entries(items).forEach(([id, n]) => { next[id] = (next[id] ?? 0) + n; });
-      return next;
-    });
-    flash("Stock request sent");
-  };
-
-  const logout = () => { writeSession(false); setLoggedIn(false); setTab("jobs"); setOpenJob(null); setNewTask(false); };
-
-  const job = openJob ? jobs.find((j) => j.id === openJob) : undefined;
-  if (!tech) return <main style={{ maxWidth: 430, margin: "40px auto", padding: 24 }}>
-    <h1>Technician account unavailable</h1>
-    <p>No technician profile is loaded. The partner account must be connected before jobs can be managed.</p>
-    <a href="/">Back to Zavtoo</a>
-  </main>;
-
-  const showNav = loggedIn && !!bridge.techAreas[TECH_ID]?.length && !job && !newTask;
-
-  return (
+  const shell = (children: React.ReactNode, nav = false) => (
     <div style={{ position: "fixed", inset: 0, background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: SHELL_MAX_W, height: "100%", position: "relative", background: "var(--app-bg)", overflow: "hidden", boxShadow: "var(--shadow-float)", display: "flex", flexDirection: "column" }}>
-        {loggedIn === false && <LoginScreen onDone={() => { writeSession(true); setLoggedIn(true); }} />}
-
-        {/* Right after login: technicians say which pincodes they work in before they see jobs. */}
-        {loggedIn && !bridge.techAreas[TECH_ID]?.length && (
-          <div className="no-scroll fade-up" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 16px 24px" }}>
-            <span style={{ display: "inline-block", background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8 }}>STEP 2 OF 2</span>
-            <h1 style={{ margin: "10px 0 4px", fontSize: 24, fontWeight: 800 }}>Where do you work?</h1>
-            <p style={{ margin: "0 0 18px", fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-              Add your primary pincode and the nearby pincodes you can reach. Customers there will see you and can choose you.
-            </p>
-            <ServiceAreaEditor initial={tech.pincodes} saveLabel="Save & continue"
-              onSave={(p) => { updateBridge((b) => ({ ...b, techAreas: { ...b.techAreas, [TECH_ID]: p } })); flash(`You'll get jobs in ${p.length} pincodes`); }} />
-          </div>
-        )}
-
-        {loggedIn && !!bridge.techAreas[TECH_ID]?.length && (
-          <div ref={scrollRef} className="no-scroll" style={{
-            flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain",
-            paddingBottom: showNav ? "calc(76px + env(safe-area-inset-bottom))" : undefined,
-          }}>
-            {newTask ? (
-              <NewTaskPage onBack={() => setNewTask(false)} onSubmit={submitTask} />
-            ) : job ? (
-              <JobDetailPage key={job.id} job={job} stock={stock} onBack={() => setOpenJob(null)}
-                onUpdate={(patch) => updateJob(job.id, patch)}
-                onComplete={(p) => complete(job, p)}
-                onReschedule={(reason) => { updateJob(job.id, { status: "Rescheduled", rescheduleReason: reason }); flash("Job sent back to ops"); }} />
-            ) : (
-              <>
-                {tab === "jobs" && (
-                  <JobsScreen techId={tech.id} techName={tech.name} rating={tech.rating}
-                    online={online} onToggleOnline={(v) => { setOnline(v); flash(v ? "You're online" : "You're offline"); }}
-                    jobs={jobs} incoming={incoming} onAccept={accept} onReject={reject} onOpen={setOpenJob}
-                    onNewTask={() => setNewTask(true)} onProfile={() => setTab("profile")}
-                    footer={<SentToOpsList tasks={sentToOps} />} />
-                )}
-                {tab === "inventory" && <InventoryScreen stock={stock} onRequest={restock} />}
-                {tab === "earnings" && <EarningsScreen jobs={jobs} />}
-                {tab === "profile" && (
-                  <PartnerProfileScreen tech={tech} reviews={INITIAL_REVIEWS} onLogout={logout} notify={flash}
-                    jobsDone={jobs.filter((j) => j.status === "Completed").length} />
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {showNav && <PartnerNav active={tab} onChange={setTab} newRequest={!!incoming && online} />}
-
+        {children}
+        {nav && <PartnerNav active={tab} onChange={(t) => { setTab(t); setOpenJob(null); setNewTask(false); }} newRequest={incoming.length > 0} />}
         {toast && (
-          <div className="fade-up" role="status" style={{
-            position: "absolute", left: 16, right: 16, bottom: showNav ? 90 : 96, zIndex: 120,
-            background: "var(--ink)", color: "white", borderRadius: 14, padding: "12px 16px",
+          <div className="fade-up" role={toast.bad ? "alert" : "status"} style={{
+            position: "absolute", left: 16, right: 16, bottom: nav ? 90 : 96, zIndex: 120,
+            background: toast.bad ? "var(--error-text)" : "var(--ink)", color: "white", borderRadius: 14, padding: "12px 16px",
             fontSize: 13.5, fontWeight: 500, boxShadow: "var(--shadow-xl)", textAlign: "center",
-          }}>{toast}</div>
+          }}>{toast.msg}</div>
         )}
       </div>
+    </div>
+  );
+
+  if (session === undefined) return shell(<Centered text="Loading…" />);
+  if (!isTech) return shell(<LoginScreen needsArea={false} />);
+  if (live.error === "NO_TECH" || (live.error && /NO_TECH/.test(live.error))) {
+    return shell(<Centered text="This login isn't linked to a technician profile yet. Ask your Zavtoo admin to finish setting it up." action={<button onClick={logout} style={linkBtn}>Log out</button>} />);
+  }
+  if (!data || !me) return shell(<Centered text={live.error ?? "Loading your jobs…"} action={live.error ? <button onClick={live.reload} style={linkBtn}>Try again</button> : undefined} />);
+
+  const tech = toTechnician(me);
+  const job = openJob ? jobs.find((j) => j.id === openJob) : undefined;
+
+  // First login: technicians say which pincodes they work in before they see jobs.
+  if (!me.pincodes?.length) {
+    return shell(
+      <div className="no-scroll fade-up" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 16px 24px" }}>
+        <span style={{ display: "inline-block", background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8 }}>STEP 2 OF 2</span>
+        <h1 style={{ margin: "10px 0 4px", fontSize: 24, fontWeight: 800 }}>Where do you work?</h1>
+        <p style={{ margin: "0 0 18px", fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+          Add your primary pincode and the nearby pincodes you can reach. Customers there will see you and can choose you.
+        </p>
+        <ServiceAreaEditor initial={[]} saveLabel="Save & continue" onSave={(p) => void savePincodes(p)} />
+      </div>,
+    );
+  }
+
+  const showNav = !job && !newTask;
+  return shell(
+    <div ref={scrollRef} className="no-scroll" style={{
+      flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain",
+      paddingBottom: showNav ? "calc(76px + env(safe-area-inset-bottom))" : undefined,
+    }}>
+      {me.kyc === "Pending" && !job && !newTask && (
+        <p style={{ margin: "12px 16px 0", padding: "10px 12px", borderRadius: 12, background: "var(--warning)", color: "var(--warning-text)", fontSize: 12.5, fontWeight: 600 }}>
+          Your KYC is pending. You&apos;ll start getting jobs once Zavtoo verifies your documents.
+        </p>
+      )}
+      {newTask ? (
+        <NewTaskPage onBack={() => setNewTask(false)} onSubmit={(t, r) => void submitTask(t, r)} />
+      ) : job ? (
+        <JobDetailPage key={job.id} job={job} stock={data.stock} onBack={() => setOpenJob(null)} sharing={riding?.id === job.id ? sharing : null}
+          onUpdate={(patch) => void updateJob(job.id, patch)}
+          onStartJob={(code) => startJob(job.id, code)}
+          onComplete={(p) => void complete(job, p)}
+          onReschedule={(reason) => void reschedule(job, reason)} />
+      ) : (
+        <>
+          {tab === "jobs" && (
+            <JobsScreen techId={tech.id} techName={tech.name} rating={tech.rating} photoUrl={me.photo_url}
+              online={me.status !== "Offline"} onToggleOnline={(v) => void setOnline(v)}
+              jobs={jobs} incoming={incoming} onRespond={respond} onOpen={setOpenJob}
+              onNewTask={() => setNewTask(true)} onProfile={() => setTab("profile")}
+              footer={<SentToOpsList tasks={sentToOps} />} />
+          )}
+          {tab === "inventory" && <InventoryScreen stock={data.stock} requests={data.stockRequests} onRequest={requestStock} />}
+          {tab === "earnings" && <EarningsScreen jobs={jobs} payouts={data.payouts} />}
+          {tab === "profile" && (
+            <PartnerProfileScreen tech={tech} kyc={me.kyc} email={me.email ?? session!.user.email ?? ""} dealer={data.dealer} reviews={data.reviews}
+              onLogout={logout} onPhoto={setPhoto} onSavePincodes={savePincodes} />
+          )}
+        </>
+      )}
+    </div>,
+    showNav,
+  );
+}
+
+const linkBtn: React.CSSProperties = { background: "none", border: "none", color: "var(--blue)", fontSize: 14, fontWeight: 600, cursor: "pointer", padding: 8 };
+
+function Centered({ text, action }: { text: string; action?: React.ReactNode }) {
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 24, textAlign: "center" }}>
+      <BrandMark size={44} />
+      <p style={{ margin: 0, fontSize: 14, color: "var(--ink-soft)", lineHeight: 1.5 }}>{text}</p>
+      {action}
     </div>
   );
 }
 
 /* ───────────────────────── Login ───────────────────────── */
 
-function LoginScreen({ onDone }: { onDone: () => void }) {
-  const [phone, setPhone] = useState("");
-  const [sent, setSent] = useState(false);
-  const [code, setCode] = useState("");
+function LoginScreen({ needsArea }: { needsArea: boolean }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const send = () => {
-    if (!/^[6-9]\d{9}$/.test(phone)) { setErr("Enter your 10-digit registered mobile number"); return; }
-    setErr(null); setSent(true);
-  };
-  const verify = () => {
-    if (code !== "1234") { setErr("Incorrect OTP"); return; }
-    onDone();
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setErr(null);
+    const { data, error } = await sb().auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+    if (error) { setErr(friendly(error)); setBusy(false); return; }
+    if (roleOf(data.session) !== "technician") {
+      await sb().auth.signOut();
+      setErr("This isn't a technician account. Customers should use the Zavtoo app instead.");
+    }
+    setBusy(false);
   };
 
   return (
-    <div className="fade-up" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "0 20px" }}>
+    <form onSubmit={submit} className="fade-up" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "0 20px" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BrandMark size={48} />
           <Wordmark />
         </div>
-        <span style={{ alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>PARTNER APP · STEP 1 OF 2</span>
+        <span style={{ alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>PARTNER APP{needsArea ? " · STEP 1 OF 2" : ""}</span>
         <h1 style={{ margin: "12px 0 4px", fontSize: 26, fontWeight: 800 }}>Technician login</h1>
-        <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)" }}>Manage your jobs, parts and earnings.</p>
+        <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)" }}>Use the email and password Zavtoo gave you.</p>
 
         <div style={{ marginTop: 26 }}>
-          <label style={label} htmlFor="t-phone">Registered mobile number</label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <span style={{ ...field, width: "auto", display: "flex", alignItems: "center", color: "var(--ink-soft)" }}>+91</span>
-            <input id="t-phone" inputMode="numeric" autoComplete="tel-national" value={phone} disabled={sent}
-              onChange={(e) => { setPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setErr(null); }} style={{ ...field, flex: 1 }} />
-          </div>
-          {sent && (
-            <div className="fade-up" style={{ marginTop: 16 }}>
-              <label style={label} htmlFor="t-otp">OTP sent to +91 {phone}</label>
-              <input id="t-otp" inputMode="numeric" autoComplete="one-time-code" value={code}
-                onChange={(e) => { setCode(e.target.value.replace(/\D/g, "").slice(0, 4)); setErr(null); }}
-                style={{ ...field, fontSize: 22, fontWeight: 800, letterSpacing: "0.5em", textAlign: "center" }} />
-              <p style={{ margin: "6px 2px 0", fontSize: 11.5, color: "var(--ink-mute)" }}>Demo OTP: 1234 · <button onClick={() => { setSent(false); setCode(""); }} style={{ background: "none", border: "none", padding: 0, color: "var(--blue)", fontSize: 11.5, fontWeight: 600, cursor: "pointer" }}>Change number</button></p>
-            </div>
-          )}
-          {err && <p role="alert" style={{ margin: "8px 2px 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>}
+          <label style={label} htmlFor="t-email">Email</label>
+          <input id="t-email" type="email" autoComplete="username" value={email} onChange={(e) => { setEmail(e.target.value); setErr(null); }} style={field} />
+          <label style={{ ...label, marginTop: 14 }} htmlFor="t-pass">Password</label>
+          <input id="t-pass" type="password" autoComplete="current-password" value={password} onChange={(e) => { setPassword(e.target.value); setErr(null); }} style={field} />
+          {err && <p role="alert" style={{ margin: "10px 2px 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>}
         </div>
       </div>
       <div style={{ padding: "16px 0 calc(24px + env(safe-area-inset-bottom))" }}>
-        {sent
-          ? <PrimaryButton disabled={code.length !== 4} onClick={verify}>Verify &amp; Log In</PrimaryButton>
-          : <PrimaryButton disabled={phone.length !== 10} onClick={send}>Send OTP</PrimaryButton>}
-        <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "12px 0 0" }}>Not a Zavtoo partner yet? Call 1800-000-000</p>
+        <PrimaryButton disabled={!email || !password || busy}>{busy ? "Logging in…" : "Log In"}</PrimaryButton>
+        <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "12px 0 0" }}>Forgot your password? Ask your Zavtoo admin to reset it.</p>
       </div>
-    </div>
+    </form>
   );
 }
 

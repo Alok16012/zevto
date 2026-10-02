@@ -90,31 +90,17 @@ export default function ServiceBooking({ service }: { service: ServiceOffering }
   return <>
     <div className={s.pageHeading}><span className={s.kicker}>CARE, RIGHT AT YOUR DOORSTEP</span><h1>Book {service.type === "AMC" ? "annual maintenance" : service.type.toLowerCase()}.</h1><p>{service.tagline}. Choose your preferred appointment below.</p></div>
     <div className={s.checkoutGrid}>
-      <form className={s.checkoutForm} onSubmit={submit}>
-        <h2>Your purifier & contact details</h2>
-        <p className={s.formNote}>Demo booking: use sample contact and address details. These details are not stored or sent.</p>
-        <div className={s.formGrid}>
-          <label className={s.full}>Purifier / model<select name="product" required defaultValue=""><option value="" disabled>Select your purifier</option>{PRODUCTS.filter(p => p.category !== "spare").map(p => <option key={p.id}>{p.name}</option>)}{service.type !== "Installation" && <option>Other purifier</option>}</select></label>
-          <label>Full name<input name="name" autoComplete="name" required minLength={2} maxLength={80} /></label>
-          <label>Mobile number<input name="phone" type="tel" inputMode="tel" autoComplete="tel-national" required pattern="[6-9][0-9]{9}" maxLength={10} title="Enter a 10-digit Indian mobile number starting with 6–9" /></label>
-          <label className={s.full}>Service address<input name="address" autoComplete="street-address" required minLength={8} maxLength={200} placeholder="House / flat, street and locality" /></label>
-          <label>City<input name="city" autoComplete="address-level2" required maxLength={80} /></label>
-          <label>Pincode<input name="pincode" autoComplete="postal-code" inputMode="numeric" required pattern="[1-9][0-9]{5}" maxLength={6} value={pincode} onChange={e => { setPincode(e.target.value.replace(/\D/g, "")); setError(""); }} /></label>
-        </div>
-        {pincode.length === 6 && <p role="status" className={PIN_AREAS[pincode] ? s.formNote : s.warning}>{PIN_AREAS[pincode] ? `Service area: ${PIN_AREAS[pincode]}` : "This pincode is outside our current service area."}</p>}
-        <h2>Choose your appointment</h2>
-        <p className={s.formNote}>Select a preferred slot in the next 30 days. All times are India Standard Time.</p>
-        <div className={s.formGrid}>
-          <label>Preferred date<input name="date" type="date" required min={minDate} max={maxDate} value={date} onInput={e => { setDate(e.currentTarget.value); setError(""); }} /></label>
-          <label>Preferred time<select name="slot" required value={slot} onChange={e => setSlot(e.target.value)}><option value="" disabled>Select a time slot</option>{TIME_SLOTS.map(time => <option key={time}>{time}</option>)}</select></label>
-          <label className={s.full}>Notes for the technician (optional)<textarea name="notes" rows={3} maxLength={1000} placeholder="Tell us about the purifier or any issue you are facing" /></label>
-        </div>
-        {service.type === "Installation" && <label className={s.consent}><input type="checkbox" required /> This installation is for a Zavtoo purifier. Standard installation is included; additional parts or work may need a separate quote.</label>}
-        <label className={s.consent}><input type="checkbox" required /> I understand this is a demo service request and no real visit is scheduled.</label>
-        {error && <p className={s.warning} role="alert">{error}</p>}
-        <button className={s.primary} disabled={!minDate} type="submit">Confirm demo booking{service.price ? ` · ${inr(service.price)}` : " · Included"}</button>
+      <div className={s.checkoutForm}>
+        <h2>Book in the Zavtoo app</h2>
+        <p className={s.formNote}>Booking happens in your Zavtoo account so we can confirm your visit and keep you updated. In the app you can:</p>
+        <ul className={s.formNote} style={{ paddingLeft: 18, lineHeight: 1.8 }}>
+          <li>choose a technician who serves your pincode</li>
+          <li>add photos of your purifier so they bring the right parts</li>
+          <li>get a start code and track your technician live on the day</li>
+        </ul>
+        <Link className={s.primary} href={`/app?screen=book&service=${encodeURIComponent(service.type)}`}>Continue to booking{service.price ? ` · ${inr(service.price)}` : " · Included"}</Link>
         <Link href="/services" className={s.textLink}>Back to services</Link>
-      </form>
+      </div>
       <aside className={`${s.summary} ${s.bookingSummary}`}>
         <h2>{service.type === "AMC" ? "Annual maintenance" : service.type}</h2>
         <p>{service.tagline}</p>
@@ -124,7 +110,7 @@ export default function ServiceBooking({ service }: { service: ServiceOffering }
         <div><span>Time slot</span><strong>{slot || "Choose a slot"}</strong></div>
         <div className={s.total}><span>Service charge</span><strong>{service.price ? inr(service.price) : "Included"}</strong></div>
         <p className={s.formNote}>{service.priceNote}. {service.type === "Repair" ? "Replacement parts are charged separately." : ""}</p>
-        <p className={s.demoNote}><ShieldIcon s={18} /> Demo booking · no payment collected</p>
+        <p className={s.demoNote}><ShieldIcon s={18} /> Pay the technician after the visit</p>
       </aside>
     </div>
   </>;

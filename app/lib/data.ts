@@ -387,16 +387,3 @@ export const SERVICE_CATALOG: ServiceOffering[] = [
 ];
 
 export const offeringOf = (t: ServiceType) => SERVICE_CATALOG.find((s) => s.type === t)!;
-
-/** Empty initial state for screens that have not yet switched to live queries.
- * Keep these exports during the migration; never seed another customer's data.
- */
-export const INITIAL_ADDRESSES: Address[] = [];
-export const INITIAL_CHAT: ChatMessage[] = [];
-export const INITIAL_NOTIFICATIONS: AppNotification[] = [];
-export const INITIAL_ORDERS: Order[] = [];
-export const INITIAL_REFERRALS: Referral[] = [];
-export const INITIAL_REVIEWS: Review[] = [];
-export const INITIAL_SERVICES: ServiceRequest[] = [];
-export const INITIAL_WALLET: WalletTxn[] = [];
-export const USER: UserProfile = { id: "", name: "", email: "", phone: "", gender: "", dob: "" };

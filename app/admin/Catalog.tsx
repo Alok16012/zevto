@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Toggle } from "../components/ui";
 import { inr, productById, techById, type Coupon } from "../lib/data";
-import { AUDIENCES, TODAY, type AdminCoupon, type AdminProduct, type AdminReview, type Broadcast } from "../lib/adminData";
+import { AUDIENCES, type AdminCoupon, type AdminProduct, type AdminReview, type Broadcast } from "../lib/adminData";
+import { isoDay } from "./Operations";
 import { Badge, Btn, Filter, Modal, Panel, Table, fieldLabel, input, muted } from "./kit";
 
 /* ───────────────────────── Products & stock ───────────────────────── */
 
-export function ProductsSection({ products, onUpdate, notify }: {
-  products: AdminProduct[]; onUpdate: (id: string, patch: Partial<AdminProduct>) => void; notify: (m: string) => void;
+export function ProductsSection({ products, onUpdate }: {
+  products: AdminProduct[]; onUpdate: (p: AdminProduct, patch: Partial<AdminProduct>) => Promise<boolean>;
 }) {
   const [edit, setEdit] = useState<AdminProduct | null>(null);
   return (
@@ -18,12 +19,12 @@ export function ProductsSection({ products, onUpdate, notify }: {
         { key: "n", head: "Product", render: (p) => <><b style={{ color: p.active ? "var(--ink)" : "var(--ink-mute)" }}>{p.name}</b><div style={{ ...muted, textTransform: "capitalize" }}>{p.category}</div></> },
         { key: "p", head: "Price", align: "right", render: (p) => <><b>{inr(p.price)}</b><div style={{ ...muted, textDecoration: "line-through" }}>{inr(p.mrp)}</div></> },
         { key: "d", head: "Discount", align: "right", render: (p) => `${Math.round((1 - p.price / p.mrp) * 100)}%` },
-        { key: "s", head: "Stock", align: "right", render: (p) => <span style={{ fontWeight: 700, color: p.stock === 0 ? "var(--error-text)" : p.stock <= 5 ? "var(--warning-text)" : "var(--ink)" }}>{p.stock}</span> },
-        { key: "st", head: "Status", render: (p) => p.stock === 0 ? <Badge tone="red">Out of stock</Badge> : p.stock <= 5 ? <Badge tone="amber">Low stock</Badge> : <Badge tone="green">In stock</Badge> },
-        { key: "a", head: "Listed", render: (p) => <Toggle on={p.active} label={`List ${p.name}`} onChange={(v) => { onUpdate(p.id, { active: v }); notify(v ? `${p.name} is live in the app` : `${p.name} hidden from the app`); }} /> },
+        { key: "s", head: "Stock", align: "right", render: (p) => p.stock == null ? <span style={muted}>Not tracked</span> : <span style={{ fontWeight: 700, color: p.stock === 0 ? "var(--error-text)" : p.stock <= 5 ? "var(--warning-text)" : "var(--ink)" }}>{p.stock}</span> },
+        { key: "st", head: "Status", render: (p) => p.stock == null ? <Badge tone="green">Available</Badge> : p.stock === 0 ? <Badge tone="red">Out of stock</Badge> : p.stock <= 5 ? <Badge tone="amber">Low stock</Badge> : <Badge tone="green">In stock</Badge> },
+        { key: "a", head: "Listed", render: (p) => <Toggle on={p.active} label={`List ${p.name}`} onChange={(v) => void onUpdate(p, { active: v })} /> },
         { key: "x", head: "", align: "right", render: (p) => <Btn small kind="ghost" onClick={() => setEdit(p)}>Edit</Btn> },
       ]} />
-      {edit && <ProductModal p={edit} onClose={() => setEdit(null)} onSave={(patch) => { onUpdate(edit.id, patch); notify(`${edit.name} updated`); setEdit(null); }} />}
+      {edit && <ProductModal p={edit} onClose={() => setEdit(null)} onSave={async (patch) => { if (await onUpdate(edit, patch)) setEdit(null); }} />}
     </Panel>
   );
 }
@@ -31,9 +32,9 @@ export function ProductsSection({ products, onUpdate, notify }: {
 function ProductModal({ p, onClose, onSave }: { p: AdminProduct; onClose: () => void; onSave: (patch: Partial<AdminProduct>) => void }) {
   const [price, setPrice] = useState(String(p.price));
   const [mrp, setMrp] = useState(String(p.mrp));
-  const [stock, setStock] = useState(String(p.stock));
-  const pr = Number(price), m = Number(mrp), s = Number(stock);
-  const err = !pr || !m ? "Price and MRP are required" : pr > m ? "Price can't be higher than MRP" : s < 0 ? "Stock can't be negative" : null;
+  const [stock, setStock] = useState(p.stock == null ? "" : String(p.stock));
+  const pr = Number(price), m = Number(mrp), s = stock === "" ? null : Number(stock);
+  const err = !pr || !m ? "Price and MRP are required" : pr > m ? "Price can't be higher than MRP" : s != null && s < 0 ? "Stock can't be negative" : null;
 
   return (
     <Modal title={`Edit ${p.name}`} onClose={onClose} footer={<>
@@ -41,7 +42,7 @@ function ProductModal({ p, onClose, onSave }: { p: AdminProduct; onClose: () => 
       <Btn disabled={!!err} onClick={() => onSave({ price: pr, mrp: m, stock: s })}>Save</Btn>
     </>}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-        {([["Selling price", price, setPrice], ["MRP", mrp, setMrp], ["Stock", stock, setStock]] as const).map(([l, v, set]) => (
+        {([["Selling price", price, setPrice], ["MRP", mrp, setMrp], ["Stock (blank = not tracked)", stock, setStock]] as const).map(([l, v, set]) => (
           <label key={l}><span style={fieldLabel}>{l}</span><input value={v} inputMode="numeric" onChange={(e) => set(e.target.value.replace(/\D/g, ""))} style={input} /></label>
         ))}
       </div>
@@ -53,8 +54,8 @@ function ProductModal({ p, onClose, onSave }: { p: AdminProduct; onClose: () => 
 
 /* ───────────────────────── Coupons ───────────────────────── */
 
-export function CouponsSection({ coupons, onUpdate, onCreate, notify }: {
-  coupons: AdminCoupon[]; onUpdate: (code: string, patch: Partial<AdminCoupon>) => void; onCreate: (c: AdminCoupon) => void; notify: (m: string) => void;
+export function CouponsSection({ coupons, onUpdate, onCreate }: {
+  coupons: AdminCoupon[]; onUpdate: (c: AdminCoupon, patch: { active: boolean }) => Promise<boolean>; onCreate: (c: AdminCoupon) => Promise<boolean>;
 }) {
   const [creating, setCreating] = useState(false);
   return (
@@ -66,9 +67,9 @@ export function CouponsSection({ coupons, onUpdate, onCreate, notify }: {
         { key: "on", head: "Applies to", render: (c) => <Badge tone={c.appliesTo === "product" ? "blue" : c.appliesTo === "service" ? "purple" : "green"}>{c.appliesTo === "all" ? "Everything" : c.appliesTo === "product" ? "Products" : "Services"}</Badge> },
         { key: "u", head: "Used", align: "right", render: (c) => c.used },
         { key: "e", head: "Expires", render: (c) => <span style={muted}>{c.expires}</span> },
-        { key: "a", head: "Active", render: (c) => <Toggle on={c.active} label={`Activate ${c.code}`} onChange={(v) => { onUpdate(c.code, { active: v }); notify(v ? `${c.code} is live` : `${c.code} paused`); }} /> },
+        { key: "a", head: "Active", render: (c) => <Toggle on={c.active} label={`Activate ${c.code}`} onChange={(v) => void onUpdate(c, { active: v })} /> },
       ]} />
-      {creating && <CouponModal existing={coupons.map((c) => c.code)} onClose={() => setCreating(false)} onSave={(c) => { onCreate(c); notify(`${c.code} created`); setCreating(false); }} />}
+      {creating && <CouponModal existing={coupons.map((c) => c.code)} onClose={() => setCreating(false)} onSave={async (c) => { if (await onCreate(c)) setCreating(false); }} />}
     </Panel>
   );
 }
@@ -81,7 +82,7 @@ function CouponModal({ existing, onClose, onSave }: { existing: string[]; onClos
   const [maxOff, setMaxOff] = useState("");
   const [minOrder, setMinOrder] = useState("");
   const [appliesTo, setAppliesTo] = useState<Coupon["appliesTo"]>("all");
-  const [expires, setExpires] = useState("2026-12-31");
+  const [expires, setExpires] = useState(isoDay(90));
 
   const v = Number(value);
   const err = !/^[A-Z0-9]{4,12}$/.test(code) ? "Code: 4–12 letters or digits"
@@ -98,7 +99,7 @@ function CouponModal({ existing, onClose, onSave }: { existing: string[]; onClos
       code, title: title.trim(), kind, value: v, maxOff: kind === "percent" && maxOff ? Number(maxOff) : undefined,
       minOrder: Number(minOrder) || 0, appliesTo, active: true, used: 0,
       desc: `${kind === "flat" ? inr(v) : `${v}%`} off${Number(minOrder) ? ` on orders above ${inr(Number(minOrder))}` : ""}.`,
-      expires: `${String(d.getDate()).padStart(2, "0")} ${months[d.getMonth()]} ${d.getFullYear()}`,
+      expires: `${String(d.getDate()).padStart(2, "0")} ${months[d.getMonth()]} ${d.getFullYear()}`, expiresIso: expires,
     });
   };
 
@@ -119,7 +120,7 @@ function CouponModal({ existing, onClose, onSave }: { existing: string[]; onClos
         <label><span style={fieldLabel}>Applies to</span>
           <select value={appliesTo} onChange={(e) => setAppliesTo(e.target.value as Coupon["appliesTo"])} style={input}><option value="all">Everything</option><option value="product">Products</option><option value="service">Services</option></select>
         </label>
-        <label><span style={fieldLabel}>Expires</span><input type="date" value={expires} min="2026-09-29" onChange={(e) => setExpires(e.target.value)} style={input} /></label>
+        <label><span style={fieldLabel}>Expires</span><input type="date" value={expires} min={isoDay()} onChange={(e) => setExpires(e.target.value)} style={input} /></label>
       </div>
       {err && (code || title || value) ? <p style={{ margin: "12px 0 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p> : null}
     </Modal>
@@ -130,8 +131,8 @@ function CouponModal({ existing, onClose, onSave }: { existing: string[]; onClos
 
 type ReviewFilter = "All" | "Flagged" | "Published" | "Hidden";
 
-export function ReviewsSection({ reviews, onUpdate, onDelete, notify }: {
-  reviews: AdminReview[]; onUpdate: (id: string, patch: Partial<AdminReview>) => void; onDelete: (id: string) => void; notify: (m: string) => void;
+export function ReviewsSection({ reviews, onStatus, onDelete }: {
+  reviews: AdminReview[]; onStatus: (r: AdminReview, status: AdminReview["status"]) => Promise<void>; onDelete: (r: AdminReview) => Promise<void>;
 }) {
   const [f, setF] = useState<ReviewFilter>("All");
   const rows = reviews.filter((r) => f === "All" || r.status === f);
@@ -152,9 +153,9 @@ export function ReviewsSection({ reviews, onUpdate, onDelete, notify }: {
         { key: "s", head: "Status", render: (r) => <Badge tone={r.status === "Published" ? "green" : r.status === "Flagged" ? "red" : "grey"}>{r.status}</Badge> },
         { key: "x", head: "", align: "right", render: (r) => (
           <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-            {r.status !== "Published" && <Btn small kind="ghost" onClick={() => { onUpdate(r.id, { status: "Published" }); notify("Review published"); }}>Publish</Btn>}
-            {r.status !== "Hidden" && <Btn small kind="ghost" onClick={() => { onUpdate(r.id, { status: "Hidden" }); notify("Review hidden from the app"); }}>Hide</Btn>}
-            {r.status === "Flagged" && <Btn small kind="danger" onClick={() => { onDelete(r.id); notify("Spam review removed"); }}>Remove</Btn>}
+            {r.status !== "Published" && <Btn small kind="ghost" onClick={() => void onStatus(r, "Published")}>Publish</Btn>}
+            {r.status !== "Hidden" && <Btn small kind="ghost" onClick={() => void onStatus(r, "Hidden")}>Hide</Btn>}
+            <Btn small kind="danger" onClick={() => { if (confirm("Delete this review permanently?")) void onDelete(r); }}>Delete</Btn>
           </div>
         ) },
       ]} />
@@ -164,44 +165,38 @@ export function ReviewsSection({ reviews, onUpdate, onDelete, notify }: {
 
 /* ───────────────────────── Broadcast notifications ───────────────────────── */
 
-export function BroadcastSection({ history, onSend }: { history: Broadcast[]; onSend: (b: Broadcast) => void }) {
+export function BroadcastSection({ history, onSend }: {
+  history: Broadcast[]; onSend: (b: { title: string; body: string; audience: string }) => Promise<number | null>;
+}) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [audience, setAudience] = useState("All customers");
-  const [channels, setChannels] = useState<string[]>(["Push"]);
+  const [audience, setAudience] = useState<string>(AUDIENCES[0]);
   const [confirm, setConfirm] = useState(false);
-  const ok = title.trim().length >= 3 && body.trim().length >= 5 && channels.length > 0;
-  const toggle = (c: string) => setChannels((x) => (x.includes(c) ? x.filter((y) => y !== c) : [...x, c]));
+  const [busy, setBusy] = useState(false);
+  const ok = title.trim().length >= 3 && body.trim().length >= 5;
 
-  const send = () => {
-    onSend({ id: `b${Date.now()}`, title: title.trim(), body: body.trim(), audience, channels, sentAt: `${TODAY}, ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }).toUpperCase()}`, reach: AUDIENCES[audience] });
-    setTitle(""); setBody(""); setConfirm(false);
+  const send = async () => {
+    setBusy(true);
+    const reach = await onSend({ title: title.trim(), body: body.trim(), audience });
+    setBusy(false);
+    if (reach != null) { setTitle(""); setBody(""); setConfirm(false); }
   };
 
   return (
     <div className="admin-grid-2">
-      <Panel title="Send a notification">
-        <label><span style={fieldLabel}>Title</span><input value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} placeholder="Diwali sale is live 🪔" style={input} /></label>
+      <Panel title="Send an in-app notification">
+        <label><span style={fieldLabel}>Title</span><input value={title} maxLength={60} onChange={(e) => setTitle(e.target.value)} placeholder="Diwali sale is live" style={input} /></label>
         <label style={{ display: "block", marginTop: 12 }}><span style={fieldLabel}>Message</span>
           <textarea value={body} maxLength={180} rows={3} onChange={(e) => setBody(e.target.value)} placeholder="Save up to ₹3,000 on RO purifiers till 3 Nov." style={{ ...input, resize: "vertical" }} />
           <span style={{ ...muted, float: "right" }}>{body.length}/180</span>
         </label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12, clear: "both" }}>
-          <label><span style={fieldLabel}>Audience</span>
-            <select value={audience} onChange={(e) => setAudience(e.target.value)} style={input}>
-              {Object.entries(AUDIENCES).map(([a, n]) => <option key={a} value={a}>{a} ({n.toLocaleString("en-IN")})</option>)}
-            </select>
-          </label>
-          <div><span style={fieldLabel}>Channels</span>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {["Push", "SMS", "WhatsApp"].map((c) => (
-                <button key={c} onClick={() => toggle(c)} aria-pressed={channels.includes(c)} style={{ padding: "7px 11px", borderRadius: 10, fontSize: 12.5, fontWeight: 600, cursor: "pointer", border: channels.includes(c) ? "1.5px solid var(--blue)" : "1.5px solid var(--line-strong)", background: channels.includes(c) ? "var(--blue-tint)" : "var(--surface)", color: channels.includes(c) ? "var(--blue)" : "var(--text-secondary)" }}>{c}</button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <label style={{ display: "block", marginTop: 12, clear: "both" }}><span style={fieldLabel}>Audience</span>
+          <select value={audience} onChange={(e) => setAudience(e.target.value)} style={input}>
+            {AUDIENCES.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </label>
+        <p style={{ ...muted, margin: "8px 0 0" }}>Appears in each person&apos;s notification centre in the app. Customers who turned off offers won&apos;t get it. SMS and WhatsApp need a messaging provider first.</p>
 
-        {/* Phone-style preview */}
         <div style={{ marginTop: 16, padding: 12, borderRadius: 14, background: "var(--bg-secondary)" }}>
           <p style={{ ...muted, margin: "0 0 6px", fontWeight: 700 }}>PREVIEW</p>
           <div style={{ background: "var(--surface)", borderRadius: 12, padding: "10px 12px", boxShadow: "var(--shadow-card)" }}>
@@ -211,7 +206,7 @@ export function BroadcastSection({ history, onSend }: { history: Broadcast[]; on
           </div>
         </div>
         <div style={{ marginTop: 14, display: "flex", justifyContent: "flex-end" }}>
-          <Btn disabled={!ok} onClick={() => setConfirm(true)}>Review & send</Btn>
+          <Btn disabled={!ok} onClick={() => setConfirm(true)}>Review &amp; send</Btn>
         </div>
       </Panel>
 
@@ -220,17 +215,18 @@ export function BroadcastSection({ history, onSend }: { history: Broadcast[]; on
           <div key={b.id} style={{ padding: "12px 16px", borderTop: i ? "1px solid var(--line)" : "none" }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><b style={{ fontSize: 13.5 }}>{b.title}</b><span style={muted}>{b.reach.toLocaleString("en-IN")} reached</span></div>
             <p style={{ margin: "2px 0 4px", fontSize: 12.5, color: "var(--ink-soft)" }}>{b.body}</p>
-            <span style={muted}>{b.audience} · {b.channels.join(", ")} · {b.sentAt}</span>
+            <span style={muted}>{b.audience} · {b.sentAt}</span>
           </div>
         ))}
+        {history.length === 0 && <p style={{ ...muted, padding: 16, margin: 0 }}>Nothing sent yet.</p>}
       </Panel>
 
       {confirm && (
         <Modal title="Send notification?" onClose={() => setConfirm(false)} footer={<>
           <Btn kind="ghost" onClick={() => setConfirm(false)}>Back</Btn>
-          <Btn onClick={send}>Send to {AUDIENCES[audience].toLocaleString("en-IN")} people</Btn>
+          <Btn disabled={busy} onClick={send}>{busy ? "Sending…" : "Send now"}</Btn>
         </>}>
-          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6 }}>&ldquo;{title}&rdquo; goes to <b>{audience}</b> via {channels.join(", ")}. This can&apos;t be unsent. (Demo: nothing is actually delivered.)</p>
+          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6 }}>&ldquo;{title}&rdquo; goes to <b>{audience}</b> right away. It can&apos;t be unsent.</p>
         </Modal>
       )}
     </div>

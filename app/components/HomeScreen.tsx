@@ -23,6 +23,8 @@ interface HomeProps {
   onOpenService: (t: ServiceType) => void;
   onOpenServices: () => void;
   onRefer: () => void;
+  /** Days left on the customer's AMC, or null if they don't have one. */
+  amcDaysLeft: number | null;
 }
 
 /* ── Quick-action artwork — flat two-tone tiles, straight from the student
@@ -197,15 +199,19 @@ export default function HomeScreen(p: HomeProps) {
           }}><ShieldIcon s={24} c="white" w={2} /></div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>AMC due in 12 days</p>
+              <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>
+                {p.amcDaysLeft == null ? "Get 1-year AMC" : p.amcDaysLeft <= 30 ? `AMC ends in ${p.amcDaysLeft} days` : "AMC active"}
+              </p>
             </div>
-            <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--ink-soft)" }}>AquaPure RO Classic · 2 free visits</p>
+            <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--ink-soft)" }}>
+              {p.amcDaysLeft == null ? "3 visits, 2 filter sets & priority repairs" : `${p.amcDaysLeft} days of cover left`}
+            </p>
           </div>
           <button onClick={p.onRenewAmc} style={{
             background: "linear-gradient(135deg,var(--gold),var(--gold-dark))", color: "var(--blue-dark)", border: "none",
             borderRadius: 12, padding: "11px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer",
             boxShadow: "0 4px 12px rgba(245,166,35,0.35)", whiteSpace: "nowrap",
-          }}>Renew →</button>
+          }}>{p.amcDaysLeft == null ? "Get AMC →" : "Renew →"}</button>
         </div>
       </div>
 

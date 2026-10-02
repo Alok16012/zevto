@@ -192,6 +192,28 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Supabase sets app_metadata (the role) just after inserting the user, so keep
+-- the profile's role — and its ID series — in step when the role arrives.
+create or replace function public.sync_user_role() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_role text := coalesce(new.raw_app_meta_data ->> 'role', 'customer');
+  v_prefix text;
+begin
+  if v_role not in ('customer', 'technician', 'admin', 'super_admin') then return new; end if;
+  v_prefix := case v_role when 'technician' then 'TEC' when 'customer' then 'CUS' else 'ADM' end;
+  update public.profiles p
+     set role = v_role,
+         code = case when p.code like v_prefix || '-%' then p.code else public.next_code(v_role) end
+   where p.id = new.id and p.role <> v_role;
+  return new;
+end $$;
+
+drop trigger if exists on_auth_user_role on auth.users;
+create trigger on_auth_user_role after update of raw_app_meta_data on auth.users
+  for each row when (old.raw_app_meta_data ->> 'role' is distinct from new.raw_app_meta_data ->> 'role')
+  execute function public.sync_user_role();
+
 -- Users may edit their own profile, but never their role, ID or block status.
 create or replace function public.guard_profile() returns trigger
 language plpgsql as $$

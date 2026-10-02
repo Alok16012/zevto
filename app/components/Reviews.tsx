@@ -4,7 +4,6 @@ import { useState } from "react";
 import { ChatIcon, PhoneIcon, StarIcon } from "./icons";
 import PurifierArt from "./PurifierArt";
 import TechAvatar from "./TechAvatar";
-import { useBridge } from "../lib/bridge";
 import { Avatar, Footer, PageHeader, PrimaryButton, StarPicker, Stars, card, field, label, sectionTitle } from "./ui";
 import { RATING_TAGS, initialsOf, productById, type Review, type ServiceRating, type ServiceRequest, type Technician, servicePincodes } from "../lib/data";
 
@@ -158,7 +157,6 @@ export function WriteReviewPage({ productId, existing, onBack, onSubmit }: {
 /* ───────────────────────── Technician profile ───────────────────────── */
 
 export function TechnicianPage({ tech, reviews, onBack, onChat }: { tech: Technician; reviews: Review[]; onBack: () => void; onChat: () => void }) {
-  const areas = useBridge().techAreas;
   const mine = reviews.filter((r) => r.techId === tech.id);
   return (
     <div>
@@ -169,7 +167,7 @@ export function TechnicianPage({ tech, reviews, onBack, onChat }: { tech: Techni
           <p style={{ margin: "10px 0 0", fontSize: 18, fontWeight: 700 }}>{tech.name}</p>
           <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--ink-soft)" }}>Technician ID <b style={{ color: "var(--ink)" }}>{tech.code}</b></p>
           <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--success-text)", fontWeight: 600 }}>✓ Verified · background checked</p>
-          <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--ink-mute)" }}>Serves pincodes {servicePincodes(tech, areas).join(", ")}</p>
+          <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--ink-mute)" }}>Serves pincodes {tech.pincodes.join(", ")}</p>
           <div style={{ display: "flex", marginTop: 14, borderTop: "1px solid var(--line)", paddingTop: 12 }}>
             {[[<><StarIcon s={14} /> {tech.rating}</>, "Rating"], [`${tech.jobs.toLocaleString("en-IN")}+`, "Jobs done"], [`${tech.years} yrs`, "Experience"]].map(([v, l], i) => (
               <div key={i} style={{ flex: 1, borderRight: i < 2 ? "1px solid var(--line)" : "none" }}>
@@ -265,7 +263,7 @@ export function MyReviewsPage({ reviews, services, onBack, onEditProduct, onTrac
             {pending.map((s) => (
               <button key={s.id} onClick={() => onTrack(s.id)} className="press" style={{ ...card, width: "100%", border: "1.5px solid var(--gold)", padding: 14, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left", marginBottom: 10 }}>
                 <span style={{ fontSize: 22 }}>⭐</span>
-                <span style={{ flex: 1 }}><span style={{ display: "block", fontSize: 13.5, fontWeight: 600 }}>{s.type} · {s.product}</span><span style={{ fontSize: 12, color: "var(--ink-soft)" }}>#{s.id} · {s.date}</span></span>
+                <span style={{ flex: 1 }}><span style={{ display: "block", fontSize: 13.5, fontWeight: 600 }}>{s.type} · {s.product}</span><span style={{ fontSize: 12, color: "var(--ink-soft)" }}>#{s.ref} · {s.date}</span></span>
                 <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--gold-dark)" }}>Rate →</span>
               </button>
             ))}

@@ -10,11 +10,8 @@ import { RateServiceCard, ServiceRatedCard } from "./Reviews";
 import { SERVICE_ICON } from "./ServicesHub";
 import TechAvatar from "./TechAvatar";
 import { LiveTrackingCard, LocationPendingCard } from "./LiveTracking";
-import type { Trip } from "../lib/bridge";
-import { useBridge } from "../lib/bridge";
 import { TECHNICIANS } from "../lib/data";
-
-const TECH_CODES = Object.fromEntries(TECHNICIANS.map((t) => [t.id, t.code]));
+import type { LivePoint } from "./LiveTracking";
 import { AddressSheet } from "./Account";
 import {
   PIN_AREAS, techsForPincode, type Address,
@@ -33,14 +30,13 @@ export interface BookingRequest {
 export function BookServiceScreen({ initialType = "Installation", onBack, onSubmit, addresses, onAddAddress }: {
   initialType?: ServiceType; onBack?: () => void;
   onSubmit: (req: BookingRequest) => void;
-  addresses: Address[]; onAddAddress: (a: Address) => void;
+  addresses: Address[]; onAddAddress: (a: Address) => Promise<Address | null>;
 }) {
   const [addingAddress, setAddingAddress] = useState(false);
-  const { techAreas } = useBridge();
   const [addressId, setAddressId] = useState(() => (addresses.find((a) => a.isDefault) ?? addresses[0])?.id ?? "");
   const address = addresses.find((a) => a.id === addressId);
   // Only technicians who cover this pincode are offered; null = let ops pick the fastest.
-  const matches = address ? techsForPincode(address.pincode, techAreas) : [];
+  const matches = address ? techsForPincode(address.pincode) : [];
   const [techChoice, setTechChoice] = useState<string | null>(null);
   const chosen = matches.some((m) => m.tech.id === techChoice) ? techChoice : null;
   const [type, setType] = useState<ServiceType>(initialType);
@@ -211,7 +207,7 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
       </div>
       {addingAddress && (
         <AddressSheet initial={null} onClose={() => setAddingAddress(false)}
-          onSave={(a) => { onAddAddress(a); setAddressId(a.id); setAddingAddress(false); }} />
+          onSave={async (a) => { const saved = await onAddAddress(a); if (saved) { setAddressId(saved.id); setAddingAddress(false); } }} />
       )}
       <Footer><PrimaryButton onClick={submit}>Book {type}{price ? ` · ${inr(price - discount)}` : ""}</PrimaryButton></Footer>
     </div>
@@ -259,7 +255,7 @@ export function OrdersScreen({ orders, onBack, onOpen }: { orders: Order[]; onBa
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink)" }}>Order #{o.id}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink)" }}>Order #{o.ref}</span>
                   <StatusBadge status={o.status} />
                 </div>
                 <p style={{ margin: "2px 0 0", fontSize: 12.5, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.title}</p>
@@ -289,7 +285,7 @@ export function OrderDetailPage({ order, onBack, onHelp, onReview }: {
   const at = Math.max(0, steps.indexOf(order.status));
   return (
     <div>
-      <PageHeader title={`Order #${order.id}`} onBack={onBack} />
+      <PageHeader title={`Order #${order.ref}`} onBack={onBack} />
       <div style={{ padding: "0 16px 24px" }}>
         <div style={{ ...card, padding: 14, display: "flex", gap: 12, alignItems: "center" }}>
           <div style={{ width: 76, height: 76, borderRadius: 14, background: "var(--bg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}><PurifierArt kind={order.art} size={68} /></div>
@@ -356,13 +352,17 @@ export function OrderDetailPage({ order, onBack, onHelp, onReview }: {
 
 /* ───────────────────────── Track service ───────────────────────── */
 
-export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpenTech, onPhotos }: {
-  service: ServiceRequest; trip?: Trip; onBack: () => void; onChat: () => void; onRate: (r: ServiceRating) => void; onOpenTech: (id: string) => void;
+export function TrackServicePage({ service, position, otp, photoUrls, onBack, onChat, onRate, onOpenTech, onPhotos }: {
+  service: ServiceRequest; position: LivePoint | null; otp: string | null; photoUrls: string[];
+  onBack: () => void; onChat: () => void; onRate: (r: ServiceRating) => void; onOpenTech: (id: string) => void;
   onPhotos: (photos: string[]) => void;
 }) {
   const [showInfo, setShowInfo] = useState(false);
   const tech = service.technician;
-  const awaitingFeedback = service.current === 4 && !service.timeline[4].at;
+  const awaitingFeedback = service.status === "Completed" && !service.rating;
+  const picked = !tech && service.preferredTechId ? TECHNICIANS.find((t) => t.id === service.preferredTechId) : undefined;
+  const riding = service.status === "On the way" || service.status === "Arrived";
+  const closed = service.status === "Cancelled";
 
   return (
     <div>
@@ -370,10 +370,18 @@ export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpen
       <div style={{ padding: "0 16px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 2px 12px" }}>
           <div>
-            <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>Request #{service.id}</p>
+            <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>Request #{service.ref}</p>
             <p style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{service.type} · {service.product}</p>
           </div>
         </div>
+
+        {(closed || service.status === "Rescheduled") && (
+          <div style={{ ...card, padding: 14, marginBottom: 12, background: closed ? "var(--error)" : "var(--warning)", boxShadow: "none" }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: closed ? "var(--error-text)" : "var(--warning-text)" }}>
+              {closed ? "This booking was cancelled. Chat with us if that's unexpected." : `Your visit needs a new slot${service.rescheduleReason ? ` — ${service.rescheduleReason}` : ""}. Our team will call you to fix a time.`}
+            </p>
+          </div>
+        )}
 
         {/* Step tracker */}
         <div style={{ ...card, padding: "18px 16px" }}>
@@ -412,7 +420,7 @@ export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpen
             <TechAvatar id={tech.id} name={tech.name} size={50} ring />
             <button onClick={() => onOpenTech(tech.id)} style={{ flex: 1, background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>
               <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{tech.name}</p>
-              <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>{TECH_CODES[tech.id] ?? ""}</p>
+              <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>{tech.code}</p>
               <p style={{ margin: 0, fontSize: 12, color: "var(--blue)", fontWeight: 600 }}>View profile &amp; reviews</p>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}><StarIcon s={13} /><span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>{tech.rating}</span></div>
             </button>
@@ -422,21 +430,27 @@ export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpen
         ) : (
           <div style={{ ...card, padding: 14, marginTop: 12, display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: 26 }}>⏳</span>
-            <p style={{ margin: 0, fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5 }}>We&apos;re assigning the nearest technician. You&apos;ll get an SMS within 2 hours.</p>
+            <p style={{ margin: 0, fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+              {closed ? "No technician — this booking was cancelled."
+                : picked ? <>Waiting for <b style={{ color: "var(--ink)" }}>{picked.name}</b> to confirm your visit. If they can&apos;t make it, we&apos;ll assign someone else.</>
+                : "We're assigning the nearest technician. You'll be notified as soon as someone is confirmed."}
+            </p>
           </div>
         )}
 
         {/* Location is shared only once the technician starts the ride — not when the job is assigned. */}
-        {tech && service.current === 1 && (
-          trip && (trip.status === "On the way" || trip.status === "Arrived")
-            ? <LiveTrackingCard arrived={trip.status === "Arrived"} position={null} home={service.lat != null && service.lng != null ? { lat: service.lat, lng: service.lng } : null} etaMin={trip.etaMin} tripStartedAt={new Date(trip.startedAt).toISOString()} tech={tech} address={service.address ?? "Your address"} otp={service.otp} />
+        {tech && service.current === 1 && service.status !== "Rescheduled" && (
+          riding
+            ? <LiveTrackingCard arrived={service.status === "Arrived"} tech={tech} position={position}
+                home={service.lat != null && service.lng != null ? { lat: service.lat, lng: service.lng } : null}
+                address={service.address ?? "Your address"} otp={otp} etaMin={service.etaMin} tripStartedAt={service.tripStartedAt} />
             : <LocationPendingCard techName={tech.name} />
         )}
 
         {/* Customers can add photos until the visit starts; after that they're part of the record. */}
-        {service.current < 2 ? (
+        {service.current < 2 && !closed ? (
           <div style={{ ...card, padding: 14, marginTop: 12 }}>
-            <RoPhotoPicker photos={service.photos ?? []} onChange={onPhotos} recommended={service.type !== "Installation"} />
+            <RoPhotoPicker photos={photoUrls} onChange={onPhotos} recommended={service.type !== "Installation"} />
             {service.technician && (service.photos?.length ?? 0) > 0 && (
               <p style={{ margin: "8px 2px 0", fontSize: 11.5, color: "var(--success-text)", fontWeight: 600 }}>✓ {service.technician.name.split(" ")[0]} can see these photos</p>
             )}
@@ -444,7 +458,7 @@ export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpen
         ) : (service.photos?.length ?? 0) > 0 && (
           <div style={{ ...card, padding: 14, marginTop: 12 }}>
             <p style={{ margin: "0 0 8px", fontSize: 13.5, fontWeight: 600 }}>📷 Photos you shared</p>
-            <PhotoStrip photos={service.photos!} />
+            <PhotoStrip photos={photoUrls} />
           </div>
         )}
 
@@ -458,7 +472,8 @@ export function TrackServicePage({ service, trip, onBack, onChat, onRate, onOpen
 
         {showInfo && (
           <div className="fade-up" style={{ ...card, padding: "6px 14px", marginTop: 12 }}>
-            {[["Service", service.type], ["Product", service.product], ["Date", service.date], ["Time slot", service.slot], ["Problem", service.description || "—"], ...(service.otp && service.current < 2 ? [["Start code", service.otp]] : [])].map(([k, v]) => (
+            {[["Service", service.type], ["Product", service.product], ["Date", service.date], ["Time slot", service.slot], ["Address", service.address ?? "—"],
+              ["Amount", service.amount ? inr(service.amount) : "FREE"], ["Problem", service.description || "—"], ...(otp && service.current < 2 && !closed ? [["Start code", otp]] : [])].map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}>
                 <span style={{ color: "var(--ink-soft)" }}>{k}</span><span style={{ fontWeight: 600, textAlign: "right" }}>{v}</span>
               </div>

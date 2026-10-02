@@ -3,38 +3,42 @@
 // Reads NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY from .env.local.
 import { readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
 
 const env = Object.fromEntries(
   readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n")
     .filter((l) => /^[A-Z_]+=/.test(l)).map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).trim()]),
 );
+const URL_ = env.NEXT_PUBLIC_SUPABASE_URL;
+const KEY = env.SUPABASE_SERVICE_ROLE_KEY;
+const H = { apikey: KEY, Authorization: `Bearer ${KEY}`, "content-type": "application/json" };
 const email = (process.argv.find((a) => a.includes("@")) ?? "admin@zavtoo.in").toLowerCase();
 const reset = process.argv.includes("--reset");
 
+async function api(path, init = {}) {
+  const res = await fetch(`${URL_}${path}`, { ...init, headers: { ...H, ...(init.headers ?? {}) } });
+  const body = await res.text();
+  const data = body ? JSON.parse(body) : null;
+  if (!res.ok) throw new Error(data?.msg ?? data?.message ?? `HTTP ${res.status}`);
+  return data;
+}
+
 // 16 random characters + a guaranteed mix of character types.
 const password = `${randomBytes(12).toString("base64url")}#7Zv`;
-
-const sb = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-
-const { data: list, error: listErr } = await sb.auth.admin.listUsers({ perPage: 1000 });
-if (listErr) { console.error("Couldn't reach Supabase:", listErr.message); process.exit(1); }
-const existing = list.users.find((u) => u.email === email);
-
-if (existing && !reset) {
-  console.log(`${email} already exists (role: ${existing.app_metadata?.role}). Re-run with --reset for a new password.`);
-  process.exit(0);
-}
-
 const attrs = { password, email_confirm: true, app_metadata: { role: "super_admin" }, user_metadata: { full_name: "Super Admin" } };
-const { data, error } = existing
-  ? await sb.auth.admin.updateUserById(existing.id, attrs)
-  : await sb.auth.admin.createUser({ email, ...attrs });
-if (error) { console.error("Failed:", error.message); process.exit(1); }
+
+const { users } = await api("/auth/v1/admin/users?per_page=1000");
+const existing = users.find((u) => u.email === email);
+if (existing && !reset) {
+  console.error(`${email} already exists (role: ${existing.app_metadata?.role}). Re-run with --reset for a new password.`);
+  process.exit(1);
+}
+const user = existing
+  ? await api(`/auth/v1/admin/users/${existing.id}`, { method: "PUT", body: JSON.stringify(attrs) })
+  : await api("/auth/v1/admin/users", { method: "POST", body: JSON.stringify({ email, ...attrs }) });
 
 if (existing) {
-  // Make sure the profile row agrees with the login's role.
-  await sb.from("profiles").update({ role: "super_admin" }).eq("id", existing.id);
+  // Keep the profile in step with the login's role.
+  await api(`/rest/v1/profiles?id=eq.${existing.id}`, { method: "PATCH", body: JSON.stringify({ role: "super_admin" }) });
 }
-const { data: prof } = await sb.from("profiles").select("code, role").eq("id", data.user.id).single();
+const [prof] = await api(`/rest/v1/profiles?select=code,role&id=eq.${user.id}`);
 console.log(JSON.stringify({ email, password, id: prof?.code, role: prof?.role }, null, 2));

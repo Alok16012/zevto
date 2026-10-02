@@ -87,12 +87,3 @@ export const customerBill = (j: Job) => (j.amc ? 0 : j.visitCharge + partsTotal(
 
 export const jobPayout = (j: Job) =>
   Math.round((j.visitCharge ? j.visitCharge * PAYOUT.visitShare : PAYOUT.freeJobFee) + partsTotal(j) * PAYOUT.partsCommission);
-
-/** Empty compatibility defaults while legacy partner screens migrate to queries. */
-export const INITIAL_JOBS: Job[] = [];
-export const INITIAL_STOCK: Record<string, number> = {};
-export const INCOMING_JOB: Job | null = null;
-export const TECH_ID = "";
-export const TODAY = todayLabel();
-export const WEEK_EARNINGS: { day: string; amount: number; jobs: number }[] = [];
-export const PAYOUTS: { id: string; period: string; amount: number; status: string; at: string }[] = [];

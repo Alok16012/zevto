@@ -3,118 +3,173 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandMark, Wordmark } from "../components/Brand";
-import { SERVICE_CATALOG } from "../lib/data";
-import { updateBridge, useBridge } from "../lib/bridge";
+import { BagIcon, InboxIcon, BoxIcon, GridIcon, MegaphoneIcon, StarLineIcon, StoreIcon, TagIcon, TechnicianIcon, UsersIcon, WrenchIcon } from "../components/icons";
+import { friendly, roleOf, supabaseFor, useLive, useSession } from "../lib/supabase";
+import { useCatalog } from "../lib/catalog";
 import {
-  ADMIN_COUPONS, ADMIN_DEMO, DEALERS, type Dealer, ADMIN_PRODUCTS, ADMIN_REVIEWS, ADMIN_TECHS, BROADCASTS, CUSTOMERS, JOBS, ORDERS, TODAY,
-  type AdminCoupon, type AdminCustomer, type AdminJob, type AdminOrder, type AdminProduct, type AdminReview, type AdminTech, type Broadcast,
+  ADMIN_WATCH, loadAdminData,
+  type AdminCoupon, type AdminCustomer, type AdminJob, type AdminOrder, type AdminOrderStatus, type AdminProduct, type AdminReview, type AdminTech, type Dealer,
 } from "../lib/adminData";
 import { Btn, fieldLabel, input } from "./kit";
 import { Dashboard } from "./Dashboard";
 import { OrdersSection, ServicesSection } from "./Operations";
-import { CustomersSection, DealersSection, TechniciansSection } from "./People";
+import { CustomersSection, DealersSection, TechniciansSection, type NewDealer, type NewTechnician } from "./People";
 import { BroadcastSection, CouponsSection, ProductsSection, ReviewsSection } from "./Catalog";
+import { SupportSection, useSupportUnread } from "./Support";
 
-export type Section = "dashboard" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "coupons" | "reviews" | "broadcast";
+export type Section = "dashboard" | "support" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "coupons" | "reviews" | "broadcast";
 
-const NAV: { group: string; items: { id: Section; label: string; icon: string }[] }[] = [
-  { group: "Overview", items: [{ id: "dashboard", label: "Dashboard", icon: "▦" }] },
-  { group: "Operations", items: [{ id: "orders", label: "Orders", icon: "🛒" }, { id: "services", label: "Service Jobs", icon: "🔧" }] },
-  { group: "People", items: [{ id: "customers", label: "Customers", icon: "👥" }, { id: "technicians", label: "Technicians", icon: "🧑‍🔧" }, { id: "dealers", label: "Dealers", icon: "🏪" }] },
+type NavIcon = (p: { s?: number; c?: string; w?: number }) => React.ReactElement;
+
+const NAV: { group: string; items: { id: Section; label: string; Icon: NavIcon }[] }[] = [
+  { group: "Overview", items: [{ id: "dashboard", label: "Dashboard", Icon: GridIcon }] },
+  { group: "Operations", items: [{ id: "orders", label: "Orders", Icon: BagIcon }, { id: "services", label: "Service Jobs", Icon: WrenchIcon }, { id: "support", label: "Support Chat", Icon: InboxIcon }] },
+  { group: "People", items: [{ id: "customers", label: "Customers", Icon: UsersIcon }, { id: "technicians", label: "Technicians", Icon: TechnicianIcon }, { id: "dealers", label: "Dealers", Icon: StoreIcon }] },
   { group: "Catalogue & growth", items: [
-    { id: "products", label: "Products & Stock", icon: "📦" }, { id: "coupons", label: "Offers & Coupons", icon: "🏷️" },
-    { id: "reviews", label: "Reviews", icon: "⭐" }, { id: "broadcast", label: "Notifications", icon: "📣" },
+    { id: "products", label: "Products & Stock", Icon: BoxIcon }, { id: "coupons", label: "Offers & Coupons", Icon: TagIcon },
+    { id: "reviews", label: "Reviews", Icon: StarLineIcon }, { id: "broadcast", label: "Notifications", Icon: MegaphoneIcon },
   ] },
 ];
 
 const TITLES: Record<Section, string> = {
-  dashboard: "Dashboard", orders: "Orders", services: "Service Jobs & Dispatch", customers: "Customers", technicians: "Technicians", dealers: "Dealers",
+  dashboard: "Dashboard", support: "Support Chat", orders: "Orders", services: "Service Jobs & Dispatch", customers: "Customers", technicians: "Technicians", dealers: "Dealers",
   products: "Products & Stock", coupons: "Offers & Coupons", reviews: "Reviews", broadcast: "Broadcast Notifications",
 };
 
-const SESSION_KEY = "zavtoo:admin";
-const readSession = () => { try { return sessionStorage.getItem(SESSION_KEY) === "1"; } catch { return false; } };
-const writeSession = (v: boolean) => { try { if (v) sessionStorage.setItem(SESSION_KEY, "1"); else sessionStorage.removeItem(SESSION_KEY); } catch { /* storage blocked */ } };
-
-/** Swaps one row by key — every section edits its list the same way. */
-const patchBy = <T,>(key: (x: T) => string) => (id: string, patch: Partial<T>) => (all: T[]) => all.map((x) => (key(x) === id ? { ...x, ...patch } : x));
+const sb = () => supabaseFor("admin");
 
 export default function AdminApp() {
-  const [authed, setAuthed] = useState<boolean | null>(null);
+  const session = useSession("admin");
+  const role = roleOf(session ?? null);
+  const staff = role === "admin" || role === "super_admin";
+  const uid = staff ? session!.user.id : null;
+  useCatalog("admin", session === undefined ? undefined : uid);
+  const live = useLive("admin", uid, loadAdminData, ADMIN_WATCH);
+  const supportUnread = useSupportUnread(!!uid);
+  const data = live.data;
+
   const [section, setSection] = useState<Section>("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [orders, setOrders] = useState<AdminOrder[]>(ORDERS);
-  const [jobs, setJobs] = useState<AdminJob[]>(JOBS);
-  const [customers, setCustomers] = useState<AdminCustomer[]>(CUSTOMERS);
-  const [techs, setTechs] = useState<AdminTech[]>(ADMIN_TECHS);
-  const [products, setProducts] = useState<AdminProduct[]>(ADMIN_PRODUCTS);
-  const [coupons, setCoupons] = useState<AdminCoupon[]>(ADMIN_COUPONS);
-  const [reviews, setReviews] = useState<AdminReview[]>(ADMIN_REVIEWS);
-  const [dealers, setDealers] = useState<Dealer[]>(DEALERS);
-  const [broadcasts, setBroadcasts] = useState<Broadcast[]>(BROADCASTS);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; bad?: boolean } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const bridge = useBridge();
-  const seenTasks = useRef(new Set<string>());
 
-  useEffect(() => { setAuthed(readSession()); }, []);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [section]);
 
-  const notify = (msg: string) => {
-    setToast(msg);
+  // A signed-in non-staff account (customer/technician) can't use the console.
+  useEffect(() => {
+    if (session && !staff) void sb().auth.signOut();
+  }, [session, staff]);
+
+  const notify = (msg: string, bad = false) => {
+    setToast({ msg, bad });
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 2400);
+    toastTimer.current = setTimeout(() => setToast(null), bad ? 5000 : 2600);
+  };
+  /** Runs a write, reports the outcome, and refreshes the data. */
+  const act = async (fn: () => PromiseLike<{ error: unknown }>, ok: string) => {
+    const { error } = await fn();
+    if (error) { notify(friendly(error), true); return false; }
+    notify(ok); live.reload(); return true;
   };
 
   const go = (s: Section) => { setSection(s); setMenuOpen(false); };
 
-  // Tasks technicians send to ops (demo bridge) arrive as unassigned jobs.
-  useEffect(() => {
-    const fresh = bridge.opsTasks.filter((t) => t.status === "With ops" && !seenTasks.current.has(t.id));
-    if (!fresh.length) return;
-    fresh.forEach((t) => seenTasks.current.add(t.id));
-    setJobs((all) => [
-      ...fresh.filter((t) => !all.some((j) => j.id === t.id)).map((t): AdminJob => ({
-        id: t.id, customerId: "", customerLabel: t.customer.name, raisedBy: t.techName, type: t.type, product: t.product,
-        date: t.date, slot: t.slot, area: t.customer.address.split(",").slice(-2).join(",").trim() || t.customer.address,
-        techId: null, status: "Unassigned", amount: SERVICE_CATALOG.find((o) => o.type === t.type)?.price ?? 0, note: t.issue,
-      })),
-      ...all,
-    ]);
-    if (authed) notify(`New task from ${fresh[0].techName}${fresh.length > 1 ? ` + ${fresh.length - 1} more` : ""}`);
-    // notify only shows a toast.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bridge.opsTasks, authed]);
-
-  /** Dispatch changes on a technician-raised task go back to that technician's app. */
-  const updateJob = (id: string, p: Partial<AdminJob>) => {
-    setJobs(patchBy<AdminJob>((j) => j.id)(id, p));
-    if (!bridge.opsTasks.some((t) => t.id === id) || !p.status) return;
-    const tech = techs.find((t) => t.id === p.techId);
-    const task = bridge.opsTasks.find((t) => t.id === id)!;
-    updateBridge((b) => ({
-      ...b,
-      // Assigned tasks show up in the chosen technician's job list.
-      jobs: p.status === "Assigned" && tech
-        ? [...b.jobs.filter((j) => j.id !== id), { id, techId: tech.id, customer: task.customer, type: task.type, product: task.product, date: p.date ?? task.date, slot: task.slot, issue: task.issue, otp: String(1000 + Math.floor(Math.random() * 9000)) }]
-        : b.jobs.filter((j) => j.id !== id),
-      opsTasks: b.opsTasks.map((t) => t.id !== id ? t
-        : p.status === "Assigned" ? { ...t, status: "Assigned", assignedTo: tech?.name ?? "a technician", date: p.date ?? t.date }
-        : p.status === "Cancelled" ? { ...t, status: "Cancelled" } : t),
-    }));
+  /* ── Writes ── */
+  const setOrderStatus = async (o: AdminOrder, status: AdminOrderStatus) => {
+    await act(() => sb().from("orders").update({ status, ...(status === "Delivered" && o.payment === "COD" ? { payment_status: "Paid" } : {}) }).eq("id", o.id),
+      status === "Cancelled" ? `#${o.ref} cancelled` : `#${o.ref} marked ${status.toLowerCase()} — customer notified`);
   };
+  const assignJob = async (j: AdminJob, techId: string, isoDate: string) => {
+    const t = data?.techs.find((x) => x.id === techId);
+    await act(() => sb().from("service_requests").update({
+      tech_id: techId, preferred_tech_id: null, status: "Assigned", assigned_at: new Date().toISOString(), visit_date: isoDate,
+      reschedule_reason: null, trip_started_at: null,
+    }).eq("id", j.id), `#${j.ref} assigned to ${t?.name ?? "technician"} — they and the customer are notified`);
+  };
+  const cancelJob = async (j: AdminJob) => {
+    await act(() => sb().from("service_requests").update({ status: "Cancelled" }).eq("id", j.id), `#${j.ref} cancelled`);
+  };
+  const blockCustomer = async (c: AdminCustomer, blocked: boolean) => {
+    await act(() => sb().from("profiles").update({ blocked }).eq("id", c.id), blocked ? `${c.name} blocked` : `${c.name} unblocked`);
+  };
+  const creditCustomer = (c: AdminCustomer, amount: number, reason: string) =>
+    act(() => sb().rpc("admin_credit_wallet", { p_user: c.id, p_amount: amount, p_reason: reason }), `₹${amount} credited to ${c.name}`);
+  const updateTech = async (t: AdminTech, patch: { kyc?: "Verified"; active?: boolean; dealerId?: string | null }) => {
+    const row: Record<string, unknown> = {};
+    if (patch.kyc) row.kyc = patch.kyc;
+    if (patch.active !== undefined) { row.active = patch.active; if (!patch.active) row.status = "Offline"; }
+    if (patch.dealerId !== undefined) row.dealer_id = patch.dealerId;
+    await act(() => sb().from("technicians").update(row).eq("id", t.id),
+      patch.kyc ? `${t.name} approved — can now take jobs` : patch.active === false ? `${t.name} deactivated` : `${t.name} updated`);
+  };
+  /** Technician logins are created on the server (it holds the service key). */
+  const staffApi = async (body: Record<string, unknown>) => {
+    const { data: s } = await sb().auth.getSession();
+    const res = await fetch("/api/admin/technicians", {
+      method: "POST", headers: { "content-type": "application/json", Authorization: `Bearer ${s.session?.access_token ?? ""}` }, body: JSON.stringify(body),
+    });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) { notify(out.error ?? "Something went wrong", true); return null; }
+    live.reload();
+    return out as { ok: true; code?: string };
+  };
+  const createTech = async (t: NewTechnician) => {
+    const out = await staffApi({ ...t });
+    if (!out?.code) return null;
+    notify(`${t.name} added · ${out.code}`);
+    return { code: out.code };
+  };
+  const resetTechPassword = async (t: AdminTech, password: string) => {
+    const out = await staffApi({ action: "reset-password", id: t.id, password });
+    if (out) notify(`New password set for ${t.name}`);
+    return Boolean(out);
+  };
+  const toggleDealer = async (d: Dealer) => {
+    await act(() => sb().from("dealers").update({ active: !d.active }).eq("id", d.id), d.active ? `${d.name} paused` : `${d.name} reactivated`);
+  };
+  const createDealer = async (d: NewDealer) => {
+    const { data: row, error } = await sb().from("dealers").insert(d).select("code").single();
+    if (error) { notify(friendly(error), true); return null; }
+    notify(`${d.name} added · ${row.code}`); live.reload();
+    return { code: row.code as string };
+  };
+  const updateProduct = (p: AdminProduct, patch: Partial<AdminProduct>) =>
+    act(() => sb().from("products").update(patch).eq("id", p.id), patch.active === false ? `${p.name} hidden from the app` : patch.active ? `${p.name} is live` : `${p.name} updated`);
+  const updateCoupon = (c: AdminCoupon, patch: { active: boolean }) =>
+    act(() => sb().from("coupons").update(patch).eq("code", c.code), patch.active ? `${c.code} is live` : `${c.code} paused`);
+  const createCoupon = (c: AdminCoupon) =>
+    act(() => sb().from("coupons").insert({
+      code: c.code, title: c.title, descr: c.desc, kind: c.kind, value: c.value, max_off: c.maxOff ?? null, min_order: c.minOrder,
+      applies_to: c.appliesTo, expires: c.expiresIso, active: true,
+    }), `${c.code} created`);
+  const setReviewStatus = async (r: AdminReview, status: AdminReview["status"]) => {
+    await act(() => sb().from("reviews").update({ status }).eq("id", r.id), status === "Hidden" ? "Review hidden from the app" : "Review published");
+  };
+  const deleteReview = async (r: AdminReview) => { await act(() => sb().from("reviews").delete().eq("id", r.id), "Review deleted"); };
+  const sendBroadcast = async (b: { title: string; body: string; audience: string }) => {
+    const { data: row, error } = await sb().from("broadcasts").insert({ ...b, channels: ["In-app"] }).select("id").single();
+    if (error) { notify(friendly(error), true); return null; }
+    const { data: sent } = await sb().from("broadcasts").select("reach").eq("id", row.id).single();
+    notify(`Sent to ${(sent?.reach ?? 0).toLocaleString("en-IN")} people`); live.reload();
+    return sent?.reach ?? 0;
+  };
+
+  if (session === undefined) return <Splash text="Loading…" />;
+  if (!staff) return <AdminLogin />;
+  if (!data) return <Splash text={live.error ?? "Loading console…"} error={!!live.error} onRetry={live.reload} />;
+  const { orders, jobs, customers, techs, products, coupons, reviews, dealers, broadcasts } = data;
+  const me = session!.user;
 
   // Sidebar counters for work waiting on someone.
   const badges: Partial<Record<Section, number>> = {
+    support: supportUnread,
     orders: orders.filter((o) => o.status === "Placed").length,
-    services: jobs.filter((j) => j.status === "Unassigned" || j.status === "Rescheduled").length,
+    services: jobs.filter((j) => j.status === "Unassigned" || j.status === "Awaiting tech" || j.status === "Rescheduled").length,
     technicians: techs.filter((t) => t.kyc === "Pending").length,
     reviews: reviews.filter((r) => r.status === "Flagged").length,
-    products: products.filter((p) => p.active && p.stock <= 5).length,
+    products: products.filter((p) => p.active && p.stock != null && p.stock <= 5).length,
   };
 
-  if (authed === null) return null;
-  if (!authed) return <AdminLogin onDone={() => { writeSession(true); setAuthed(true); }} />;
 
   const sidebar = (
     <aside className={`admin-side no-scroll${menuOpen ? " open" : ""}`} style={{ background: "var(--blue-dark)", color: "white", padding: "18px 12px" }}>
@@ -133,7 +188,7 @@ export default function AdminApp() {
                 width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 10, border: "none", cursor: "pointer",
                 background: on ? "rgba(255,255,255,0.14)" : "transparent", color: on ? "white" : "rgba(255,255,255,0.78)", fontSize: 13.5, fontWeight: on ? 700 : 500, textAlign: "left",
               }}>
-                <span style={{ width: 20, textAlign: "center" }}>{it.icon}</span>
+                <span style={{ width: 20, display: "flex", justifyContent: "center" }}><it.Icon s={19} c="currentColor" w={1.8} /></span>
                 <span style={{ flex: 1 }}>{it.label}</span>
                 {n ? <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 10, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{n}</span> : null}
               </button>
@@ -164,50 +219,49 @@ export default function AdminApp() {
           <main className="admin-main">
             <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
               <div>
-                <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)" }}>Tuesday, {TODAY}</p>
+                <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-soft)" }}>{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "short", year: "numeric" })}</p>
                 <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>{TITLES[section]}</h1>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ textAlign: "right" }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>Ops Admin</p>
-                  <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-mute)" }}>{ADMIN_DEMO.email}</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700 }}>{role === "super_admin" ? "Super Admin" : "Admin"}</p>
+                  <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-mute)" }}>{me.email}</p>
                 </div>
-                <Btn kind="ghost" small onClick={() => { writeSession(false); setAuthed(false); }}>Log out</Btn>
+                <Btn kind="ghost" small onClick={() => void sb().auth.signOut()}>Log out</Btn>
               </div>
             </header>
 
             {section === "dashboard" && <Dashboard orders={orders} jobs={jobs} customers={customers} techs={techs} products={products} reviews={reviews} go={go} />}
-            {section === "orders" && <OrdersSection orders={orders} customers={customers} notify={notify} onUpdate={(id, p) => setOrders(patchBy<AdminOrder>((o) => o.id)(id, p))} />}
-            {section === "services" && <ServicesSection jobs={jobs} customers={customers} techs={techs} notify={notify} onUpdate={updateJob} />}
-            {section === "customers" && <CustomersSection customers={customers} orders={orders} jobs={jobs} notify={notify} onUpdate={(id, p) => setCustomers(patchBy<AdminCustomer>((c) => c.id)(id, p))} />}
-            {section === "dealers" && (
-              <DealersSection dealers={dealers} techs={techs} notify={notify} onUpdate={(id, p) => setDealers(patchBy<Dealer>((d) => d.id)(id, p))}
-                onCreate={(d) => setDealers((all) => [...all, d])} />
+            {section === "support" && <SupportSection customers={customers} notify={notify} />}
+            {section === "orders" && <OrdersSection orders={orders} customers={customers} onStatus={setOrderStatus} />}
+            {section === "services" && <ServicesSection jobs={jobs} customers={customers} techs={techs} onAssign={assignJob} onCancel={cancelJob} />}
+            {section === "customers" && (
+              <CustomersSection customers={customers} orders={orders} jobs={jobs} onBlock={blockCustomer} onCredit={creditCustomer}
+                onResetPassword={async (id, password) => {
+                  const out = await staffApi({ action: "reset-password", id, password });
+                  if (out) notify("New password set");
+                  return Boolean(out);
+                }} />
             )}
-            {section === "technicians" && <TechniciansSection techs={techs} jobs={jobs} dealers={dealers} notify={notify} onUpdate={(id, p) => setTechs(patchBy<AdminTech>((t) => t.id)(id, p))} />}
-            {section === "products" && <ProductsSection products={products} notify={notify} onUpdate={(id, p) => setProducts(patchBy<AdminProduct>((x) => x.id)(id, p))} />}
-            {section === "coupons" && (
-              <CouponsSection coupons={coupons} notify={notify} onUpdate={(code, p) => setCoupons(patchBy<AdminCoupon>((c) => c.code)(code, p))}
-                onCreate={(c) => setCoupons((all) => [c, ...all])} />
+            {section === "dealers" && <DealersSection dealers={dealers} techs={techs} onToggle={toggleDealer} onCreate={createDealer} />}
+            {section === "technicians" && (
+              <TechniciansSection techs={techs} jobs={jobs} dealers={dealers} onUpdate={updateTech} onCreate={createTech} onResetPassword={resetTechPassword} />
             )}
-            {section === "reviews" && (
-              <ReviewsSection reviews={reviews} notify={notify} onUpdate={(id, p) => setReviews(patchBy<AdminReview>((r) => r.id)(id, p))}
-                onDelete={(id) => setReviews((all) => all.filter((r) => r.id !== id))} />
-            )}
-            {section === "broadcast" && (
-              <BroadcastSection history={broadcasts} onSend={(b) => { setBroadcasts((all) => [b, ...all]); notify(`Sent to ${b.reach.toLocaleString("en-IN")} people`); }} />
-            )}
+            {section === "products" && <ProductsSection products={products} onUpdate={updateProduct} />}
+            {section === "coupons" && <CouponsSection coupons={coupons} onUpdate={updateCoupon} onCreate={createCoupon} />}
+            {section === "reviews" && <ReviewsSection reviews={reviews} onStatus={setReviewStatus} onDelete={deleteReview} />}
+            {section === "broadcast" && <BroadcastSection history={broadcasts} onSend={sendBroadcast} />}
 
-            <p style={{ margin: "28px 0 0", textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)" }}>Demo data · changes reset on refresh</p>
+            <p style={{ margin: "28px 0 0", textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)" }}>Live data · updates automatically</p>
           </main>
         </div>
       </div>
 
       {toast && (
-        <div className="fade-up" role="status" style={{
+        <div className="fade-up" role={toast.bad ? "alert" : "status"} style={{
           position: "fixed", right: 20, bottom: 20, left: "auto", zIndex: 300, maxWidth: "calc(100vw - 40px)",
-          background: "var(--ink)", color: "white", borderRadius: 12, padding: "12px 16px", fontSize: 13.5, fontWeight: 500, boxShadow: "var(--shadow-xl)",
-        }}>✓ {toast}</div>
+          background: toast.bad ? "var(--error-text)" : "var(--ink)", color: "white", borderRadius: 12, padding: "12px 16px", fontSize: 13.5, fontWeight: 500, boxShadow: "var(--shadow-xl)",
+        }}>{toast.bad ? "" : "✓ "}{toast.msg}</div>
       )}
     </div>
   );
@@ -217,15 +271,33 @@ const sideLink: React.CSSProperties = { color: "rgba(255,255,255,0.7)", fontSize
 
 /* ───────────────────────── Login ───────────────────────── */
 
-function AdminLogin({ onDone }: { onDone: () => void }) {
+function Splash({ text, error, onRetry }: { text: string; error?: boolean; onRetry?: () => void }) {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", gap: 12, alignItems: "center", justifyContent: "center", background: "var(--app-bg)", padding: 16, textAlign: "center" }}>
+      <BrandMark size={44} />
+      <p style={{ margin: 0, fontSize: 14, color: error ? "var(--error-text)" : "var(--ink-soft)", fontWeight: error ? 600 : 400 }}>{text}</p>
+      {error && onRetry && <Btn small onClick={onRetry}>Try again</Btn>}
+    </div>
+  );
+}
+
+function AdminLogin() {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
-  const [err, setErr] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim().toLowerCase() === ADMIN_DEMO.email && pw === ADMIN_DEMO.password) onDone();
-    else setErr(true);
+    setBusy(true); setErr(null);
+    const { data, error } = await sb().auth.signInWithPassword({ email: email.trim().toLowerCase(), password: pw });
+    if (error) { setErr(friendly(error)); setBusy(false); return; }
+    const r = roleOf(data.session);
+    if (r !== "admin" && r !== "super_admin") {
+      await sb().auth.signOut();
+      setErr("This account doesn't have admin access.");
+    }
+    setBusy(false);
   };
 
   return (
@@ -234,16 +306,14 @@ function AdminLogin({ onDone }: { onDone: () => void }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}><BrandMark size={40} /><Wordmark /></div>
         <h1 style={{ margin: "20px 0 2px", fontSize: 22, fontWeight: 800 }}>Admin console</h1>
         <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--ink-soft)" }}>Sign in to manage orders, service jobs and customers.</p>
-        <label><span style={fieldLabel}>Email</span><input type="email" autoComplete="username" value={email} onChange={(e) => { setEmail(e.target.value); setErr(false); }} style={input} /></label>
-        <label style={{ display: "block", marginTop: 12 }}><span style={fieldLabel}>Password</span><input type="password" autoComplete="current-password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(false); }} style={input} /></label>
-        {err && <p role="alert" style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>Wrong email or password.</p>}
-        <button type="submit" disabled={!email || !pw} className="press" style={{
-          width: "100%", marginTop: 18, border: "none", borderRadius: 12, padding: 12, fontSize: 14.5, fontWeight: 700, cursor: email && pw ? "pointer" : "not-allowed",
+        <label><span style={fieldLabel}>Email</span><input type="email" autoComplete="username" value={email} onChange={(e) => { setEmail(e.target.value); setErr(null); }} style={input} /></label>
+        <label style={{ display: "block", marginTop: 12 }}><span style={fieldLabel}>Password</span><input type="password" autoComplete="current-password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(null); }} style={input} /></label>
+        {err && <p role="alert" style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>}
+        <button type="submit" disabled={!email || !pw || busy} className="press" style={{
+          width: "100%", marginTop: 18, border: "none", borderRadius: 12, padding: 12, fontSize: 14.5, fontWeight: 700, cursor: email && pw && !busy ? "pointer" : "not-allowed",
           background: email && pw ? "var(--blue)" : "var(--line-strong)", color: email && pw ? "white" : "var(--ink-mute)",
-        }}>Sign in</button>
-        <p style={{ margin: "14px 0 0", padding: "10px 12px", borderRadius: 10, background: "var(--gold-tint)", fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-          Demo login: <b>{ADMIN_DEMO.email}</b> / <b>{ADMIN_DEMO.password}</b>
-        </p>
+        }}>{busy ? "Signing in…" : "Sign in"}</button>
+        <p style={{ margin: "14px 0 0", fontSize: 11.5, color: "var(--ink-mute)", textAlign: "center" }}>Forgot your password? Ask the super admin to reset it.</p>
       </form>
     </div>
   );

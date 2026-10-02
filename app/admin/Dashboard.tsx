@@ -1,9 +1,9 @@
 "use client";
 
 import { inr } from "../lib/data";
-import { REVENUE_14D, TODAY, type AdminCustomer, type AdminJob, type AdminOrder, type AdminProduct, type AdminReview, type AdminTech } from "../lib/adminData";
+import { type AdminCustomer, type AdminJob, type AdminOrder, type AdminProduct, type AdminReview, type AdminTech } from "../lib/adminData";
 import { Badge, Btn, Panel, Stat, Table, muted } from "./kit";
-import { ORDER_TONE, JOB_TONE, customerName } from "./Operations";
+import { ORDER_TONE, JOB_TONE, customerName, isoDay } from "./Operations";
 import type { Section } from "./AdminApp";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -12,20 +12,27 @@ export function Dashboard({ orders, jobs, customers, techs, products, reviews, g
   orders: AdminOrder[]; jobs: AdminJob[]; customers: AdminCustomer[]; techs: AdminTech[];
   products: AdminProduct[]; reviews: AdminReview[]; go: (s: Section) => void;
 }) {
-  const todayOrders = orders.filter((o) => o.date === TODAY && o.status !== "Cancelled");
-  const todayJobsDone = jobs.filter((j) => j.date === TODAY && j.status === "Completed");
-  const revenueToday = todayOrders.reduce((s, o) => s + o.amount, 0) + todayJobsDone.reduce((s, j) => s + j.amount, 0);
-  const open = jobs.filter((j) => ["Unassigned", "Assigned", "In Progress"].includes(j.status));
-  const unassigned = jobs.filter((j) => j.status === "Unassigned");
+  const TODAY = isoDay();
+  // Revenue per local day: product orders (not cancelled) + completed service jobs.
+  const revenueOn = (day: string) =>
+    orders.filter((o) => o.day === day && o.status !== "Cancelled").reduce((s, o) => s + o.amount, 0)
+    + jobs.filter((j) => j.completedDay === day && j.status === "Completed").reduce((s, j) => s + j.amount, 0);
+  const todayOrders = orders.filter((o) => o.day === TODAY && o.status !== "Cancelled");
+  const todayJobsDone = jobs.filter((j) => j.completedDay === TODAY && j.status === "Completed");
+  const revenueToday = revenueOn(TODAY);
+  const open = jobs.filter((j) => ["Unassigned", "Awaiting tech", "Assigned", "On the way", "Arrived", "In Progress"].includes(j.status));
+  const unassigned = jobs.filter((j) => j.status === "Unassigned" || j.status === "Awaiting tech");
   const rescheduled = jobs.filter((j) => j.status === "Rescheduled");
   const flagged = reviews.filter((r) => r.status === "Flagged");
-  const lowStock = products.filter((p) => p.active && p.stock <= 5);
+  const lowStock = products.filter((p) => p.active && p.stock != null && p.stock <= 5);
   const pendingKyc = techs.filter((t) => t.kyc === "Pending");
   const rated = jobs.filter((j) => j.rating);
   const avgRating = rated.length ? rated.reduce((s, j) => s + (j.rating ?? 0), 0) / rated.length : 0;
 
-  // Today's bar is live; earlier days come from reporting.
-  const series = REVENUE_14D.map((d, i) => (i === REVENUE_14D.length - 1 ? { ...d, v: revenueToday } : d));
+  const series = Array.from({ length: 14 }, (_, i) => {
+    const day = isoDay(i - 13);
+    return { day, d: day.slice(8), v: revenueOn(day) };
+  });
   const max = Math.max(...series.map((d) => d.v), 1);
   const total14 = series.reduce((s, d) => s + d.v, 0);
 
@@ -44,7 +51,7 @@ export function Dashboard({ orders, jobs, customers, techs, products, reviews, g
         <Stat label="Revenue today" value={inr(revenueToday)} sub={`${plural(todayOrders.length, "order")} · ${plural(todayJobsDone.length, "job")} closed`} tone="green" />
         <Stat label="Open service jobs" value={String(open.length)} sub={`${unassigned.length} unassigned`} tone={unassigned.length ? "red" : "blue"} />
         <Stat label="Customers" value={String(customers.filter((c) => !c.blocked).length)} sub={`${customers.filter((c) => c.amc !== "None").length} with AMC`} tone="purple" />
-        <Stat label="Service rating" value={`${avgRating.toFixed(1)} ★`} sub={`${plural(rated.length, "rated job")} · ${techs.filter((t) => t.status !== "Offline").length} techs online`} tone="amber" />
+        <Stat label="Service rating" value={rated.length ? `${avgRating.toFixed(1)} ★` : "—"} sub={`${plural(rated.length, "rated job")} · ${techs.filter((t) => t.status !== "Offline").length} techs online`} tone="amber" />
       </div>
 
       <div className="admin-grid-2">
@@ -53,14 +60,14 @@ export function Dashboard({ orders, jobs, customers, techs, products, reviews, g
             {series.map((d, i) => {
               const today = i === series.length - 1;
               return (
-                <div key={d.d} style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 4 }}>
-                  <div title={`${d.d} Sep · ${inr(d.v)}`} style={{ width: "100%", height: `${Math.max(3, (d.v / max) * 100)}%`, borderRadius: 5, background: today ? "var(--gold)" : "var(--blue)", opacity: today ? 1 : 0.8 }} />
+                <div key={d.day} style={{ flex: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 4 }}>
+                  <div title={`${d.day} · ${inr(d.v)}`} style={{ width: "100%", height: `${Math.max(3, (d.v / max) * 100)}%`, borderRadius: 5, background: today ? "var(--gold)" : "var(--blue)", opacity: today ? 1 : 0.8 }} />
                   <span style={{ fontSize: 10, color: today ? "var(--ink)" : "var(--ink-mute)", fontWeight: today ? 700 : 500 }}>{d.d}</span>
                 </div>
               );
             })}
           </div>
-          <p style={{ ...muted, margin: "10px 0 0" }}>Product orders + completed service jobs, Sep 2026. Today (gold) updates live.</p>
+          <p style={{ ...muted, margin: "10px 0 0" }}>Product orders (excluding cancelled) + completed service jobs. Today in gold, updating live.</p>
         </Panel>
 
         <Panel title="Needs attention">
@@ -79,7 +86,7 @@ export function Dashboard({ orders, jobs, customers, techs, products, reviews, g
       <div className="admin-grid-2">
         <Panel title="Latest orders" actions={<Btn kind="ghost" small onClick={() => go("orders")}>View all</Btn>} pad={false}>
           <Table rows={orders.slice(0, 6)} rowKey={(o) => o.id} cols={[
-            { key: "id", head: "Order", render: (o) => <b>#{o.id}</b> },
+            { key: "id", head: "Order", render: (o) => <b>#{o.ref}</b> },
             { key: "c", head: "Customer", render: (o) => customerName(customers, o.customerId) },
             { key: "i", head: "Items", render: (o) => <span style={muted}>{o.items}</span> },
             { key: "a", head: "Amount", align: "right", render: (o) => inr(o.amount) },
@@ -88,8 +95,8 @@ export function Dashboard({ orders, jobs, customers, techs, products, reviews, g
         </Panel>
         <Panel title="Service jobs today" actions={<Btn kind="ghost" small onClick={() => go("services")}>Dispatch</Btn>}>
           {(["Unassigned", "Assigned", "In Progress", "Completed", "Rescheduled"] as const).map((s) => {
-            const n = jobs.filter((j) => j.status === s && (j.date === TODAY || s === "Unassigned")).length;
-            const all = jobs.filter((j) => j.date === TODAY || j.status === "Unassigned").length || 1;
+            const n = jobs.filter((j) => j.status === s && (j.isoDate === TODAY || s === "Unassigned")).length;
+            const all = jobs.filter((j) => j.isoDate === TODAY || j.status === "Unassigned").length || 1;
             return (
               <div key={s} style={{ marginBottom: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
