@@ -17,7 +17,7 @@ import { setTrip, updateBridge, useBridge } from "./lib/bridge";
 import {
   techsForPincode,
   INITIAL_ADDRESSES, INITIAL_CHAT, INITIAL_NOTIFICATIONS, INITIAL_ORDERS, INITIAL_REFERRALS, INITIAL_REVIEWS, INITIAL_SERVICES,
-  INITIAL_WALLET, REFERRAL_REWARD, SERVICE_STEPS, USER, inr, nowTime, productById, techById, todayLabel,
+  INITIAL_WALLET, REFERRAL_REWARD, SERVICE_STEPS, SERVICE_CATALOG, USER, inr, nowTime, productById, techById, todayLabel,
   type Address, type AppNotification, type ChatMessage, type NotifPrefs, type Order, type Referral, type Review,
   type ServiceRating, type ServiceRequest, type ServiceType, type UserProfile, type WalletTxn,
 } from "./lib/data";
@@ -96,6 +96,15 @@ export default function CustomerApp() {
 
   // Returning users skip the Get Started tap.
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const screen = params.get("screen");
+    if (screen === "services" || screen === "chat") {
+      setStage("app");
+      setTab(screen === "services" ? "service" : "chat");
+      const service = SERVICE_CATALOG.find((s) => s.type === params.get("service"));
+      if (screen === "services" && service) setStack([{ k: "serviceInfo", type: service.type }]);
+      return;
+    }
     if (!readFlag()) return;
     const t = setTimeout(() => setStage("app"), 1100);
     return () => clearTimeout(t);

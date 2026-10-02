@@ -1,4 +1,4 @@
-# Zavtoo — Customer App
+# Zavtoo — Website, Customer App & Operations
 
 Mobile-first customer app for **Zavtoo Pani Filter Pvt Ltd**: buy RO purifiers and spares, book installation / repair / AMC visits, track orders and service jobs, and chat with support.
 
@@ -13,7 +13,37 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000 — best viewed at phone width (the app is capped at 430px).
+Open http://localhost:3000 for the responsive e-commerce website. The existing phone-width customer app is at http://localhost:3000/app (capped at 430px).
+
+
+## Responsive e-commerce website
+
+The root route now serves a desktop, tablet and mobile storefront. The original customer app remains at `/app`; technician and admin routes are unchanged.
+
+| Route | Experience |
+| --- | --- |
+| `/` | Homepage, collections, featured products, service introduction and FAQs |
+| `/shop` | Product search, category filters, sorting and saved favourites |
+| `/products/[id]` | Shareable product pages with metadata, specifications and pincode checks |
+| `/cart` | Quantity controls, removal, coupons and order totals |
+| `/checkout` | Validated demo checkout with supported-pincode checks |
+| `/orders` | Website demo orders stored in this browser |
+| `/services` | Existing service catalogue; links to the corresponding customer-app service screen |
+
+The storefront reuses `PRODUCTS`, coupons, service areas and `SERVICE_CATALOG` from `app/lib/data.ts`. Its scoped styles are in `app/storefront/storefront.module.css`; UI and browser-local demo state live in `app/storefront/Storefront.tsx`. No new dependencies were added.
+
+Cart, saved favourites, coupon selection and website demo receipts persist under `zavtoo:storefront:v1` in localStorage. Website orders are separate from customer-app and admin sample orders. Checkout validates but does not persist contact/address fields. No payment gateway, order API, stock reservation, tax service, authentication or delivery integration is connected. Product illustrations and ratings are sample content. Live sales require those integrations and real catalogue assets before launch.
+
+Customer-app links accept `/app?screen=services&service=Repair` (or another catalogue service) and `/app?screen=chat`.
+
+## Project architecture
+
+- **Customer app:** `app/CustomerApp.tsx` owns the in-memory navigation, account, shopping, booking and chat state. Screens are in `app/components/`.
+- **Technician app:** `app/technician/TechnicianApp.tsx` owns job execution, van inventory, earnings and partner profile workflows.
+- **Admin console:** `app/admin/AdminApp.tsx` owns demo operations, dispatch, catalogue, offers, customers, technicians and dealers.
+- **Shared catalogue and types:** `app/lib/data.ts`; role-specific sample data is in `techData.ts` and `adminData.ts`.
+- **Cross-app demo bridge:** `app/lib/bridge.ts` uses localStorage and browser events for service jobs, technician trips, photos, areas and operations tasks. It is same-browser coordination, not a backend.
+- **Rendering:** Next.js App Router and React 19, with shared Poppins typography and global app tokens. Storefront CSS is isolated so the existing app layouts retain their appearance.
 
 ## Screens
 
