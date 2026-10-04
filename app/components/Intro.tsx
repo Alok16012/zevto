@@ -23,7 +23,7 @@ export function SplashScreen({ onStart }: { onStart: () => void }) {
 
       <div className="fade-up" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/zavtoo-logo.png" alt="Zavtoo Pani Filter Pvt Ltd" style={{ width: 250, maxWidth: "70%", height: "auto", display: "block" }} />
+        <img src="/zavtoo-logo.png" alt="Zavtoo Paani Filter Pvt Ltd" style={{ width: 250, maxWidth: "70%", height: "auto", display: "block" }} />
         <p style={{ margin: "18px 0 0", fontSize: 15, color: "rgba(255,255,255,0.75)" }}>Pure Water. Better Life.</p>
       </div>
 
@@ -38,7 +38,8 @@ const SLIDES = [
   {
     title: "Pure Water", accent: "for a Healthier Life",
     body: "RO purifiers, service & AMC — all in one place.",
-    art: <PurifierArt kind="premium" size={220} />,
+    // eslint-disable-next-line @next/next/no-img-element
+    art: <img src="/products/parts/osmo-housing-1.jpg" alt="Genuine OSMO filter housing" width={220} height={220} style={{ display: "block", borderRadius: 28, boxShadow: "0 16px 40px rgba(4,36,107,0.18)" }} />,
   },
   {
     title: "Book a Technician", accent: "in under a minute",

@@ -1,5 +1,5 @@
 // One-off: creates (or resets) the super admin login.
-//   node scripts/create-super-admin.mjs [email] [--reset]
+//   node scripts/create-super-admin.mjs [email] [--reset] [--password=<value>]
 // Reads NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY from .env.local.
 import { readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
@@ -22,8 +22,13 @@ async function api(path, init = {}) {
   return data;
 }
 
-// 16 random characters + a guaranteed mix of character types.
-const password = `${randomBytes(12).toString("base64url")}#7Zv`;
+// --password=<value> sets it; otherwise 16 random characters + a guaranteed mix of character types.
+const chosen = process.argv.find((a) => a.startsWith("--password="))?.slice("--password=".length);
+if (chosen !== undefined && chosen.length < 8) {
+  console.error("Password must be at least 8 characters.");
+  process.exit(1);
+}
+const password = chosen ?? `${randomBytes(12).toString("base64url")}#7Zv`;
 const attrs = { password, email_confirm: true, app_metadata: { role: "super_admin" }, user_metadata: { full_name: "Super Admin" } };
 
 const { users } = await api("/auth/v1/admin/users?per_page=1000");

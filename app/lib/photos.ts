@@ -34,6 +34,21 @@ export async function uploadAvatar(app: AppKind, dataUrl: string): Promise<strin
   return sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
 }
 
+/** Uploads a catalogue photo (staff only) to the public "product-images" bucket and returns its URL. */
+export async function uploadProductImage(productId: string, dataUrl: string): Promise<string> {
+  const sb = supabaseFor("admin");
+  const path = `${productId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { error } = await sb.storage.from("product-images").upload(path, await dataUrlToBlob(dataUrl), { contentType: "image/jpeg", upsert: false });
+  if (error) throw error;
+  return sb.storage.from("product-images").getPublicUrl(path).data.publicUrl;
+}
+
+/** Deletes catalogue photos by their public URLs (files outside the bucket are ignored). */
+export async function removeProductImages(urls: string[]) {
+  const paths = urls.map((u) => u.split("/product-images/")[1]).filter((p): p is string => !!p);
+  if (paths.length) await supabaseFor("admin").storage.from("product-images").remove(paths);
+}
+
 const cache = new Map<string, { url: string; until: number }>();
 
 /** Short-lived links (1 hour) to private RO photos, keyed by path. */

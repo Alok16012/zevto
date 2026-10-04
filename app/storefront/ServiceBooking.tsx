@@ -106,8 +106,6 @@ export default function ServiceBooking({ service }: { service: ServiceOffering }
         <p>{service.tagline}</p>
         <ul>{service.includes.map(item => <li key={item}><CheckIcon s={16} />{item}</li>)}</ul>
         <div><span>Duration</span><strong>{service.duration}</strong></div>
-        <div><span>Preferred date</span><strong>{date ? dateLabel(date) : "Choose a date"}</strong></div>
-        <div><span>Time slot</span><strong>{slot || "Choose a slot"}</strong></div>
         <div className={s.total}><span>Service charge</span><strong>{service.price ? inr(service.price) : "Included"}</strong></div>
         <p className={s.formNote}>{service.priceNote}. {service.type === "Repair" ? "Replacement parts are charged separately." : ""}</p>
         <p className={s.demoNote}><ShieldIcon s={18} /> Pay the technician after the visit</p>

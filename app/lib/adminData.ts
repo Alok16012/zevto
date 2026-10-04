@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fmtDay, toTechnician, type DbTechnician } from "./catalog";
 import { fmtDateOnly, type DbOrder, type DbRequest, type DbReview } from "./db";
 import type { Coupon, Review, ServiceType, Technician } from "./data";
+import type { DbGalleryPart } from "./partsGallery";
 
 /* ───────────── Shapes ───────────── */
 
@@ -90,6 +91,14 @@ export interface AdminProduct {
   /** null = not tracked. */
   stock: number | null;
   active: boolean;
+  /** Photo URLs; the first is the cover shown in the shop. */
+  images: string[];
+  spec: string;
+  art: string;
+  stages: string;
+  warranty: string;
+  description: string;
+  sort: number;
 }
 
 export interface AdminCoupon extends Coupon {
@@ -147,6 +156,7 @@ export interface AdminData {
   dealers: Dealer[];
   broadcasts: Broadcast[];
   stockRequests: StockRequest[];
+  galleryParts: DbGalleryPart[];
 }
 
 /* ───────────── Loader ───────────── */
@@ -167,13 +177,15 @@ async function all<T>(q: PromiseLike<{ data: T[] | null; error: unknown }>): Pro
 }
 
 export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
-  const [orders, requests, profiles, techs, products, coupons, reviews, dealers, broadcasts, wallet, stock] = await Promise.all([
+  const [orders, requests, profiles, techs, products, coupons, reviews, dealers, broadcasts, wallet, stock, galleryParts] = await Promise.all([
     all<DbOrder>(sb.from("orders").select("*").order("created_at", { ascending: false }).limit(2000)),
     all<DbRequest>(sb.from("service_requests").select("*").order("created_at", { ascending: false }).limit(2000)),
     all<{ id: string; code: string; full_name: string; email: string | null; phone: string | null; blocked: boolean; created_at: string; role: string }>(
       sb.from("profiles").select("id, code, full_name, email, phone, blocked, created_at, role").eq("role", "customer").order("created_at", { ascending: false }).limit(5000)),
     all<DbTechnician>(sb.from("technicians").select("*").order("created_at")),
-    all<{ id: string; name: string; category: string; price: number; mrp: number; stock: number | null; active: boolean }>(sb.from("products").select("id, name, category, price, mrp, stock, active").order("sort")),
+    // "*" so the console still loads before the images column exists.
+    all<{ id: string; name: string; category: string; price: number; mrp: number; stock: number | null; active: boolean; images?: string[] | null;
+      spec: string; art: string; stages: string; warranty: string; description: string; sort: number }>(sb.from("products").select("*").order("sort")),
     all<{ code: string; title: string; descr: string; kind: "flat" | "percent"; value: number; max_off: number | null; min_order: number; applies_to: "product" | "service" | "all"; expires: string; active: boolean; used: number }>(
       sb.from("coupons").select("*").order("created_at", { ascending: false })),
     all<DbReview>(sb.from("reviews").select("*").order("created_at", { ascending: false }).limit(1000)),
@@ -181,6 +193,8 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     all<{ id: string; title: string; body: string; audience: string; channels: string[]; reach: number; created_at: string }>(sb.from("broadcasts").select("*").order("created_at", { ascending: false }).limit(100)),
     all<{ user_id: string; amount: number }>(sb.from("wallet_txns").select("user_id, amount").limit(20000)),
     all<{ id: string; tech_id: string; items: Record<string, number>; status: StockRequest["status"]; created_at: string }>(sb.from("stock_requests").select("*").order("created_at", { ascending: false }).limit(200)),
+    // Optional until supabase/schema.sql has been re-run with the gallery table.
+    all<DbGalleryPart>(sb.from("tech_parts").select("*").order("created_at", { ascending: false }).limit(1000)).catch(() => [] as DbGalleryPart[]),
   ]);
 
   const techById = new Map(techs.map((t) => [t.id, t]));
@@ -229,7 +243,10 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
       ...toTechnician(t), status: t.status, kyc: t.kyc, active: t.active, email: t.email ?? "",
       area: t.pincodes?.length ? t.pincodes.join(", ") : "No pincodes yet",
     })),
-    products: products.map((p) => ({ ...p })),
+    products: products.map((p) => ({
+      id: p.id, name: p.name, category: p.category, price: p.price, mrp: p.mrp, stock: p.stock, active: p.active, images: p.images ?? [],
+      spec: p.spec ?? "", art: p.art ?? "classic", stages: p.stages ?? "", warranty: p.warranty ?? "", description: p.description ?? "", sort: p.sort ?? 0,
+    })),
     coupons: coupons.map((c) => ({
       code: c.code, title: c.title, desc: c.descr, kind: c.kind, value: c.value, maxOff: c.max_off ?? undefined, minOrder: c.min_order,
       appliesTo: c.applies_to, expires: fmtDay(c.expires), expiresIso: c.expires, active: c.active, used: c.used,
@@ -247,10 +264,11 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
       sentAt: new Date(b.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" }),
     })),
     stockRequests: stock.map((s) => ({ id: s.id, techId: s.tech_id, items: s.items, status: s.status, at: fmtDateOnly(s.created_at) })),
+    galleryParts,
   };
 }
 
 /** Tables whose changes should refresh the console. */
 export const ADMIN_WATCH = [
-  "orders", "service_requests", "profiles", "technicians", "products", "coupons", "reviews", "dealers", "broadcasts", "stock_requests",
+  "orders", "service_requests", "profiles", "technicians", "products", "coupons", "reviews", "dealers", "broadcasts", "stock_requests", "tech_parts",
 ].map((table) => ({ table }));

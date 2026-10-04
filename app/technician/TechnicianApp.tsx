@@ -9,15 +9,17 @@ import { friendly, roleOf, supabaseFor, useLive, useSession } from "../lib/supab
 import { toTechnician, useCatalog, type DbTechnician } from "../lib/catalog";
 import { etaMinutes, fmtDateOnly, fmtStamp, kmBetween, toJob, toReview, type DbRequest, type DbReview } from "../lib/db";
 import { uploadAvatar } from "../lib/photos";
+import { partPhotoPath, uploadPartPhoto, type DbGalleryPart, type GalleryDraft } from "../lib/partsGallery";
 import { JobDetailPage, JobsScreen } from "./JobScreens";
 import { NewTaskPage, SentToOpsList, type NewTask, type SentTask, type TaskRoute } from "./NewTask";
 import { ServiceAreaEditor } from "./ServiceArea";
 import { EarningsScreen, InventoryScreen, PartnerProfileScreen, type MyStockRequest, type Payout } from "./PartnerScreens";
+import { PartsGalleryScreen } from "./PartsGallery";
 
 const SHELL_MAX_W = 430;
 const sb = () => supabaseFor("technician");
 
-type Tab = "jobs" | "inventory" | "earnings" | "profile";
+type Tab = "jobs" | "inventory" | "parts" | "earnings" | "profile";
 
 interface TechData {
   me: DbTechnician;
@@ -27,10 +29,11 @@ interface TechData {
   stockRequests: MyStockRequest[];
   payouts: Payout[];
   reviews: Review[];
+  gallery: DbGalleryPart[];
 }
 
 async function loadTechData(client: ReturnType<typeof sb>, uid: string): Promise<TechData> {
-  const [me, reqs, stock, stockReqs, payouts, reviews] = await Promise.all([
+  const [me, reqs, stock, stockReqs, payouts, reviews, gallery] = await Promise.all([
     client.from("technicians").select("*").eq("id", uid).maybeSingle(),
     // Row-level security returns only this technician's jobs, requests to them and tasks they raised.
     client.from("service_requests").select("*").order("visit_date", { ascending: true }).limit(500),
@@ -38,6 +41,7 @@ async function loadTechData(client: ReturnType<typeof sb>, uid: string): Promise
     client.from("stock_requests").select("*").eq("tech_id", uid).order("created_at", { ascending: false }).limit(20),
     client.from("payouts").select("*").eq("tech_id", uid).order("created_at", { ascending: false }).limit(20),
     client.from("reviews").select("*").eq("tech_id", uid).eq("status", "Published").order("created_at", { ascending: false }).limit(50),
+    client.from("tech_parts").select("*").eq("tech_id", uid).order("created_at", { ascending: false }).limit(200),
   ]);
   if (me.error) throw me.error;
   if (!me.data) throw new Error("NO_TECH");
@@ -55,6 +59,7 @@ async function loadTechData(client: ReturnType<typeof sb>, uid: string): Promise
     stockRequests: (stockReqs.data ?? []).map((r) => ({ id: r.id, items: r.items, status: r.status, at: fmtDateOnly(r.created_at) })),
     payouts: (payouts.data ?? []).map((p) => ({ id: p.id, period: p.period, amount: p.amount, status: p.status, paidAt: p.paid_at ? fmtDateOnly(p.paid_at) : null })),
     reviews: ((reviews.data ?? []) as DbReview[]).map((r) => toReview(r)),
+    gallery: (gallery.data ?? []) as DbGalleryPart[],
   };
 }
 
@@ -69,12 +74,14 @@ export default function TechnicianApp() {
   const live = useLive("technician", uid, (c) => loadTechData(c, uid!), [
     { table: "service_requests" }, { table: "technicians", filter: `id=eq.${uid}` },
     { table: "tech_stock", filter: `tech_id=eq.${uid}` }, { table: "stock_requests", filter: `tech_id=eq.${uid}` },
+    { table: "tech_parts", filter: `tech_id=eq.${uid}` },
   ]);
   const data = live.data;
 
   const [tab, setTab] = useState<Tab>("jobs");
   const [openJob, setOpenJob] = useState<string | null>(null);
   const [newTask, setNewTask] = useState(false);
+  const [partEditing, setPartEditing] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, Partial<Worksheet>>>({});
   const [toast, setToast] = useState<{ msg: string; bad?: boolean } | null>(null);
   const [sharing, setSharing] = useState<string | null>(null);
@@ -82,7 +89,7 @@ export default function TechnicianApp() {
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [tab, openJob, newTask]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [tab, openJob, newTask, partEditing]);
   // Customer/admin accounts can't use the partner app.
   useEffect(() => { if (session && !isTech) void sb().auth.signOut(); }, [session, isTech]);
 
@@ -217,13 +224,31 @@ export default function TechnicianApp() {
       return await run(sb().from("technicians").update({ photo_url: url }).eq("id", uid!), url ? "Photo updated — customers will see it" : "Photo removed");
     } catch (e) { flash(friendly(e), true); return false; }
   };
+  /** New photos arrive as data URLs; upload them, then drop any photos the edit removed. */
+  const saveGalleryPart = async (d: GalleryDraft, existing: DbGalleryPart | null) => {
+    try {
+      const photos = await Promise.all(d.photos.map((p) => (p.startsWith("data:") ? uploadPartPhoto("technician", p) : Promise.resolve(p))));
+      const row = { name: d.name, price: d.price, specs: d.specs, photos };
+      const ok = await run(existing ? sb().from("tech_parts").update(row).eq("id", existing.id) : sb().from("tech_parts").insert({ ...row, tech_id: uid }),
+        existing ? "Saved — sent to Zavtoo for approval again" : "Part added — waiting for Zavtoo approval");
+      const gone = (existing?.photos ?? []).filter((p) => !photos.includes(p)).map(partPhotoPath).filter((p): p is string => !!p);
+      if (ok && gone.length) void sb().storage.from("part-photos").remove(gone);
+      return ok;
+    } catch (e) { flash(friendly(e), true); return false; }
+  };
+  const deleteGalleryPart = async (p: DbGalleryPart) => {
+    const ok = await run(sb().from("tech_parts").delete().eq("id", p.id), `${p.name} deleted`);
+    const paths = p.photos.map(partPhotoPath).filter((x): x is string => !!x);
+    if (ok && paths.length) void sb().storage.from("part-photos").remove(paths);
+    return ok;
+  };
   const logout = () => { setTab("jobs"); setOpenJob(null); setNewTask(false); void sb().auth.signOut(); };
 
   const shell = (children: React.ReactNode, nav = false) => (
     <div style={{ position: "fixed", inset: 0, background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: SHELL_MAX_W, height: "100%", position: "relative", background: "var(--app-bg)", overflow: "hidden", boxShadow: "var(--shadow-float)", display: "flex", flexDirection: "column" }}>
         {children}
-        {nav && <PartnerNav active={tab} onChange={(t) => { setTab(t); setOpenJob(null); setNewTask(false); }} newRequest={incoming.length > 0} />}
+        {nav && <PartnerNav active={tab} onChange={(t) => { setTab(t); setOpenJob(null); setNewTask(false); setPartEditing(false); }} newRequest={incoming.length > 0} />}
         {toast && (
           <div className="fade-up" role={toast.bad ? "alert" : "status"} style={{
             position: "absolute", left: 16, right: 16, bottom: nav ? 90 : 96, zIndex: 120,
@@ -259,7 +284,7 @@ export default function TechnicianApp() {
     );
   }
 
-  const showNav = !job && !newTask;
+  const showNav = !job && !newTask && !(tab === "parts" && partEditing);
   return shell(
     <div ref={scrollRef} className="no-scroll" style={{
       flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain",
@@ -288,6 +313,7 @@ export default function TechnicianApp() {
               footer={<SentToOpsList tasks={sentToOps} />} />
           )}
           {tab === "inventory" && <InventoryScreen stock={data.stock} requests={data.stockRequests} onRequest={requestStock} />}
+          {tab === "parts" && <PartsGalleryScreen parts={data.gallery} onSave={saveGalleryPart} onDelete={deleteGalleryPart} onEditingChange={setPartEditing} />}
           {tab === "earnings" && <EarningsScreen jobs={jobs} payouts={data.payouts} />}
           {tab === "profile" && (
             <PartnerProfileScreen tech={tech} kyc={me.kyc} email={me.email ?? session!.user.email ?? ""} dealer={data.dealer} reviews={data.reviews}
@@ -366,13 +392,14 @@ const NavIcon = ({ id, c }: { id: Tab; c: string }) => {
   switch (id) {
     case "jobs": return <svg {...p}><rect x="4" y="5" width="16" height="15" rx="2.5" fill={c} stroke="none" /><path d="M9 3.5v3M15 3.5v3" /><path d="M8.5 13l2.3 2.3 4.7-4.7" stroke="white" /></svg>;
     case "inventory": return <svg {...p}><path d="M3.5 8L12 3.5 20.5 8v8.5L12 21l-8.5-4.5z" fill={c} stroke="none" /><path d="M3.8 8.2L12 12.5l8.2-4.3M12 12.5V21" stroke="white" strokeWidth={1.6} /></svg>;
+    case "parts": return <svg {...p}><path d="M14.7 6.3a4 4 0 0 0 5 5L21 12.6a6 6 0 0 1-7.7.8L6 20.7a2 2 0 0 1-2.8-2.8l7.3-7.3a6 6 0 0 1 .8-7.7l1.3 1.3a4 4 0 0 0 2.1 2.1z" fill={c} stroke="none" /></svg>;
     case "earnings": return <svg {...p}><rect x="3" y="6" width="18" height="13" rx="2.5" fill={c} stroke="none" /><circle cx="12" cy="12.5" r="2.6" stroke="white" strokeWidth={1.7} /></svg>;
     default: return <svg {...p}><circle cx="12" cy="7.8" r="4.3" fill={c} stroke="none" /><path d="M3.8 20.2a8.2 8.2 0 0 1 16.4 0 1 1 0 0 1-1 1H4.8a1 1 0 0 1-1-1z" fill={c} stroke="none" /></svg>;
   }
 };
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "jobs", label: "Jobs" }, { id: "inventory", label: "Inventory" }, { id: "earnings", label: "Earnings" }, { id: "profile", label: "Profile" },
+  { id: "jobs", label: "Jobs" }, { id: "inventory", label: "Inventory" }, { id: "parts", label: "Parts" }, { id: "earnings", label: "Earnings" }, { id: "profile", label: "Profile" },
 ];
 
 function PartnerNav({ active, onChange, newRequest }: { active: Tab; onChange: (t: Tab) => void; newRequest: boolean }) {

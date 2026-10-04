@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChatIcon, PhoneIcon, StarIcon } from "./icons";
 import PurifierArt from "./PurifierArt";
+import ProductImage from "./ProductImage";
 import TechAvatar from "./TechAvatar";
 import { Avatar, Footer, PageHeader, PrimaryButton, StarPicker, Stars, card, field, label, sectionTitle } from "./ui";
 import { RATING_TAGS, initialsOf, productById, type Review, type ServiceRating, type ServiceRequest, type Technician, servicePincodes } from "../lib/data";
@@ -136,7 +137,7 @@ export function WriteReviewPage({ productId, existing, onBack, onSubmit }: {
       <PageHeader title={existing ? "Edit your review" : "Write a review"} onBack={onBack} />
       <div style={{ padding: "0 16px", flex: 1 }}>
         <div style={{ ...card, padding: 12, display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 60, height: 60, borderRadius: 12, background: "var(--bg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}><PurifierArt kind={p.art} size={54} /></div>
+          <div style={{ width: 60, height: 60, borderRadius: 12, background: "var(--bg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}><ProductImage product={p} size={54} /></div>
           <div><p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{p.name}</p><p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>{p.spec}</p></div>
         </div>
         <div style={{ ...card, padding: "18px 14px", marginTop: 12, textAlign: "center" }}>

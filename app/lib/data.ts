@@ -41,6 +41,8 @@ export interface Product {
   /** null = not tracked. */
   stock?: number | null;
   active?: boolean;
+  /** Uploaded photo URLs (first is the cover); the illustration is used when there are none. */
+  images?: string[];
 }
 
 export const PRODUCTS: Product[] = [
@@ -79,12 +81,67 @@ export const PRODUCTS: Product[] = [
     price: 499, mrp: 699, category: "spare", art: "spare",
     rating: 4.3, reviews: 210, stages: "3 filters", warranty: "6 Months",
     description: "Genuine replacement filters for AquaPure RO Classic and Pro. Change every 6–9 months for best taste.",
+    images: ["/products/parts/sediment-spun-filter-1.jpg", "/products/parts/black-inline-cartridge-1.jpg", "/products/parts/membrane-housing-1.jpg"],
   },
   {
     id: "cartridges", name: "Filter Cartridges", spec: "Pack of 3 · universal fit",
     price: 1299, mrp: 1599, category: "spare", art: "cartridge",
     rating: 4.2, reviews: 97, stages: "3 cartridges", warranty: "6 Months",
     description: "Universal-fit inline cartridges for most domestic RO purifiers.",
+    images: ["/products/parts/blue-cap-cartridge-1.jpg", "/products/parts/grey-cap-cartridge-1.jpg", "/products/parts/black-inline-cartridge-1.jpg"],
+  },
+  {
+    id: "membrane-75", name: "75 GPD RO Membrane Premium", spec: "Universal fit · 75 GPD",
+    price: 850, mrp: 1200, category: "spare", art: "cartridge",
+    rating: 0, reviews: 0, stages: "75 GPD", warranty: "6 Months",
+    description: "High-rejection TFC membrane for all standard RO systems. Fits Kent, Aquaguard & more.",
+    images: ["/products/parts/membrane-housing-1.jpg", "/products/parts/membrane-housing-2.jpg", "/products/parts/membrane-housing-3.jpg"],
+  },
+  {
+    id: "sediment-5", name: "Sediment Filter 5 Micron (Pack of 3)", spec: "Multi brand · 5 micron",
+    price: 299, mrp: 450, category: "spare", art: "cartridge",
+    rating: 0, reviews: 0, stages: "3 filters", warranty: "30 Days",
+    description: "Removes dirt, sand & rust. Compatible with standard 10-inch filter housings.",
+    images: ["/products/parts/sediment-spun-filter-1.jpg", "/products/parts/sediment-spun-filter-2.jpg", "/products/parts/sediment-spun-filter-3.jpg"],
+  },
+  {
+    id: "booster-pump-24v", name: "RO Booster Pump 24V DC Motor", spec: "Universal · 24V DC",
+    price: 1299, mrp: 1800, category: "spare", art: "spare",
+    rating: 0, reviews: 0, stages: "24V DC", warranty: "3 Months",
+    description: "High-pressure booster pump for low water pressure RO systems. 24V DC, 75-100 GPD.",
+  },
+  {
+    id: "cto-carbon", name: "Carbon Block Filter CTO (4 Stage)", spec: "Premium · carbon block",
+    price: 549, mrp: 750, category: "spare", art: "cartridge",
+    rating: 0, reviews: 0, stages: "Carbon block", warranty: "30 Days",
+    description: "Removes chlorine, bad taste & odour. Activated carbon block technology for pure water.",
+    images: ["/products/parts/black-inline-cartridge-1.jpg", "/products/parts/black-inline-cartridge-2.jpg", "/products/parts/black-inline-cartridge-3.jpg"],
+  },
+  {
+    id: "smps-24v", name: "SMPS Power Supply 24V 2A Adapter", spec: "Universal · 24V 2A",
+    price: 399, mrp: 599, category: "spare", art: "spare",
+    rating: 0, reviews: 0, stages: "24V 2A", warranty: "3 Months",
+    description: "Reliable 24V 2A SMPS adapter for RO booster pumps. Input 220V AC, Output 24V DC.",
+  },
+  {
+    id: "service-kit-7", name: "Complete RO Service Kit (7 Pcs)", spec: "Combo pack · 7 pieces",
+    price: 1999, mrp: 3200, category: "spare", art: "spare",
+    rating: 0, reviews: 0, stages: "7 pieces", warranty: "30 Days",
+    description: "All-in-one kit: Sediment + Carbon + UF + Membrane + SMPS + Connectors + Spanner.",
+    images: ["/products/parts/sediment-spun-filter-1.jpg", "/products/parts/black-inline-cartridge-1.jpg", "/products/parts/blue-cap-cartridge-1.jpg", "/products/parts/membrane-housing-1.jpg"],
+  },
+  {
+    id: "uf-membrane", name: "UF Hollow Fiber Ultra Membrane", spec: "Multi brand · UF",
+    price: 699, mrp: 999, category: "spare", art: "cartridge",
+    rating: 0, reviews: 0, stages: "UF", warranty: "30 Days",
+    description: "Ultra-filtration membrane for bacteria removal without electricity. 0.01 micron filtration.",
+    images: ["/products/parts/blue-cap-cartridge-1.jpg", "/products/parts/blue-cap-cartridge-2.jpg", "/products/parts/blue-cap-cartridge-3.jpg"],
+  },
+  {
+    id: "valve-kit", name: "Ball Valve & Connector Kit Set", spec: "Universal · fittings",
+    price: 149, mrp: 250, category: "spare", art: "spare",
+    rating: 0, reviews: 0, stages: "Kit", warranty: "30 Days",
+    description: "Complete set of ball valves, check valves, elbow & straight connectors for RO system installation.",
   },
 ];
 
@@ -125,7 +182,7 @@ export interface TimelineStep {
   at: string | null;
 }
 
-export type ServiceType = "Installation" | "Repair" | "AMC" | "Filter Change" | "Water Test" | "Uninstall";
+export type ServiceType = "Installation" | "Repair" | "AMC" | "Filter Change" | "Water Test" | "Uninstall" | "Deep Cleaning";
 
 export interface ServiceRating {
   stars: number;
@@ -372,16 +429,18 @@ export interface ServiceOffering {
 }
 
 export const SERVICE_CATALOG: ServiceOffering[] = [
-  { type: "Installation", tagline: "Free with every Zavtoo purifier", price: 0, priceNote: "for Zavtoo purifiers", duration: "45–60 min",
-    includes: ["Wall mounting & plumbing", "Inlet valve + drain setup", "TDS check before and after", "Demo of filter indicators"], rating: 4.8, bookings: "12k+" },
-  { type: "Repair", tagline: "Leaks, low flow, noise, bad taste", price: 499, priceNote: "visit charge · parts extra", duration: "30–90 min",
-    includes: ["Full diagnosis of the purifier", "Leak & pressure checks", "Genuine spare parts at MRP", "30-day repair warranty"], rating: 4.7, bookings: "8k+" },
-  { type: "AMC", tagline: "1 year of worry-free water", price: 1999, priceNote: "per year", duration: "1 year cover",
-    includes: ["3 preventive service visits", "2 filter sets included", "Priority repairs within 24h", "No visit charges all year"], rating: 4.9, bookings: "5k+" },
-  { type: "Filter Change", tagline: "Sediment, carbon & membrane", price: 899, priceNote: "incl. filter kit", duration: "30 min",
-    includes: ["Genuine sediment + carbon filters", "Membrane health check", "Tank sanitisation", "TDS reading after service"], rating: 4.6, bookings: "6k+" },
-  { type: "Water Test", tagline: "Know what's in your water", price: 199, priceNote: "at-home test", duration: "20 min",
-    includes: ["TDS, pH and hardness test", "Chlorine check", "Purifier recommendation", "Digital report on SMS"], rating: 4.5, bookings: "3k+" },
+  { type: "Installation", tagline: "Professional installation of brand new RO water purifiers with complete setup, testing, and demo.", price: 399, priceNote: "installation charges only", duration: "45–60 min",
+    includes: ["Free site inspection", "All brands supported", "Pipeline setup included", "Full demo & training", "Post-installation support"], rating: 4.8, bookings: "12k+" },
+  { type: "Repair", tagline: "Expert diagnosis and repair of all RO water purifier problems at your doorstep by certified technicians.", price: 299, priceNote: "visit charge · spare parts if needed", duration: "30–90 min",
+    includes: ["Low water pressure fix", "Water leakage repair", "Bad taste/odour fix", "Pump & motor repair", "90-day service warranty"], rating: 4.7, bookings: "8k+" },
+  { type: "AMC", tagline: "Regular servicing, priority support and free filter replacements — one plan for the whole year.", price: 999, priceNote: "per year · Silver plan (Gold ₹1,799 · Platinum ₹2,999)", duration: "1 year cover",
+    includes: ["2 service visits a year", "Filter inspection", "Basic cleaning", "Phone support"], rating: 4.9, bookings: "5k+" },
+  { type: "Filter Change", tagline: "Timely replacement of RO filters, membranes, and cartridges to ensure 100% pure water quality.", price: 499, priceNote: "filters + service included", duration: "30 min",
+    includes: ["Sediment filter change", "Carbon CTO filter change", "RO membrane replacement", "UV lamp replacement", "Post-service water quality test"], rating: 4.6, bookings: "6k+" },
+  { type: "Water Test", tagline: "Professional TDS, pH, and contamination testing to ensure your water is safe and identify purifier needs.", price: 199, priceNote: "includes test report", duration: "20 min",
+    includes: ["TDS level measurement", "pH & hardness testing", "Bacteria/contamination check", "Detailed written report", "Expert recommendation"], rating: 4.5, bookings: "3k+" },
+  { type: "Deep Cleaning", tagline: "Thorough internal cleaning and UV sanitization of your RO purifier for maximum hygiene and performance.", price: 349, priceNote: "complete cleaning service", duration: "45–60 min",
+    includes: ["Complete disassembly cleaning", "Tank & housing washed", "UV sanitization treatment", "TDS check post cleaning", "Performance test done"], rating: 0, bookings: "" },
   { type: "Uninstall", tagline: "Moving house? We'll handle it", price: 349, priceNote: "uninstall + reinstall ₹599", duration: "30 min",
     includes: ["Safe dismounting", "Pipe & valve capping", "Packing guidance", "Reinstall at new address on request"], rating: 4.6, bookings: "2k+" },
 ];

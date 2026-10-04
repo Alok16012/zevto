@@ -19,12 +19,13 @@ export const SERVICE_ICON: Record<ServiceType, { Icon: IconC; bg: string; fg: st
   "Filter Change": { Icon: FilterIcon, bg: "var(--teal-bg)", fg: "var(--teal-text)" },
   "Water Test": { Icon: SearchIcon, bg: "var(--purple-tint)", fg: "var(--purple)" },
   Uninstall: { Icon: PinIcon, bg: "var(--orange-bg)", fg: "var(--orange-text)" },
+  "Deep Cleaning": { Icon: DropIcon, bg: "var(--teal-bg)", fg: "var(--teal-text)" },
 };
 
 const FAQ = [
-  ["How soon can a technician come?", "Book before 2 PM and we can usually visit the next morning. AMC customers get priority within 24 hours."],
-  ["Do you service other brands?", "Yes — Kent, Aquaguard, Pureit, Livpure and most local brands. Spare parts are charged at MRP."],
-  ["What if the problem comes back?", "Every repair has a 30-day warranty. Raise it from Track Service and we'll revisit free."],
+  ["How soon can a technician come?", "Usually within 2–4 hours of booking, with same-day service available. AMC customers get priority technician dispatch."],
+  ["Do you service other brands?", "Yes — all major brands including Kent, Aquaguard, Pureit, LG Puricare, Livpure, A.O. Smith, Eureka Forbes, Havells and Blue Star."],
+  ["What if the problem comes back?", "Every repair and maintenance service has a 90-day warranty. If the same issue recurs, we re-do the service free — raise it from Track Service."],
   ["How do I pay?", "Pay the technician by UPI or cash after the job, or apply your wallet balance while booking."],
 ];
 

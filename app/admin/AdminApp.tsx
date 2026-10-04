@@ -14,10 +14,13 @@ import { Btn, fieldLabel, input } from "./kit";
 import { Dashboard } from "./Dashboard";
 import { OrdersSection, ServicesSection } from "./Operations";
 import { CustomersSection, DealersSection, TechniciansSection, type NewDealer, type NewTechnician } from "./People";
-import { BroadcastSection, CouponsSection, ProductsSection, ReviewsSection } from "./Catalog";
+import { BroadcastSection, CouponsSection, ProductsSection, ReviewsSection, type ProductDraft } from "./Catalog";
+import { removeProductImages } from "../lib/photos";
 import { SupportSection, useSupportUnread } from "./Support";
+import { SparePartsSection } from "./SpareParts";
+import type { DbGalleryPart } from "../lib/partsGallery";
 
-export type Section = "dashboard" | "support" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "coupons" | "reviews" | "broadcast";
+export type Section = "dashboard" | "support" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "spareparts" | "coupons" | "reviews" | "broadcast";
 
 type NavIcon = (p: { s?: number; c?: string; w?: number }) => React.ReactElement;
 
@@ -26,14 +29,14 @@ const NAV: { group: string; items: { id: Section; label: string; Icon: NavIcon }
   { group: "Operations", items: [{ id: "orders", label: "Orders", Icon: BagIcon }, { id: "services", label: "Service Jobs", Icon: WrenchIcon }, { id: "support", label: "Support Chat", Icon: InboxIcon }] },
   { group: "People", items: [{ id: "customers", label: "Customers", Icon: UsersIcon }, { id: "technicians", label: "Technicians", Icon: TechnicianIcon }, { id: "dealers", label: "Dealers", Icon: StoreIcon }] },
   { group: "Catalogue & growth", items: [
-    { id: "products", label: "Products & Stock", Icon: BoxIcon }, { id: "coupons", label: "Offers & Coupons", Icon: TagIcon },
+    { id: "products", label: "Products & Stock", Icon: BoxIcon }, { id: "spareparts", label: "Technician Parts", Icon: WrenchIcon }, { id: "coupons", label: "Offers & Coupons", Icon: TagIcon },
     { id: "reviews", label: "Reviews", Icon: StarLineIcon }, { id: "broadcast", label: "Notifications", Icon: MegaphoneIcon },
   ] },
 ];
 
 const TITLES: Record<Section, string> = {
   dashboard: "Dashboard", support: "Support Chat", orders: "Orders", services: "Service Jobs & Dispatch", customers: "Customers", technicians: "Technicians", dealers: "Dealers",
-  products: "Products & Stock", coupons: "Offers & Coupons", reviews: "Reviews", broadcast: "Broadcast Notifications",
+  products: "Products & Stock", spareparts: "Technician Spare Parts", coupons: "Offers & Coupons", reviews: "Reviews", broadcast: "Broadcast Notifications",
 };
 
 const sb = () => supabaseFor("admin");
@@ -134,7 +137,22 @@ export default function AdminApp() {
     return { code: row.code as string };
   };
   const updateProduct = (p: AdminProduct, patch: Partial<AdminProduct>) =>
-    act(() => sb().from("products").update(patch).eq("id", p.id), patch.active === false ? `${p.name} hidden from the app` : patch.active ? `${p.name} is live` : `${p.name} updated`);
+    act(() => sb().from("products").update(patch).eq("id", p.id), patch.images ? `${p.name} photos saved` : patch.active === false ? `${p.name} hidden from the app` : patch.active ? `${p.name} is live` : `${p.name} updated`);
+  /** New products get a readable id from their name ("ro-membrane-housing") and go to the end of the list. */
+  const createProduct = async (d: ProductDraft) => {
+    const base = d.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "product";
+    const taken = new Set((data?.products ?? []).map((p) => p.id));
+    let id = base;
+    for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
+    const sort = Math.max(0, ...(data?.products ?? []).map((p) => p.sort)) + 1;
+    const ok = await act(() => sb().from("products").insert({ id, ...d, sort, active: true }), `${d.name} added — it's live in the shop. Add photos next.`);
+    return ok ? id : null;
+  };
+  const deleteProduct = async (p: AdminProduct) => {
+    const ok = await act(() => sb().from("products").delete().eq("id", p.id), `${p.name} deleted`);
+    if (ok) await removeProductImages(p.images).catch(() => undefined);
+    return ok;
+  };
   const updateCoupon = (c: AdminCoupon, patch: { active: boolean }) =>
     act(() => sb().from("coupons").update(patch).eq("code", c.code), patch.active ? `${c.code} is live` : `${c.code} paused`);
   const createCoupon = (c: AdminCoupon) =>
@@ -146,6 +164,9 @@ export default function AdminApp() {
     await act(() => sb().from("reviews").update({ status }).eq("id", r.id), status === "Hidden" ? "Review hidden from the app" : "Review published");
   };
   const deleteReview = async (r: AdminReview) => { await act(() => sb().from("reviews").delete().eq("id", r.id), "Review deleted"); };
+  const reviewGalleryPart = (p: DbGalleryPart, status: "Approved" | "Rejected", reason?: string) =>
+    act(() => sb().from("tech_parts").update({ status, reject_reason: status === "Rejected" ? reason || null : null }).eq("id", p.id),
+      status === "Approved" ? `${p.name} approved — the technician can share it now` : `${p.name} rejected`);
   const sendBroadcast = async (b: { title: string; body: string; audience: string }) => {
     const { data: row, error } = await sb().from("broadcasts").insert({ ...b, channels: ["In-app"] }).select("id").single();
     if (error) { notify(friendly(error), true); return null; }
@@ -157,7 +178,7 @@ export default function AdminApp() {
   if (session === undefined) return <Splash text="Loading…" />;
   if (!staff) return <AdminLogin />;
   if (!data) return <Splash text={live.error ?? "Loading console…"} error={!!live.error} onRetry={live.reload} />;
-  const { orders, jobs, customers, techs, products, coupons, reviews, dealers, broadcasts } = data;
+  const { orders, jobs, customers, techs, products, coupons, reviews, dealers, broadcasts, galleryParts } = data;
   const me = session!.user;
 
   // Sidebar counters for work waiting on someone.
@@ -168,6 +189,7 @@ export default function AdminApp() {
     technicians: techs.filter((t) => t.kyc === "Pending").length,
     reviews: reviews.filter((r) => r.status === "Flagged").length,
     products: products.filter((p) => p.active && p.stock != null && p.stock <= 5).length,
+    spareparts: galleryParts.filter((p) => p.status === "Pending").length,
   };
 
 
@@ -247,7 +269,8 @@ export default function AdminApp() {
             {section === "technicians" && (
               <TechniciansSection techs={techs} jobs={jobs} dealers={dealers} onUpdate={updateTech} onCreate={createTech} onResetPassword={resetTechPassword} />
             )}
-            {section === "products" && <ProductsSection products={products} onUpdate={updateProduct} />}
+            {section === "products" && <ProductsSection products={products} onUpdate={updateProduct} onCreate={createProduct} onDelete={deleteProduct} />}
+            {section === "spareparts" && <SparePartsSection parts={galleryParts} techs={techs} onReview={reviewGalleryPart} />}
             {section === "coupons" && <CouponsSection coupons={coupons} onUpdate={updateCoupon} onCreate={createCoupon} />}
             {section === "reviews" && <ReviewsSection reviews={reviews} onStatus={setReviewStatus} onDelete={deleteReview} />}
             {section === "broadcast" && <BroadcastSection history={broadcasts} onSend={sendBroadcast} />}

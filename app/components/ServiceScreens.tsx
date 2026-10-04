@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { ArrowRight, CheckIcon, ChevronDown, ChevronRight, ChatIcon, PhoneIcon, StarIcon } from "./icons";
-import PurifierArt from "./PurifierArt";
+import ProductImage from "./ProductImage";
+
+/** Order rows only keep a title; find the catalogue product it was for (for its photo). */
+const orderVisual = (o: { title: string; art: import("../lib/data").ArtKind }) => {
+  const p = PRODUCTS.find((x) => o.title === x.name || o.title.startsWith(`${x.name} `));
+  return { name: o.title, art: p?.art ?? o.art, images: p?.images };
+};
 import { Footer, PageHeader, PrimaryButton, StatusBadge, Tabs, card, field, label } from "./ui";
 import { CouponApply } from "./Offers";
 import { PhotoStrip, RoPhotoPicker } from "./PhotoPicker";
@@ -251,7 +257,7 @@ export function OrdersScreen({ orders, onBack, onOpen }: { orders: Order[]; onBa
           {rows.map((o) => (
             <button key={o.id} onClick={() => onOpen(o)} className="press" style={{ ...card, border: "none", padding: 12, cursor: "pointer", textAlign: "left", display: "flex", gap: 12 }}>
               <div style={{ width: 76, height: 76, flexShrink: 0, borderRadius: 14, background: "var(--bg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <PurifierArt kind={o.art} size={68} />
+                <ProductImage product={orderVisual(o)} size={68} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
@@ -288,7 +294,7 @@ export function OrderDetailPage({ order, onBack, onHelp, onReview }: {
       <PageHeader title={`Order #${order.ref}`} onBack={onBack} />
       <div style={{ padding: "0 16px 24px" }}>
         <div style={{ ...card, padding: 14, display: "flex", gap: 12, alignItems: "center" }}>
-          <div style={{ width: 76, height: 76, borderRadius: 14, background: "var(--bg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}><PurifierArt kind={order.art} size={68} /></div>
+          <div style={{ width: 76, height: 76, borderRadius: 14, background: "var(--bg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}><ProductImage product={orderVisual(order)} size={68} /></div>
           <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600 }}>{order.title}</p>
             <p style={{ margin: "2px 0 6px", fontSize: 12, color: "var(--ink-soft)" }}>Ordered on {order.date}</p>

@@ -65,9 +65,12 @@ create table if not exists public.products (
   reviews_count integer not null default 0,
   active        boolean not null default true,
   sort          integer not null default 0,
+  -- Photo URLs in the public "product-images" bucket; the first is the cover.
+  images        text[] not null default '{}',
   updated_at    timestamptz not null default now(),
   check (price <= mrp)
 );
+alter table public.products add column if not exists images text[] not null default '{}';
 
 create table if not exists public.service_catalog (
   type       text primary key,
@@ -457,6 +460,46 @@ create table if not exists public.stock_requests (
   status     text not null default 'Pending' check (status in ('Pending', 'Approved', 'Rejected')),
   created_at timestamptz not null default now()
 );
+
+-- Spare-parts gallery: technicians list parts (photos, price, specs), staff approve
+-- each one, and only approved parts can be shared with customers (public link).
+create table if not exists public.tech_parts (
+  id            uuid primary key default gen_random_uuid(),
+  tech_id       uuid not null default auth.uid() references public.technicians (id) on delete cascade,
+  name          text not null check (length(trim(name)) between 2 and 80),
+  price         integer not null check (price > 0),
+  specs         text not null default '' check (length(specs) <= 1000),
+  -- Public URLs in the "part-photos" bucket.
+  photos        text[] not null default '{}' check (cardinality(photos) between 1 and 4),
+  status        text not null default 'Pending' check (status in ('Pending', 'Approved', 'Rejected')),
+  reject_reason text,
+  reviewed_at   timestamptz,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index if not exists tech_parts_tech_idx on public.tech_parts (tech_id, created_at desc);
+create index if not exists tech_parts_status_idx on public.tech_parts (status, created_at desc);
+
+-- A technician's edit always goes back for approval; only staff set the status.
+create or replace function public.tech_parts_guard() returns trigger
+language plpgsql as $$
+begin
+  new.updated_at := now();
+  if public.is_staff() then
+    if new.status is distinct from old.status then
+      new.reviewed_at := now();
+      if new.status <> 'Rejected' then new.reject_reason := null; end if;
+    end if;
+  else
+    new.tech_id := old.tech_id;
+    new.status := 'Pending';
+    new.reject_reason := null;
+    new.reviewed_at := null;
+  end if;
+  return new;
+end $$;
+drop trigger if exists tech_parts_guard on public.tech_parts;
+create trigger tech_parts_guard before update on public.tech_parts for each row execute function public.tech_parts_guard();
 
 create table if not exists public.payouts (
   id         uuid primary key default gen_random_uuid(),
@@ -974,6 +1017,7 @@ alter table public.broadcasts       enable row level security;
 alter table public.tech_stock       enable row level security;
 alter table public.stock_requests   enable row level security;
 alter table public.payouts          enable row level security;
+alter table public.tech_parts       enable row level security;
 
 -- Drop and recreate every policy so re-running stays clean.
 do $$
@@ -1072,6 +1116,12 @@ create policy "ask stock"     on public.stock_requests for insert with check (te
 create policy "own payouts"   on public.payouts for select using (tech_id = auth.uid() or public.is_staff());
 create policy "staff payouts" on public.payouts for all using (public.is_staff()) with check (public.is_staff());
 
+-- Spare-parts gallery: approved parts are public (shared links work without logging in).
+create policy "read parts gallery" on public.tech_parts for select using (status = 'Approved' or tech_id = auth.uid() or public.is_staff());
+create policy "tech adds part"     on public.tech_parts for insert with check (tech_id = auth.uid() and public.is_technician() and status = 'Pending');
+create policy "edit part"          on public.tech_parts for update using (tech_id = auth.uid() or public.is_staff()) with check (tech_id = auth.uid() or public.is_staff());
+create policy "delete part"        on public.tech_parts for delete using (tech_id = auth.uid() or public.is_staff());
+
 -- Functions customers shouldn't call while logged out.
 revoke execute on function public.place_order(jsonb, text, boolean, text, uuid) from anon;
 revoke execute on function public.book_service(text, text, date, text, text, uuid, text, text[], uuid) from anon;
@@ -1088,7 +1138,7 @@ begin
   end if;
   foreach t in array array[
     'products', 'service_catalog', 'coupons', 'technicians', 'dealers', 'orders', 'service_requests',
-    'tech_locations', 'reviews', 'wallet_txns', 'notifications', 'chat_messages', 'tech_stock', 'stock_requests', 'profiles'
+    'tech_locations', 'reviews', 'wallet_txns', 'notifications', 'chat_messages', 'tech_stock', 'stock_requests', 'profiles', 'tech_parts'
   ] loop
     if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
       execute format('alter publication supabase_realtime add table public.%I', t);
@@ -1099,11 +1149,29 @@ end $$;
 -- ═══════════════════════════ Photo storage ═══════════════════════════
 -- ro-photos (private): <customer uid>/<file>.jpg — customer, their technician and staff can see them.
 -- avatars (public):    <technician uid>/photo.jpg
+-- part-photos (public): <technician uid>/<file>.jpg — spare-parts gallery
+-- product-images (public): <product id>/<file>.jpg — catalogue photos, staff only
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('ro-photos', 'ro-photos', false, 2097152, array['image/jpeg', 'image/png', 'image/webp']),
-       ('avatars', 'avatars', true, 1048576, array['image/jpeg', 'image/png', 'image/webp'])
+       ('avatars', 'avatars', true, 1048576, array['image/jpeg', 'image/png', 'image/webp']),
+       ('part-photos', 'part-photos', true, 2097152, array['image/jpeg', 'image/png', 'image/webp']),
+       ('product-images', 'product-images', true, 3145728, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
+
+drop policy if exists "product images upload" on storage.objects;
+drop policy if exists "product images delete" on storage.objects;
+create policy "product images upload" on storage.objects for insert to authenticated
+  with check (bucket_id = 'product-images' and public.is_staff());
+create policy "product images delete" on storage.objects for delete to authenticated
+  using (bucket_id = 'product-images' and public.is_staff());
+
+drop policy if exists "part photos upload" on storage.objects;
+drop policy if exists "part photos delete" on storage.objects;
+create policy "part photos upload" on storage.objects for insert to authenticated
+  with check (bucket_id = 'part-photos' and public.is_technician() and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "part photos delete" on storage.objects for delete to authenticated
+  using (bucket_id = 'part-photos' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_staff()));
 
 drop policy if exists "ro photos upload" on storage.objects;
 drop policy if exists "ro photos read" on storage.objects;
@@ -1149,22 +1217,40 @@ insert into public.products (id, name, spec, price, mrp, category, art, stages, 
   ('spares', 'Spare Parts Kit', 'Sediment + Carbon + Membrane', 499, 699, 'spare', 'spare', '3 filters', '6 Months',
    'Genuine replacement filters for AquaPure RO Classic and Pro. Change every 6–9 months for best taste.', 6),
   ('cartridges', 'Filter Cartridges', 'Pack of 3 · universal fit', 1299, 1599, 'spare', 'cartridge', '3 cartridges', '6 Months',
-   'Universal-fit inline cartridges for most domestic RO purifiers.', 7)
+   'Universal-fit inline cartridges for most domestic RO purifiers.', 7),
+  ('membrane-75', '75 GPD RO Membrane Premium', 'Universal fit · 75 GPD', 850, 1200, 'spare', 'cartridge', '75 GPD', '6 Months',
+   'High-rejection TFC membrane for all standard RO systems. Fits Kent, Aquaguard & more.', 8),
+  ('sediment-5', 'Sediment Filter 5 Micron (Pack of 3)', 'Multi brand · 5 micron', 299, 450, 'spare', 'cartridge', '3 filters', '30 Days',
+   'Removes dirt, sand & rust. Compatible with standard 10-inch filter housings.', 9),
+  ('booster-pump-24v', 'RO Booster Pump 24V DC Motor', 'Universal · 24V DC', 1299, 1800, 'spare', 'spare', '24V DC', '3 Months',
+   'High-pressure booster pump for low water pressure RO systems. 24V DC, 75-100 GPD.', 10),
+  ('cto-carbon', 'Carbon Block Filter CTO (4 Stage)', 'Premium · carbon block', 549, 750, 'spare', 'cartridge', 'Carbon block', '30 Days',
+   'Removes chlorine, bad taste & odour. Activated carbon block technology for pure water.', 11),
+  ('smps-24v', 'SMPS Power Supply 24V 2A Adapter', 'Universal · 24V 2A', 399, 599, 'spare', 'spare', '24V 2A', '3 Months',
+   'Reliable 24V 2A SMPS adapter for RO booster pumps. Input 220V AC, Output 24V DC.', 12),
+  ('service-kit-7', 'Complete RO Service Kit (7 Pcs)', 'Combo pack · 7 pieces', 1999, 3200, 'spare', 'spare', '7 pieces', '30 Days',
+   'All-in-one kit: Sediment + Carbon + UF + Membrane + SMPS + Connectors + Spanner.', 13),
+  ('uf-membrane', 'UF Hollow Fiber Ultra Membrane', 'Multi brand · UF', 699, 999, 'spare', 'cartridge', 'UF', '30 Days',
+   'Ultra-filtration membrane for bacteria removal without electricity. 0.01 micron filtration.', 14),
+  ('valve-kit', 'Ball Valve & Connector Kit Set', 'Universal · fittings', 149, 250, 'spare', 'spare', 'Kit', '30 Days',
+   'Complete set of ball valves, check valves, elbow & straight connectors for RO system installation.', 15)
 on conflict (id) do nothing;
 
 insert into public.service_catalog (type, tagline, price, price_note, duration, includes, sort) values
-  ('Installation', 'Free with every Zavtoo purifier', 0, 'for Zavtoo purifiers', '45–60 min',
-   '{"Wall mounting & plumbing","Inlet valve + drain setup","TDS check before and after","Demo of filter indicators"}', 1),
-  ('Repair', 'Leaks, low flow, noise, bad taste', 499, 'visit charge · parts extra', '30–90 min',
-   '{"Full diagnosis of the purifier","Leak & pressure checks","Genuine spare parts at MRP","30-day repair warranty"}', 2),
-  ('AMC', '1 year of worry-free water', 1999, 'per year', '1 year cover',
-   '{"3 preventive service visits","2 filter sets included","Priority repairs within 24h","No visit charges all year"}', 3),
-  ('Filter Change', 'Sediment, carbon & membrane', 899, 'incl. filter kit', '30 min',
-   '{"Genuine sediment + carbon filters","Membrane health check","Tank sanitisation","TDS reading after service"}', 4),
-  ('Water Test', 'Know what''s in your water', 199, 'at-home test', '20 min',
-   '{"TDS, pH and hardness test","Chlorine check","Purifier recommendation","Digital report on SMS"}', 5),
+  ('Repair', 'Expert diagnosis and repair of all RO water purifier problems at your doorstep by certified technicians.', 299, 'visit charge · spare parts if needed', '30–90 min',
+   '{"Low water pressure fix","Water leakage repair","Bad taste/odour fix","Pump & motor repair","90-day service warranty"}', 1),
+  ('Filter Change', 'Timely replacement of RO filters, membranes, and cartridges to ensure 100% pure water quality.', 499, 'filters + service included', '30 min',
+   '{"Sediment filter change","Carbon CTO filter change","RO membrane replacement","UV lamp replacement","Post-service water quality test"}', 2),
+  ('Installation', 'Professional installation of brand new RO water purifiers with complete setup, testing, and demo.', 399, 'installation charges only', '45–60 min',
+   '{"Free site inspection","All brands supported","Pipeline setup included","Full demo & training","Post-installation support"}', 3),
+  ('Deep Cleaning', 'Thorough internal cleaning and UV sanitization of your RO purifier for maximum hygiene and performance.', 349, 'complete cleaning service', '45–60 min',
+   '{"Complete disassembly cleaning","Tank & housing washed","UV sanitization treatment","TDS check post cleaning","Performance test done"}', 4),
+  ('Water Test', 'Professional TDS, pH, and contamination testing to ensure your water is safe and identify purifier needs.', 199, 'includes test report', '20 min',
+   '{"TDS level measurement","pH & hardness testing","Bacteria/contamination check","Detailed written report","Expert recommendation"}', 5),
+  ('AMC', 'Regular servicing, priority support and free filter replacements — one plan for the whole year.', 999, 'per year · Silver plan (Gold ₹1,799 · Platinum ₹2,999)', '1 year cover',
+   '{"2 service visits a year","Filter inspection","Basic cleaning","Phone support"}', 6),
   ('Uninstall', 'Moving house? We''ll handle it', 349, 'uninstall + reinstall ₹599', '30 min',
-   '{"Safe dismounting","Pipe & valve capping","Packing guidance","Reinstall at new address on request"}', 6)
+   '{"Safe dismounting","Pipe & valve capping","Packing guidance","Reinstall at new address on request"}', 7)
 on conflict (type) do nothing;
 
 insert into public.coupons (code, title, descr, kind, value, max_off, min_order, applies_to, expires) values
@@ -1172,7 +1258,8 @@ insert into public.coupons (code, title, descr, kind, value, max_off, min_order,
   ('FILTER150', '₹150 off spares', 'Flat ₹150 off on filters & cartridges above ₹999.', 'flat', 150, null, 999, 'product', '2026-10-15'),
   ('FIRSTFIX', '₹200 off first repair', 'Flat ₹200 off your repair visit charge.', 'flat', 200, null, 399, 'service', '2026-11-30'),
   ('AMC300', '₹300 off AMC', 'Save ₹300 when you buy or renew a 1-year AMC.', 'flat', 300, null, 1999, 'service', '2026-12-31'),
-  ('ZAVTOO5', '5% off everything', 'Works on products and paid services. Max ₹500.', 'percent', 5, 500, 499, 'all', '2026-12-31')
+  ('ZAVTOO5', '5% off everything', 'Works on products and paid services. Max ₹500.', 'percent', 5, 500, 499, 'all', '2026-12-31'),
+  ('PURE30', '30% off your first service', 'Get 30% off your first service booking.', 'percent', 30, null, 0, 'service', '2027-12-31')
 on conflict (code) do nothing;
 
 insert into public.parts (id, name, price) values
@@ -1180,5 +1267,16 @@ insert into public.parts (id, name, price) values
   ('uv', 'UV lamp 11W', 650), ('pump', 'Booster pump', 1400), ('sv', 'Solenoid valve', 350),
   ('tap', 'Tank tap', 120), ('pipe', 'Pipe & connector set', 90)
 on conflict (id) do nothing;
+
+
+-- Real part photos (served from the website's /products/parts folder).
+-- Only touches products with no photos or only these built-in part photos, so photos uploaded in admin are kept.
+update public.products set images = '{/products/parts/sediment-spun-filter-1.jpg,/products/parts/black-inline-cartridge-1.jpg,/products/parts/membrane-housing-1.jpg}' where id = 'spares' and not exists (select 1 from unnest(images) u where u not like '/products/parts/%');
+update public.products set images = '{/products/parts/blue-cap-cartridge-1.jpg,/products/parts/grey-cap-cartridge-1.jpg,/products/parts/black-inline-cartridge-1.jpg}' where id = 'cartridges' and not exists (select 1 from unnest(images) u where u not like '/products/parts/%');
+update public.products set images = '{/products/parts/membrane-housing-1.jpg,/products/parts/membrane-housing-2.jpg,/products/parts/membrane-housing-3.jpg}' where id = 'membrane-75' and not exists (select 1 from unnest(images) u where u not like '/products/parts/%');
+update public.products set images = '{/products/parts/sediment-spun-filter-1.jpg,/products/parts/sediment-spun-filter-2.jpg,/products/parts/sediment-spun-filter-3.jpg}' where id = 'sediment-5' and not exists (select 1 from unnest(images) u where u not like '/products/parts/%');
+update public.products set images = '{/products/parts/black-inline-cartridge-1.jpg,/products/parts/black-inline-cartridge-2.jpg,/products/parts/black-inline-cartridge-3.jpg}' where id = 'cto-carbon' and not exists (select 1 from unnest(images) u where u not like '/products/parts/%');
+update public.products set images = '{/products/parts/blue-cap-cartridge-1.jpg,/products/parts/blue-cap-cartridge-2.jpg,/products/parts/blue-cap-cartridge-3.jpg}' where id = 'uf-membrane' and not exists (select 1 from unnest(images) u where u not like '/products/parts/%');
+update public.products set images = '{/products/parts/sediment-spun-filter-1.jpg,/products/parts/black-inline-cartridge-1.jpg,/products/parts/blue-cap-cartridge-1.jpg,/products/parts/membrane-housing-1.jpg}' where id = 'service-kit-7' and not exists (select 1 from unnest(images) u where u not like '/products/parts/%');
 
 -- Done. Next: the app creates the super admin with the service key (scripts/create-super-admin.mjs).

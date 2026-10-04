@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { CartIcon, CheckIcon, FilterIcon, HeartIcon, LayersIcon, MinusIcon, PlusIcon, SearchIcon, ShareIcon, ShieldIcon, StarIcon, SunIcon, TrashIcon, PinIcon, CardIcon, WalletIcon } from "./icons";
 import PurifierArt from "./PurifierArt";
+import ProductImage, { ProductGallery } from "./ProductImage";
 import { Footer, PageHeader, PrimaryButton, Tabs, Toggle, card, iconBtn } from "./ui";
 import { CouponApply } from "./Offers";
 import { ProductReviewsSection } from "./Reviews";
@@ -72,7 +73,7 @@ export function ProductListPage({ onBack, initialQuery = "", onOpen, onAdd, cart
           {list.map((p) => (
             <div key={p.id} role="button" tabIndex={0} aria-label={p.name} onClick={() => onOpen(p.id)} onKeyDown={(e) => e.key === "Enter" && onOpen(p.id)} className="press" style={{ ...card, display: "flex", gap: 14, padding: 12, cursor: "pointer" }}>
               <div style={{ width: 104, flexShrink: 0, borderRadius: 14, background: "var(--bg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <PurifierArt kind={p.art} size={92} />
+                <ProductImage product={p} size={92} />
               </div>
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                 <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{p.name}</p>
@@ -135,9 +136,9 @@ export function ProductDetailPage({ id, onBack, onAdd, onBuyNow, wished, onToggl
   return (
     <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
       {/* Image stage */}
-      <div style={{ position: "relative", margin: "12px 16px 0", borderRadius: 24, overflow: "hidden", background: "linear-gradient(160deg,var(--blue-tint),var(--surface))", height: 280, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ position: "relative", margin: "12px 16px 0", borderRadius: 24, overflow: "hidden", background: "linear-gradient(160deg,var(--blue-tint),var(--surface))", minHeight: 280, padding: "56px 0 12px", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ position: "absolute", width: 220, height: 220, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,166,35,0.22), transparent 70%)" }} />
-        <PurifierArt kind={p.art} size={230} />
+        <ProductGallery product={p} size={(p.images?.length ?? 0) > 1 ? 200 : 230} />
         <div style={{ position: "absolute", top: 12, left: 12, right: 12, display: "flex", justifyContent: "space-between" }}>
           <RoundBtn label="Back" onClick={onBack}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M11 6l-6 6 6 6" /></svg></RoundBtn>
           <div style={{ display: "flex", gap: 8 }}>
@@ -270,7 +271,7 @@ export function CartPage({ lines, onBack, setQty, onCheckout, onShop, coupon, on
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {rows.map((r) => (
             <div key={r.id} style={{ ...card, display: "flex", gap: 12, padding: 10, alignItems: "center" }}>
-              <div style={{ width: 70, height: 70, borderRadius: 12, background: "var(--bg-secondary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><PurifierArt kind={r.p.art} size={62} /></div>
+              <div style={{ width: 70, height: 70, borderRadius: 12, background: "var(--bg-secondary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><ProductImage product={r.p} size={62} /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{r.p.name}</p>
                 <p style={{ margin: "1px 0 6px", fontSize: 11.5, color: "var(--ink-soft)" }}>{r.p.spec}</p>

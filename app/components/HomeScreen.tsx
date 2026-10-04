@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BellIcon, CartIcon, SearchIcon, ArrowRight, ShieldIcon, GiftIcon } from "./icons";
 import { BrandMark, Wordmark } from "./Brand";
 import PurifierArt from "./PurifierArt";
+import ProductImage from "./ProductImage";
 import { ViewAll, iconBtn } from "./ui";
 import { SERVICE_ICON } from "./ServicesHub";
 import { COUPONS, PRODUCTS, REFERRAL_REWARD, SERVICE_CATALOG, inr, type Product, type ServiceType } from "../lib/data";
@@ -253,7 +254,7 @@ function MiniCard({ product, onOpen, onAdd }: { product: Product; onOpen: () => 
       boxShadow: "var(--shadow-card)", cursor: "pointer",
     }}>
       <div style={{ height: 100, borderRadius: 14, background: "var(--bg-secondary)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <PurifierArt kind={product.art} size={86} />
+        <ProductImage product={product} size={86} />
       </div>
       <p style={{ margin: "10px 0 0", fontSize: 13, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{product.name}</p>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
@@ -319,14 +320,17 @@ function HeroCarousel({ onShop, onAmc }: { onShop: () => void; onAmc: () => void
                 boxShadow: "0 6px 16px rgba(245,166,35,0.40)", display: "inline-flex", alignItems: "center", gap: 6,
               }}>Shop Now <ArrowRight s={15} c="var(--blue-dark)" w={2.2} /></button>
             </div>
-            <div style={{ flexShrink: 0, filter: "drop-shadow(0 10px 18px rgba(4,36,107,0.45))" }}><PurifierArt kind="pro" size={120} /></div>
+            <div style={{ flexShrink: 0, filter: "drop-shadow(0 10px 18px rgba(4,36,107,0.45))" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/products/parts/osmo-housing-1.jpg" alt="Genuine OSMO filter housing" width={112} height={112} style={{ display: "block", borderRadius: 16, objectFit: "cover" }} />
+            </div>
           </div>, 0,
         )}
         {slide(
           <div style={{ position: "relative", zIndex: 1 }}>
             <span style={{ display: "inline-block", background: "var(--gold)", color: "var(--blue-dark)", fontSize: 10.5, fontWeight: 700, padding: "4px 10px", borderRadius: 8 }}>AMC PLAN</span>
             <p style={{ margin: "10px 0 0", fontSize: 23, fontWeight: 800, color: "white", lineHeight: 1.2 }}>
-              1 Year Worry-free<br />Service @ <span style={{ color: "var(--gold)" }}>₹1,999</span>
+              1 Year Worry-free<br />Service @ <span style={{ color: "var(--gold)" }}>₹999</span>
             </p>
             <div style={{
               display: "flex", gap: 14, margin: "12px 0 14px", background: "rgba(255,255,255,0.09)",
