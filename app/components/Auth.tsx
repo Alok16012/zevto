@@ -105,7 +105,7 @@ export function CustomerAuth({ initialReferral = "" }: { initialReferral?: strin
             {signup ? "Log in" : "Create an account"}
           </button>
         </p>
-        {!signup && <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "8px 0 0" }}>Forgot your password? Call or WhatsApp +91 97117 78855 and we&apos;ll reset it.</p>}
+        {!signup && <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "8px 0 0" }}>Forgot your password? Call or WhatsApp +91 89294 54647 and we&apos;ll reset it.</p>}
       </div>
     </form>
   );

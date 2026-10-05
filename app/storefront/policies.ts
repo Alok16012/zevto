@@ -12,7 +12,7 @@ export type Block =
 export interface PolicySection { title: string; sub?: string; blocks: Block[] }
 export interface Policy { title: string; intro: string; meta: string[]; sections: PolicySection[] }
 
-const CONTACT_LINE = "Paanifilter9@gmail.com or call +91 9711778855";
+const CONTACT_LINE = "Paanifilter9@gmail.com or call +91 8929454647";
 
 export const PRIVACY: Policy = {
   title: "Privacy Policy",
@@ -92,7 +92,7 @@ export const PRIVACY: Policy = {
         "Regular Security Audits: We periodically review our data security practices and systems",
         "Secure Data Storage: Customer data is stored on secure, encrypted servers with regular backups",
       ] },
-      { note: { title: "Your Responsibility", text: "While we do everything to protect your data on our end, please also help us by keeping your account credentials confidential, using strong passwords, and logging out of shared devices. If you suspect any unauthorized access to your account, contact us immediately at +91 9711778855." } },
+      { note: { title: "Your Responsibility", text: "While we do everything to protect your data on our end, please also help us by keeping your account credentials confidential, using strong passwords, and logging out of shared devices. If you suspect any unauthorized access to your account, contact us immediately at +91 8929454647." } },
       { p: "Please note that no method of transmission over the Internet or electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your information, we cannot guarantee absolute security." },
     ] },
     { title: "Cookies Policy", sub: "How we use cookies and tracking technologies", blocks: [
@@ -168,7 +168,7 @@ export const PRIVACY: Policy = {
       { table: { head: ["", ""], rows: [
         ["Company", "Zavtoo Paani Filter Pvt Ltd"], ["Owner", "Aditya Badwal"],
         ["Address", "K-15, Raja Puri, Dwarka Road, New Delhi – 110059"], ["Response Time", "Within 30 Business Days"],
-        ["Phone / WhatsApp", "+91 9711778855"], ["Email", "Paanifilter9@gmail.com"],
+        ["Phone / WhatsApp", "+91 8929454647"], ["Email", "Paanifilter9@gmail.com"],
       ] } },
     ] },
   ],
@@ -238,7 +238,7 @@ export const TERMS: Policy = {
       { p: "All purchases made on paanifilter.com are subject to product availability and acceptance of your order. Placing an order does not constitute a guaranteed purchase until you receive an order confirmation from us." },
       { h: "Order Process" },
       { ul: [
-        "Orders are placed through our website, WhatsApp, or by calling us directly at +91 9711778855.",
+        "Orders are placed through our website, WhatsApp, or by calling us directly at +91 8929454647.",
         "You will receive an order confirmation via SMS/WhatsApp/email within 1-2 hours of placing your order.",
         "We reserve the right to cancel or modify any order if the product is out of stock, if pricing errors occur, or if fraud is suspected.",
         "All prices displayed on our website are inclusive of GST (Goods and Services Tax) unless stated otherwise.",
@@ -289,7 +289,7 @@ export const TERMS: Policy = {
       ] } },
       { h: "Refund Process" },
       { ol: [
-        { title: "Raise a Return Request", text: "Contact us within the return window via WhatsApp, phone (+91 9711778855), or email (Paanifilter9@gmail.com) with your order number, photos of the product, and reason for return." },
+        { title: "Raise a Return Request", text: "Contact us within the return window via WhatsApp, phone (+91 8929454647), or email (Paanifilter9@gmail.com) with your order number, photos of the product, and reason for return." },
         { title: "Return Review (1–2 Days)", text: "Our team will review your request and photos within 1–2 business days and confirm whether the return is approved, requesting any additional information if needed." },
         { title: "Product Pickup or Drop", text: "Approved returns will be picked up by our courier partner (for eligible areas) or you may be asked to ship the product to our address. Return shipping is borne by us for eligible returns." },
         { title: "Refund Processing (5–7 Days)", text: "Once the returned product is received and inspected, refunds are processed within 5–7 business days to your original payment method (UPI, bank account, or card)." },
@@ -323,7 +323,7 @@ export const TERMS: Policy = {
         "You must be at least 18 years of age to create an account. Minors may only access our services through a parent or guardian's account.",
         "You are responsible for providing accurate, complete, and current information during registration and keeping it updated.",
         "You are solely responsible for maintaining the confidentiality of your password and for all activities that occur under your account.",
-        "You agree to notify us immediately at Paanifilter9@gmail.com or call +91 9711778855 if you suspect any unauthorized use of your account.",
+        "You agree to notify us immediately at Paanifilter9@gmail.com or call +91 8929454647 if you suspect any unauthorized use of your account.",
         "You may not create multiple accounts for the same person or transfer your account to another person without our written consent.",
         "We reserve the right to suspend or terminate accounts that violate these Terms, contain false information, or are used for fraudulent purposes.",
       ] },
@@ -372,7 +372,7 @@ export const TERMS: Policy = {
       { p: "These Terms and Conditions are governed by and construed in accordance with the laws of the Republic of India, without regard to any conflict of law provisions. By using our services, you submit to the exclusive jurisdiction of Indian courts." },
       { h: "Dispute Resolution Process" },
       { ol: [
-        { title: "Informal Resolution First", text: "Contact us directly at +91 9711778855 or Paanifilter9@gmail.com. We will make every effort to resolve your concern amicably within 7–14 business days through good faith negotiation." },
+        { title: "Informal Resolution First", text: "Contact us directly at +91 8929454647 or Paanifilter9@gmail.com. We will make every effort to resolve your concern amicably within 7–14 business days through good faith negotiation." },
         { title: "Consumer Forum (if needed)", text: "If informal resolution fails, consumers in India may approach the appropriate Consumer Disputes Redressal Commission under the Consumer Protection Act, 2019." },
         { title: "Arbitration", text: "For commercial disputes, both parties may agree to settle through arbitration under the Arbitration and Conciliation Act, 1996, with proceedings held in New Delhi, India." },
         { title: "Court Jurisdiction", text: "If arbitration is not agreed upon, disputes shall be subject to the exclusive jurisdiction of the courts located in New Delhi, India." },
@@ -396,7 +396,7 @@ export const TERMS: Policy = {
       { table: { head: ["", ""], rows: [
         ["Company Name", "Zavtoo Paani Filter Pvt Ltd"], ["Business Owner", "Aditya Badwal"],
         ["Registered Address", "K-15, Raja Puri, Dwarka Road, New Delhi – 110059"], ["Support Hours", "Mon – Sun: 8:00 AM – 8:00 PM"],
-        ["Phone / WhatsApp", "+91 9711778855"], ["Email", "Paanifilter9@gmail.com"],
+        ["Phone / WhatsApp", "+91 8929454647"], ["Email", "Paanifilter9@gmail.com"],
       ] } },
     ] },
   ],

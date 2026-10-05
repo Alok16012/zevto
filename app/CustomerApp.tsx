@@ -378,7 +378,7 @@ export default function CustomerApp() {
   if (session === undefined) return frame(<Centered text="Loading…" />);
   if (!isCustomer) return frame(<CustomerAuth initialReferral={referral} />);
   if (!data) return frame(<Centered text={live.error ?? "Loading your account…"} onRetry={live.error ? live.reload : undefined} />);
-  if (data.profile.blocked) return frame(<Centered text="Your account is on hold. Please call +91 97117 78855 for help." onRetry={() => void logout()} retryLabel="Log out" />);
+  if (data.profile.blocked) return frame(<Centered text="Your account is on hold. Please call +91 89294 54647 for help." onRetry={() => void logout()} retryLabel="Log out" />);
 
   const chatMessages = data.chat.map((m) => {
     const c = toChat(m, "customer");
@@ -588,11 +588,11 @@ function ProfileInfo({ which, onBack, services, amcDaysLeft, onTrack, onRenew }:
           {[["How often should I change filters?", "Every 6–9 months, depending on your water TDS and usage."], ["How much is installation?", "New RO installation is ₹399 — it includes a free site inspection, pipeline setup, a full demo and post-installation support."], ["What does AMC cover?", "Silver ₹999/yr: 2 visits. Gold ₹1,799/yr: 4 visits, free filters, deep cleaning, 20% off parts. Platinum ₹2,999/yr: 6 visits, all parts free, 30% off parts."], ["Is there a warranty on service?", "Yes — every repair and maintenance service has a 90-day warranty. If the same issue comes back, we fix it free."], ["How do I send a photo of my RO?", "While booking: Service → pick a service → 'Photos of your RO'. After booking: open the job in My Orders → Track Service → 'Add photo'. Or tap 📎 in Chat to send one to support."]].map(([q, a]) => (
             <div key={q} style={{ ...card, padding: 14 }}><p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{q}</p><p style={small}>{a}</p></div>
           ))}
-          <a href="tel:+919711778855" style={{ ...row, textDecoration: "none", color: "var(--ink)" }}>
-            <ShieldIcon s={22} c="var(--blue)" /><span style={{ fontSize: 14, fontWeight: 600 }}>Call +91 97117 78855 (8 AM – 8 PM)</span>
+          <a href="tel:+918929454647" style={{ ...row, textDecoration: "none", color: "var(--ink)" }}>
+            <ShieldIcon s={22} c="var(--blue)" /><span style={{ fontSize: 14, fontWeight: 600 }}>Call +91 89294 54647 (8 AM – 8 PM)</span>
           </a>
-          <a href="https://wa.me/919711778855" target="_blank" rel="noopener noreferrer" style={{ ...row, textDecoration: "none", color: "var(--ink)" }}>
-            <ShieldIcon s={22} c="var(--blue)" /><span style={{ fontSize: 14, fontWeight: 600 }}>WhatsApp 97117 78855 (24/7)</span>
+          <a href="https://wa.me/918929454647" target="_blank" rel="noopener noreferrer" style={{ ...row, textDecoration: "none", color: "var(--ink)" }}>
+            <ShieldIcon s={22} c="var(--blue)" /><span style={{ fontSize: 14, fontWeight: 600 }}>WhatsApp 89294 54647 (24/7)</span>
           </a>
         </InfoPage>
       );

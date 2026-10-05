@@ -261,7 +261,7 @@ export default function TechnicianApp() {
   );
 
   if (session === undefined) return shell(<Centered text="Loading…" />);
-  if (!isTech) return shell(<LoginScreen needsArea={false} />);
+  if (!isTech) return shell(<LoginScreen />);
   if (live.error === "NO_TECH" || (live.error && /NO_TECH/.test(live.error))) {
     return shell(<Centered text="This login isn't linked to a technician profile yet. Ask your Zavtoo admin to finish setting it up." action={<button onClick={logout} style={linkBtn}>Log out</button>} />);
   }
@@ -340,46 +340,98 @@ function Centered({ text, action }: { text: string; action?: React.ReactNode }) 
 
 /* ───────────────────────── Login ───────────────────────── */
 
-function LoginScreen({ needsArea }: { needsArea: boolean }) {
+function LoginScreen() {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [years, setYears] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const signup = mode === "signup";
+
+  const problem = !signup ? (!email || !password ? "" : null)
+    : name.trim().length < 2 ? "Enter your full name"
+    : !/^[6-9]\d{9}$/.test(phone) ? "Enter a 10-digit mobile number"
+    : !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim()) ? "Enter a valid email"
+    : password.length < 8 ? "Password must be at least 8 characters"
+    : null;
+
+  const login = async () => {
+    const { data, error } = await sb().auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+    if (error) throw error;
+    if (roleOf(data.session) !== "technician") {
+      await sb().auth.signOut();
+      throw new Error("This isn't a technician account. Customers should use the Zavtoo app instead.");
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (problem) { setErr(problem); return; }
+    if (problem === "") return;
     setBusy(true); setErr(null);
-    const { data, error } = await sb().auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
-    if (error) { setErr(friendly(error)); setBusy(false); return; }
-    if (roleOf(data.session) !== "technician") {
-      await sb().auth.signOut();
-      setErr("This isn't a technician account. Customers should use the Zavtoo app instead.");
-    }
+    try {
+      if (signup) {
+        const res = await fetch("/api/technician-signup", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), phone, years: Number(years) || 0, email: email.trim().toLowerCase(), password }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error ?? "Couldn't create your profile");
+      }
+      // Signed in, the app asks for their service area next.
+      await login();
+    } catch (e) { setErr(friendly(e)); }
     setBusy(false);
   };
 
+  const switchMode = () => { setMode(signup ? "login" : "signup"); setErr(null); };
+  const change = (set: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => { set(e.target.value); setErr(null); };
+
   return (
-    <form onSubmit={submit} className="fade-up" style={{ flex: 1, display: "flex", flexDirection: "column", padding: "0 20px" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+    <form onSubmit={submit} className="fade-up no-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", padding: "0 20px" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingTop: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BrandMark size={48} />
           <Wordmark />
         </div>
-        <span style={{ alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>PARTNER APP{needsArea ? " · STEP 1 OF 2" : ""}</span>
-        <h1 style={{ margin: "12px 0 4px", fontSize: 26, fontWeight: 800 }}>Technician login</h1>
-        <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)" }}>Use the email and password Zavtoo gave you.</p>
+        <span style={{ alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>PARTNER APP{signup ? " · STEP 1 OF 2" : ""}</span>
+        <h1 style={{ margin: "12px 0 4px", fontSize: 26, fontWeight: 800 }}>{signup ? "Become a Zavtoo partner" : "Technician login"}</h1>
+        <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+          {signup ? "Create your technician profile. You'll start getting jobs once Zavtoo verifies your KYC." : "Use the email and password Zavtoo gave you."}
+        </p>
 
         <div style={{ marginTop: 26 }}>
-          <label style={label} htmlFor="t-email">Email</label>
-          <input id="t-email" type="email" autoComplete="username" value={email} onChange={(e) => { setEmail(e.target.value); setErr(null); }} style={field} />
-          <label style={{ ...label, marginTop: 14 }} htmlFor="t-pass">Password</label>
-          <input id="t-pass" type="password" autoComplete="current-password" value={password} onChange={(e) => { setPassword(e.target.value); setErr(null); }} style={field} />
+          {signup && (
+            <>
+              <label style={label} htmlFor="t-name">Full name</label>
+              <input id="t-name" autoComplete="name" value={name} onChange={change(setName)} style={field} />
+              <label style={{ ...label, marginTop: 14 }} htmlFor="t-phone">Mobile number</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <span style={{ ...field, width: "auto", color: "var(--ink-soft)" }}>+91</span>
+                <input id="t-phone" inputMode="numeric" autoComplete="tel-national" value={phone} onChange={(e) => { setPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setErr(null); }} style={{ ...field, flex: 1 }} />
+              </div>
+              <label style={{ ...label, marginTop: 14 }} htmlFor="t-years">Years of experience <span style={{ fontWeight: 400, color: "var(--ink-mute)" }}>(optional)</span></label>
+              <input id="t-years" inputMode="numeric" value={years} onChange={(e) => { setYears(e.target.value.replace(/\D/g, "").slice(0, 2)); setErr(null); }} style={field} />
+            </>
+          )}
+          <label style={{ ...label, marginTop: signup ? 14 : 0 }} htmlFor="t-email">Email</label>
+          <input id="t-email" type="email" autoComplete="username" value={email} onChange={change(setEmail)} style={field} />
+          <label style={{ ...label, marginTop: 14 }} htmlFor="t-pass">{signup ? "Create a password" : "Password"}</label>
+          <input id="t-pass" type="password" autoComplete={signup ? "new-password" : "current-password"} value={password} onChange={change(setPassword)} style={field}
+            placeholder={signup ? "At least 8 characters" : undefined} />
           {err && <p role="alert" style={{ margin: "10px 2px 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>}
         </div>
       </div>
       <div style={{ padding: "16px 0 calc(24px + env(safe-area-inset-bottom))" }}>
-        <PrimaryButton disabled={!email || !password || busy}>{busy ? "Logging in…" : "Log In"}</PrimaryButton>
-        <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "12px 0 0" }}>Forgot your password? Ask your Zavtoo admin to reset it.</p>
+        <PrimaryButton disabled={problem === "" || busy}>{busy ? (signup ? "Creating profile…" : "Logging in…") : signup ? "Create Profile" : "Log In"}</PrimaryButton>
+        <p style={{ textAlign: "center", fontSize: 13, color: "var(--ink-soft)", margin: "14px 0 0" }}>
+          {signup ? "Already a partner? " : "New technician? "}
+          <button type="button" onClick={switchMode} style={{ ...linkBtn, padding: 0, fontSize: 13 }}>{signup ? "Log in" : "Create your partner profile"}</button>
+        </p>
+        {!signup && <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "10px 0 0" }}>Forgot your password? Ask your Zavtoo admin to reset it.</p>}
       </div>
     </form>
   );

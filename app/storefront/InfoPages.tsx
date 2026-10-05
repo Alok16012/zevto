@@ -407,7 +407,7 @@ export function ContactPage() {
           <p className={s.lead}>{CONTACT.conversation}</p>
           <dl className={s.details}>
             <dt>Office & store</dt><dd>{COMPANY.address}, India · <a href={COMPANY.mapHref} target="_blank" rel="noopener noreferrer">Get directions</a></dd>
-            <dt>Phone & WhatsApp</dt><dd><a href={COMPANY.phoneHref}>{COMPANY.phone}</a> · <a href={COMPANY.phone2Href}>{COMPANY.phone2}</a> · WhatsApp <a href={COMPANY.whatsappHref}>{COMPANY.whatsapp}</a></dd>
+            <dt>Phone & WhatsApp</dt><dd><a href={COMPANY.phoneHref}>{COMPANY.phone}</a> · WhatsApp <a href={COMPANY.whatsappHref}>{COMPANY.whatsapp}</a></dd>
             <dt>Email</dt><dd><a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></dd>
             <dt>Working hours</dt><dd>Monday – Sunday: 8:00 AM – 8:00 PM. Emergency support available on WhatsApp after hours.</dd>
             <dt>Business owner</dt><dd>{COMPANY.owner} — {COMPANY.name}, 20+ years in the water purifier industry.</dd>
