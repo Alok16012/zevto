@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { inr, type ServiceOffering } from "../lib/data";
 import { CheckIcon, PlusIcon } from "../components/icons";
-import {
+import { HELPLINES,
   ABOUT, ADVANTAGES, AMC, BOOKING_SERVICES, BRANDS, COMPANY, CONTACT, HOME_SERVICES, PARTS_SHOWCASE, REVIEW_STATS, SERVICE_BADGES, SERVICE_TITLES,
   STEPS, TESTIMONIALS, VALUE_PROPS, whatsappWith,
 } from "./content";
@@ -407,7 +407,8 @@ export function ContactPage() {
           <p className={s.lead}>{CONTACT.conversation}</p>
           <dl className={s.details}>
             <dt>Office & store</dt><dd>{COMPANY.address}, India · <a href={COMPANY.mapHref} target="_blank" rel="noopener noreferrer">Get directions</a></dd>
-            <dt>Phone & WhatsApp</dt><dd><a href={COMPANY.phoneHref}>{COMPANY.phone}</a> · WhatsApp <a href={COMPANY.whatsappHref}>{COMPANY.whatsapp}</a></dd>
+            <dt>Helplines</dt><dd>{HELPLINES.map((h) => <span key={h.label} style={{ display: "block" }}>{h.label}: <a href={h.href}>{h.number}</a></span>)}</dd>
+            <dt>WhatsApp</dt><dd><a href={COMPANY.whatsappHref}>{COMPANY.whatsapp}</a></dd>
             <dt>Email</dt><dd><a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></dd>
             <dt>Working hours</dt><dd>Monday – Sunday: 8:00 AM – 8:00 PM. Emergency support available on WhatsApp after hours.</dd>
             <dt>Business owner</dt><dd>{COMPANY.owner} — {COMPANY.name}, 20+ years in the water purifier industry.</dd>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BrandMark, Wordmark } from "../components/Brand";
 import { PrimaryButton, field, label } from "../components/ui";
+import { helpline } from "../storefront/content";
 import { PARTS, type Job } from "../lib/techData";
 import { TECHNICIANS, type Review } from "../lib/data";
 import { friendly, roleOf, supabaseFor, useLive, useSession } from "../lib/supabase";
@@ -431,7 +432,7 @@ function LoginScreen() {
           {signup ? "Already a partner? " : "New technician? "}
           <button type="button" onClick={switchMode} style={{ ...linkBtn, padding: 0, fontSize: 13 }}>{signup ? "Log in" : "Create your partner profile"}</button>
         </p>
-        {!signup && <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "10px 0 0" }}>Forgot your password? Ask your Zavtoo admin to reset it.</p>}
+        {!signup && <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "10px 0 0" }}>Forgot your password? Call technician help at <a href={helpline("Technician help").href} style={{ color: "var(--blue)", fontWeight: 600 }}>{helpline("Technician help").number}</a></p>}
       </div>
     </form>
   );

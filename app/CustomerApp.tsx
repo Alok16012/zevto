@@ -13,6 +13,7 @@ import { AllReviewsPage, MyReviewsPage, TechnicianPage, WriteReviewPage } from "
 import { ServiceDetailPage, ServicesHubScreen } from "./components/ServicesHub";
 import { CustomerAuth } from "./components/Auth";
 import { PrimaryButton, StatusBadge, card } from "./components/ui";
+import { HELPLINES } from "./storefront/content";
 import { ChevronRight, CardIcon, ShieldIcon } from "./components/icons";
 import type { LivePoint } from "./components/LiveTracking";
 import { friendly, roleOf, supabaseFor, useLive, useSession } from "./lib/supabase";
@@ -378,7 +379,7 @@ export default function CustomerApp() {
   if (session === undefined) return frame(<Centered text="Loading…" />);
   if (!isCustomer) return frame(<CustomerAuth initialReferral={referral} />);
   if (!data) return frame(<Centered text={live.error ?? "Loading your account…"} onRetry={live.error ? live.reload : undefined} />);
-  if (data.profile.blocked) return frame(<Centered text="Your account is on hold. Please call +91 89294 54647 for help." onRetry={() => void logout()} retryLabel="Log out" />);
+  if (data.profile.blocked) return frame(<Centered text="Your account is on hold. Please call our account helpline at 89-290-290-06." onRetry={() => void logout()} retryLabel="Log out" />);
 
   const chatMessages = data.chat.map((m) => {
     const c = toChat(m, "customer");
@@ -588,11 +589,13 @@ function ProfileInfo({ which, onBack, services, amcDaysLeft, onTrack, onRenew }:
           {[["How often should I change filters?", "Every 6–9 months, depending on your water TDS and usage."], ["How much is installation?", "New RO installation is ₹399 — it includes a free site inspection, pipeline setup, a full demo and post-installation support."], ["What does AMC cover?", "Silver ₹999/yr: 2 visits. Gold ₹1,799/yr: 4 visits, free filters, deep cleaning, 20% off parts. Platinum ₹2,999/yr: 6 visits, all parts free, 30% off parts."], ["Is there a warranty on service?", "Yes — every repair and maintenance service has a 90-day warranty. If the same issue comes back, we fix it free."], ["How do I send a photo of my RO?", "While booking: Service → pick a service → 'Photos of your RO'. After booking: open the job in My Orders → Track Service → 'Add photo'. Or tap 📎 in Chat to send one to support."]].map(([q, a]) => (
             <div key={q} style={{ ...card, padding: 14 }}><p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{q}</p><p style={small}>{a}</p></div>
           ))}
-          <a href="tel:+918929454647" style={{ ...row, textDecoration: "none", color: "var(--ink)" }}>
-            <ShieldIcon s={22} c="var(--blue)" /><span style={{ fontSize: 14, fontWeight: 600 }}>Call +91 89294 54647 (8 AM – 8 PM)</span>
-          </a>
+          {HELPLINES.filter((h) => h.label !== "Technician help").map((h) => (
+            <a key={h.label} href={h.href} style={{ ...row, textDecoration: "none", color: "var(--ink)" }}>
+              <ShieldIcon s={22} c="var(--blue)" /><span style={{ fontSize: 14, fontWeight: 600 }}>{h.label}: {h.number} <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}>(8 AM – 8 PM)</span></span>
+            </a>
+          ))}
           <a href="https://wa.me/918929454647" target="_blank" rel="noopener noreferrer" style={{ ...row, textDecoration: "none", color: "var(--ink)" }}>
-            <ShieldIcon s={22} c="var(--blue)" /><span style={{ fontSize: 14, fontWeight: 600 }}>WhatsApp 89294 54647 (24/7)</span>
+            <ShieldIcon s={22} c="var(--blue)" /><span style={{ fontSize: 14, fontWeight: 600 }}>WhatsApp 89-294-546-47 (24/7)</span>
           </a>
         </InfoPage>
       );

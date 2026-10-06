@@ -6,9 +6,9 @@ export const COMPANY = {
   brand: "Paani Filter",
   tagline: "Pure Water • Pure Life",
   owner: "Aditya Badwal",
-  phone: "+91 89294 54647",
+  phone: "89-294-546-47",
   phoneHref: "tel:+918929454647",
-  whatsapp: "89294 54647",
+  whatsapp: "89-294-546-47",
   whatsappHref: "https://wa.me/918929454647",
   email: "Paanifilter9@gmail.com",
   address: "K-15, Raja Puri, Dwarka Road, New Delhi – 110059",
@@ -19,6 +19,15 @@ export const COMPANY = {
 };
 
 /** WhatsApp link with a ready-to-send message. */
+/** Dedicated support lines — shown together on Contact us and in the footer. */
+export const HELPLINES = [
+  { label: "Customer help", number: "89-294-546-47", href: "tel:+918929454647" },
+  { label: "Technician help", number: "89-290-290-04", href: "tel:+918929029004" },
+  { label: "Shipping help", number: "89-290-290-05", href: "tel:+918929029005" },
+  { label: "Account help", number: "89-290-290-06", href: "tel:+918929029006" },
+] as const;
+export const helpline = (label: (typeof HELPLINES)[number]["label"]) => HELPLINES.find((h) => h.label === label)!;
+
 export const whatsappWith = (text: string) => `${COMPANY.whatsappHref}?text=${encodeURIComponent(text)}`;
 
 export const STATS = [
@@ -191,7 +200,7 @@ export const CONTACT = {
   intro: "Have a question, need a service, or want to track your order? Our expert support team is just a call or message away — 7 days a week.",
   cards: [
     { icon: "📞", title: "Call Us", text: "Speak directly with our experts. Available 7 days a week.", value: COMPANY.phone, href: COMPANY.phoneHref, note: "⚡ Instant Response" },
-    { icon: "💬", title: "WhatsApp", text: "Send us a message anytime. Quick replies guaranteed.", value: `+91 ${COMPANY.whatsapp}`, href: COMPANY.whatsappHref, note: "💬 Chat Anytime" },
+    { icon: "💬", title: "WhatsApp", text: "Send us a message anytime. Quick replies guaranteed.", value: COMPANY.whatsapp, href: COMPANY.whatsappHref, note: "💬 Chat Anytime" },
     { icon: "✉️", title: "Email Us", text: "Drop us an email for detailed queries or complaints.", value: COMPANY.email, href: `mailto:${COMPANY.email}`, note: "📨 Reply in 2 Hours" },
     { icon: "📍", title: "Visit Us", text: "Come visit our store in Dwarka, New Delhi.", value: "K-15, Raja Puri, New Delhi", href: COMPANY.mapHref, note: "🕗 Mon–Sun 8AM–8PM" },
   ],
@@ -212,7 +221,7 @@ export const CONTACT = {
     ["Can I visit your store directly without an appointment?", "Yes! You are welcome to visit our store at K-15, Raja Puri, Dwarka Road, New Delhi during business hours. No appointment is necessary. Our team will assist you with purchases, spare parts, or any service-related queries."],
     ["Do you provide support for all RO brands?", "Absolutely! We provide sales, service, and spare parts support for all major RO brands including Kent, Aquaguard, Pureit, Livpure, LG Puricare, A.O. Smith, Eureka Forbes, Havells, Blue Star, and many more."],
     ["How can I track my spare parts order?", "After placing your order, you will receive a tracking link via SMS and WhatsApp. You can also contact us directly with your order number on WhatsApp or phone and we will provide real-time status updates."],
-    ["Is there a helpline number for emergencies?", "For after-hours emergencies, please WhatsApp us at +91 8929454647. While phone calls may not be answered after 8 PM, WhatsApp messages are monitored and we will assist you as quickly as possible."],
+    ["Is there a helpline number for emergencies?", "For after-hours emergencies, please WhatsApp us at 89-294-546-47. While phone calls may not be answered after 8 PM, WhatsApp messages are monitored and we will assist you as quickly as possible."],
   ],
 };
 
