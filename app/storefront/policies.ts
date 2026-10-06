@@ -20,7 +20,7 @@ export const PRIVACY: Policy = {
   meta: ["Effective Date: 1st January 2024", "Last Updated: 1st November 2024", "GDPR & Indian IT Act Compliant"],
   sections: [
     { title: "Introduction", blocks: [
-      { p: "Welcome to Zavtoo Paani Filter Pvt Ltd (\"Paani Filter\", \"we\", \"us\", or \"our\"). We operate the website paanifilter.com and provide RO water purifier sales, services, and spare parts across India." },
+      { p: "Welcome to Zavtoo Paani Filter Pvt Ltd (\"Paani Filter\", \"we\", \"us\", or \"our\"). We operate the website zavtoo.in and provide RO water purifier sales, services, and spare parts across India." },
       { p: "This Privacy Policy describes how we collect, use, store, share and protect your personal information when you visit our website, use our services, make purchases, or interact with us in any way. By using our services, you agree to the practices described in this policy." },
       { p: "This policy applies to all visitors, customers, and service users of Paani Filter across all our platforms including our website, WhatsApp communication, phone calls, and in-store visits." },
       { p: "We are committed to transparency and will never sell your personal data to third parties for marketing purposes. Your trust is our highest priority — just like the purity of your water." },
@@ -45,7 +45,7 @@ export const PRIVACY: Policy = {
         "Cookies & Tracking: Cookie data, session IDs, referral sources (see Cookie Policy)",
         "Transaction Records: Order history, service booking records, payment status",
       ] },
-      { note: { title: "How We Collect This Information", text: "Information is collected through our website forms, phone calls, WhatsApp chats, in-store visits, and automatically via cookies and analytics tools when you browse paanifilter.com." } },
+      { note: { title: "How We Collect This Information", text: "Information is collected through our website forms, phone calls, WhatsApp chats, in-store visits, and automatically via cookies and analytics tools when you browse zavtoo.in." } },
     ] },
     { title: "How We Use Your Information", sub: "Purposes for which we process your data", blocks: [
       { p: "We use the information we collect for the following specific and legitimate purposes only. We will never use your data for any purpose not listed here without your explicit consent." },
@@ -171,6 +171,7 @@ export const PRIVACY: Policy = {
         ["Customer help", "89-294-546-47"], ["Technician help", "89-290-290-04"],
         ["Shipping help", "89-290-290-05"], ["Account help", "89-290-290-06"],
         ["WhatsApp", "89-294-546-47"], ["Email", "Paanifilter9@gmail.com"],
+        ["Website", "zavtoo.in"],
       ] } },
     ] },
   ],
@@ -182,17 +183,17 @@ export const TERMS: Policy = {
   meta: ["Effective: 1st January 2024", "Updated: 1st November 2024", "Governed by Indian Law"],
   sections: [
     { title: "Introduction", blocks: [
-      { note: { title: "Important: By using our services, you agree to these Terms", text: "Accessing paanifilter.com, booking a service, or making a purchase constitutes your acceptance of these Terms & Conditions. If you disagree, please discontinue use of our services." } },
-      { p: "Welcome to Zavtoo Paani Filter Pvt Ltd (\"Paani Filter\", \"Company\", \"we\", \"us\", or \"our\"). These Terms and Conditions (\"Terms\") govern your access to and use of our website paanifilter.com, our mobile applications, and all services, products, and features we offer — including RO water purifier sales, repair services, spare parts, AMC plans, and delivery." },
+      { note: { title: "Important: By using our services, you agree to these Terms", text: "Accessing zavtoo.in, booking a service, or making a purchase constitutes your acceptance of these Terms & Conditions. If you disagree, please discontinue use of our services." } },
+      { p: "Welcome to Zavtoo Paani Filter Pvt Ltd (\"Paani Filter\", \"Company\", \"we\", \"us\", or \"our\"). These Terms and Conditions (\"Terms\") govern your access to and use of our website zavtoo.in, our mobile applications, and all services, products, and features we offer — including RO water purifier sales, repair services, spare parts, AMC plans, and delivery." },
       { p: "These Terms constitute a legally binding agreement between you (\"User\", \"Customer\", \"you\") and Zavtoo Paani Filter Pvt Ltd, registered in India with its principal office at K-15, Raja Puri, Dwarka Road, New Delhi – 110059." },
       { p: "By accessing our website, creating an account, placing an order, or booking a service, you confirm that you have read, understood, and agree to be bound by these Terms and our Privacy Policy." },
-      { p: "Please Read Carefully: If you do not agree with any part of these Terms and Conditions, please refrain from using our website or services. Continued use of paanifilter.com constitutes your acceptance of these terms." },
+      { p: "Please Read Carefully: If you do not agree with any part of these Terms and Conditions, please refrain from using our website or services. Continued use of zavtoo.in constitutes your acceptance of these terms." },
     ] },
     { title: "Definitions", sub: "Key terms used throughout this document", blocks: [
       { p: "For the purpose of clarity, the following terms carry the meanings defined below whenever used in this document:" },
       { table: { head: ["Term", "Definition"], rows: [
-        ["\"Company\" / \"We\" / \"Us\"", "Zavtoo Paani Filter Pvt Ltd, owner and operator of paanifilter.com"],
-        ["\"Website\"", "The website accessible at paanifilter.com and all associated subdomains and pages"],
+        ["\"Company\" / \"We\" / \"Us\"", "Zavtoo Paani Filter Pvt Ltd, owner and operator of zavtoo.in"],
+        ["\"Website\"", "The website accessible at zavtoo.in and all associated subdomains and pages"],
         ["\"User\" / \"You\" / \"Customer\"", "Any individual or entity accessing the website or using our services"],
         ["\"Services\"", "All RO water purifier repair, installation, maintenance, AMC plans, water testing, and related services offered by us"],
         ["\"Products\"", "RO water purifiers, spare parts, filters, membranes, and any other items sold on our website"],
@@ -202,14 +203,14 @@ export const TERMS: Policy = {
         ["\"Content\"", "All text, images, logos, videos, product descriptions, and other materials on our website"],
       ] } },
     ] },
-    { title: "Use of Website", sub: "Acceptable use and access terms for paanifilter.com", blocks: [
-      { p: "By accessing and using paanifilter.com, you confirm that you are at least 18 years of age or accessing the site under the supervision of a parent or legal guardian. You agree to use our website only for lawful purposes and in accordance with these Terms." },
+    { title: "Use of Website", sub: "Acceptable use and access terms for zavtoo.in", blocks: [
+      { p: "By accessing and using zavtoo.in, you confirm that you are at least 18 years of age or accessing the site under the supervision of a parent or legal guardian. You agree to use our website only for lawful purposes and in accordance with these Terms." },
       { h: "Permitted Uses" },
       { p: "Browsing our products, placing orders, booking services, creating an account, reading content, contacting us for support, and using our tools for legitimate personal or business purposes." },
       { h: "Prohibited Uses" },
       { p: "Attempting to hack, scrape, reverse-engineer, spam, impersonate others, upload malicious content, or use our site for any fraudulent, unlawful, or unauthorized commercial purposes." },
       { p: "We reserve the right to suspend or terminate access to our website for any user who violates these terms, engages in prohibited activities, or acts in a manner harmful to our services, other users, or our reputation." },
-      { note: { title: "Website Availability", text: "We strive to keep paanifilter.com available 24/7, but we do not guarantee uninterrupted access. The website may be temporarily unavailable due to maintenance, updates, or technical issues beyond our control. We are not liable for any inconvenience caused by downtime." } },
+      { note: { title: "Website Availability", text: "We strive to keep zavtoo.in available 24/7, but we do not guarantee uninterrupted access. The website may be temporarily unavailable due to maintenance, updates, or technical issues beyond our control. We are not liable for any inconvenience caused by downtime." } },
     ] },
     { title: "Services Terms", sub: "Terms applicable to all service bookings and technician visits", blocks: [
       { p: "All service bookings made through our website, phone, or WhatsApp are subject to the following terms. By booking a service, you agree to these conditions." },
@@ -237,7 +238,7 @@ export const TERMS: Policy = {
       ] },
     ] },
     { title: "Ordering & Payment", sub: "How orders are placed, confirmed, and paid for", blocks: [
-      { p: "All purchases made on paanifilter.com are subject to product availability and acceptance of your order. Placing an order does not constitute a guaranteed purchase until you receive an order confirmation from us." },
+      { p: "All purchases made on zavtoo.in are subject to product availability and acceptance of your order. Placing an order does not constitute a guaranteed purchase until you receive an order confirmation from us." },
       { h: "Order Process" },
       { ul: [
         "Orders are placed through our website, WhatsApp, or by calling us directly at 89-294-546-47.",
@@ -320,7 +321,7 @@ export const TERMS: Policy = {
       { note: { title: "Warranty Exclusions", text: "Warranties do not cover: normal wear and tear, damage from improper installation by the customer, damage from excessive TDS levels, physical damage, water damage from external flooding, or products modified after purchase. Manufacturer warranties (where applicable) are governed by the respective manufacturer's terms." } },
     ] },
     { title: "User Accounts", sub: "Account registration, security, and responsibilities", blocks: [
-      { p: "To access certain features of our website, including order tracking, service history, and AMC management, you may need to register for an account. The following terms apply to all user accounts on paanifilter.com:" },
+      { p: "To access certain features of our website, including order tracking, service history, and AMC management, you may need to register for an account. The following terms apply to all user accounts on zavtoo.in:" },
       { ul: [
         "You must be at least 18 years of age to create an account. Minors may only access our services through a parent or guardian's account.",
         "You are responsible for providing accurate, complete, and current information during registration and keeping it updated.",
@@ -332,7 +333,7 @@ export const TERMS: Policy = {
       { note: { title: "Account Security Tip", text: "Use a strong, unique password for your Paani Filter account. Enable two-factor authentication if available. Never share your login credentials with anyone. Our staff will never ask for your password via phone, email, or WhatsApp." } },
     ] },
     { title: "Intellectual Property", sub: "Ownership of website content and brand assets", blocks: [
-      { p: "All content on paanifilter.com — including but not limited to text, graphics, logos, button icons, images, audio clips, digital downloads, data compilations, and software — is the exclusive property of Zavtoo Paani Filter Pvt Ltd and is protected by Indian and international copyright, trademark, and intellectual property laws." },
+      { p: "All content on zavtoo.in — including but not limited to text, graphics, logos, button icons, images, audio clips, digital downloads, data compilations, and software — is the exclusive property of Zavtoo Paani Filter Pvt Ltd and is protected by Indian and international copyright, trademark, and intellectual property laws." },
       { ul: [
         "The \"Paani Filter\" name, logo, and all associated brand assets are trademarks of Zavtoo Paani Filter Pvt Ltd.",
         "You may not reproduce, duplicate, copy, sell, resell, or exploit any content from our website without express written permission from us.",
@@ -342,7 +343,7 @@ export const TERMS: Policy = {
       { p: `For permissions to use our content, brand assets, or to report intellectual property violations, contact us at ${CONTACT_LINE}.` },
     ] },
     { title: "Prohibited Uses", sub: "Activities strictly forbidden on our platform", blocks: [
-      { p: "In addition to the general use restrictions mentioned earlier, the following specific activities are strictly prohibited when using paanifilter.com or our services. Violation of these terms may result in immediate account termination and legal action:" },
+      { p: "In addition to the general use restrictions mentioned earlier, the following specific activities are strictly prohibited when using zavtoo.in or our services. Violation of these terms may result in immediate account termination and legal action:" },
       { ul: [
         "Using our platform to transmit any unsolicited commercial communications (spam) or bulk messaging.",
         "Attempting to gain unauthorized access to any part of our website, servers, databases, or other systems.",
@@ -365,7 +366,7 @@ export const TERMS: Policy = {
         "Delays or failures in delivery or service caused by third-party courier partners, weather conditions, or events beyond our reasonable control (force majeure).",
         "Pre-existing damage to your water purifier or property that was not caused by our technician's work.",
         "Any health issues claimed to result from water quality, except where directly attributable to a service defect within the warranty period and supported by appropriate documentation.",
-        "Content on third-party websites linked from paanifilter.com.",
+        "Content on third-party websites linked from zavtoo.in.",
       ] },
       { p: "In all cases where we are found liable, our maximum liability shall not exceed the total amount paid by you for the specific product or service giving rise to the claim. This limitation applies regardless of the form of action, whether in contract, tort, or otherwise." },
       { note: { title: "Disclaimer of Warranties", text: "Our website and services are provided on an \"as is\" and \"as available\" basis without any warranties of any kind, either expressed or implied, except as explicitly stated in our warranty policy section above. We do not warrant that our website will be error-free, secure, or always available." } },
@@ -390,7 +391,7 @@ export const TERMS: Policy = {
         "A notice banner may be displayed on our website homepage for material changes.",
         "Customers who have opted into WhatsApp notifications will receive an alert about major policy changes.",
       ] },
-      { p: "Your continued use of paanifilter.com or our services after any changes to these Terms constitutes your acceptance of the updated Terms. If you do not agree with the changes, please discontinue using our services and contact us to close your account." },
+      { p: "Your continued use of zavtoo.in or our services after any changes to these Terms constitutes your acceptance of the updated Terms. If you do not agree with the changes, please discontinue using our services and contact us to close your account." },
       { note: { title: "Current Version", text: "This is Version 2.0 of our Terms & Conditions, effective from 1st January 2024 and last updated on 1st November 2024. Previous versions are available upon written request to Paanifilter9@gmail.com." } },
     ] },
     { title: "Contact Us About These Terms", sub: "Our team is happy to explain any part of these terms", blocks: [
@@ -401,6 +402,7 @@ export const TERMS: Policy = {
         ["Customer help", "89-294-546-47"], ["Technician help", "89-290-290-04"],
         ["Shipping help", "89-290-290-05"], ["Account help", "89-290-290-06"],
         ["WhatsApp", "89-294-546-47"], ["Email", "Paanifilter9@gmail.com"],
+        ["Website", "zavtoo.in"],
       ] } },
     ] },
   ],

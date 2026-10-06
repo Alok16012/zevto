@@ -410,6 +410,7 @@ export function ContactPage() {
             <dt>Helplines</dt><dd>{HELPLINES.map((h) => <span key={h.label} style={{ display: "block" }}>{h.label}: <a href={h.href}>{h.number}</a></span>)}</dd>
             <dt>WhatsApp</dt><dd><a href={COMPANY.whatsappHref}>{COMPANY.whatsapp}</a></dd>
             <dt>Email</dt><dd><a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></dd>
+            <dt>Website</dt><dd><a href={COMPANY.websiteHref}>{COMPANY.website}</a></dd>
             <dt>Working hours</dt><dd>Monday – Sunday: 8:00 AM – 8:00 PM. Emergency support available on WhatsApp after hours.</dd>
             <dt>Business owner</dt><dd>{COMPANY.owner} — {COMPANY.name}, 20+ years in the water purifier industry.</dd>
           </dl>

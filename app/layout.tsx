@@ -11,7 +11,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://zavtoo.in"),
   title: "Zavtoo Paani Filter",
   description: "Zavtoo Paani Filter — RO water purifiers, 500+ genuine spare parts, repair, installation and AMC across India.",
   openGraph: { siteName: "Zavtoo Paani Filter", type: "website", locale: "en_IN", images: ["/hero-kitchen.png"] },

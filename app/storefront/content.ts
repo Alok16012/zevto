@@ -11,6 +11,8 @@ export const COMPANY = {
   whatsapp: "89-294-546-47",
   whatsappHref: "https://wa.me/918929454647",
   email: "Paanifilter9@gmail.com",
+  website: "zavtoo.in",
+  websiteHref: "https://zavtoo.in",
   address: "K-15, Raja Puri, Dwarka Road, New Delhi – 110059",
   mapHref: "https://maps.google.com/?q=Raja+Puri+Dwarka+Road+New+Delhi+110059",
   hours: "Mon – Sun: 8:00 AM – 8:00 PM",
