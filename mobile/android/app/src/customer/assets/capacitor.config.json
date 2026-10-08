@@ -1,0 +1,12 @@
+{
+  "appId": "in.zavtoo.customer",
+  "appName": "Zavtoo",
+  "webDir": "www",
+  "server": {
+    "url": "https://zavtoo.in/app",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "appId": "in.zavtoo.partner",
+  "appName": "Zavtoo Partner",
+  "webDir": "www",
+  "server": {
+    "url": "https://zavtoo.in/technician",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

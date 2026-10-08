@@ -1,0 +1,5 @@
+// Settings for the "Zavtoo Partner" app. Used by ../build-ios.sh (xcodebuild -xcconfig).
+PRODUCT_BUNDLE_IDENTIFIER = in.zavtoo.partner
+ZAVTOO_DISPLAY_NAME = Zavtoo Partner
+ZAVTOO_START_URL = https:/$()/zavtoo.in/technician
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIconPartner

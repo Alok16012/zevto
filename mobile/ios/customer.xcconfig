@@ -1,0 +1,5 @@
+// Settings for the "Zavtoo" app. Used by ../build-ios.sh (xcodebuild -xcconfig).
+PRODUCT_BUNDLE_IDENTIFIER = in.zavtoo.customer
+ZAVTOO_DISPLAY_NAME = Zavtoo
+ZAVTOO_START_URL = https:/$()/zavtoo.in/app
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon

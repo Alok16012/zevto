@@ -1,0 +1,12 @@
+{
+  "appId": "in.zavtoo.dealer",
+  "appName": "Zavtoo Dealer",
+  "webDir": "www",
+  "server": {
+    "url": "https://zavtoo.in/dealer",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

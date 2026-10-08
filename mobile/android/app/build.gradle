@@ -1,0 +1,91 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace = "in.zavtoo.customer"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "in.zavtoo.customer"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // One app per role. Each opens its own part of zavtoo.in (see src/<flavor>/assets/capacitor.config.json).
+    flavorDimensions = ["role"]
+    productFlavors {
+        customer {
+            dimension "role"
+            applicationId "in.zavtoo.customer"
+            resValue "string", "app_name", "Zavtoo"
+            resValue "string", "title_activity_main", "Zavtoo"
+        }
+        partner {
+            dimension "role"
+            applicationId "in.zavtoo.partner"
+            resValue "string", "app_name", "Zavtoo Partner"
+            resValue "string", "title_activity_main", "Zavtoo Partner"
+        }
+        dealer {
+            dimension "role"
+            applicationId "in.zavtoo.dealer"
+            resValue "string", "app_name", "Zavtoo Dealer"
+            resValue "string", "title_activity_main", "Zavtoo Dealer"
+        }
+    }
+    // Release signing key — kept out of git (see keystore.properties.example).
+    def keyProps = new Properties()
+    def keyFile = rootProject.file("keystore.properties")
+    if (keyFile.exists()) keyFile.withInputStream { keyProps.load(it) }
+    signingConfigs {
+        release {
+            if (keyFile.exists()) {
+                storeFile rootProject.file(keyProps["storeFile"])
+                storePassword keyProps["storePassword"]
+                keyAlias keyProps["keyAlias"]
+                keyPassword keyProps["keyPassword"]
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (keyFile.exists()) signingConfig signingConfigs.release
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
