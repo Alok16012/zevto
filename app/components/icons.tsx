@@ -49,4 +49,8 @@ export const BagIcon = (p: P) => <Svg {...p}><path d="M5 8h14l-1 12.5H6z" /><pat
 export const WrenchIcon = (p: P) => <Svg {...p}><path d="M14.7 6.3a4 4 0 0 0 5 5L21 12.6l-.1.1a6 6 0 0 1-7.6.7L6 20.7a2 2 0 0 1-2.8-2.8l7.3-7.3a6 6 0 0 1 .7-7.6l.1-.1 1.3 1.3a4 4 0 0 0 2.1 2.1z" /></Svg>;
 export const HistoryIcon = (p: P) => <Svg {...p}><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" /><path d="M3 4v4.5h4.5M12 7.5V12l3 2" /></Svg>;
 export const GearIcon = (p: P) => <Svg {...p}><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.5 15h-.3a2 2 0 1 1 0-4h.2A1.6 1.6 0 0 0 4.5 8.2l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 2.7-1.1V4a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.8 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7h.3a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1z" /></Svg>;
-
+export const StoreIcon = (p: P) => <Svg {...p}><path d="M4 9.5V20h16V9.5" /><path d="M3 9.5l1.6-5h14.8l1.6 5a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z" /><path d="M10 20v-5h4v5" /></Svg>;
+export const BoxIcon = (p: P) => <Svg {...p}><path d="M21 7.5l-9-4.5-9 4.5 9 4.5z" /><path d="M3 7.5V17l9 4.5 9-4.5V7.5M12 12v9.5" /></Svg>;
+export const UsersIcon = (p: P) => <Svg {...p}><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8" /></Svg>;
+export const WalletIcon = (p: P) => <Svg {...p}><path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4h-12A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h14a1.5 1.5 0 0 0 1.5-1.5V15" /><path d="M21 9h-5a3 3 0 0 0 0 6h5z" /><path d="M3 6.5A2.5 2.5 0 0 0 5.5 9H19" /></Svg>;
+export const EditIcon = (p: P) => <Svg {...p}><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M13.5 6.5l4 4" /></Svg>;

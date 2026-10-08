@@ -17,6 +17,8 @@ export interface Product {
   stages: string;
   warranty: string;
   description: string;
+  /** Set on listings that come from a local dealer rather than Zavtoo itself. */
+  soldBy?: string;
 }
 
 export const PRODUCTS: Product[] = [
@@ -64,7 +66,12 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
-export const productById = (id: string) => PRODUCTS.find((p) => p.id === id);
+/* Dealer listings join the catalogue at runtime (see lib/dealer.ts). */
+let dealerListings: Product[] = [];
+export const setDealerListings = (list: Product[]) => { dealerListings = list; };
+export const allProducts = () => [...PRODUCTS, ...dealerListings];
+
+export const productById = (id: string) => allProducts().find((p) => p.id === id);
 
 export const inr = (n: number) => "₹" + n.toLocaleString("en-IN");
 

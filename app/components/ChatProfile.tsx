@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BackIcon, BagIcon, CardIcon, ChevronRight, ClipIcon, GearIcon, HelpIcon, HistoryIcon, InfoIcon, PinIcon, SendIcon, ShieldIcon, BellIcon } from "./icons";
+import Link from "next/link";
+import { BackIcon, BagIcon, CardIcon, ChevronRight, ClipIcon, GearIcon, HelpIcon, HistoryIcon, InfoIcon, PinIcon, SendIcon, ShieldIcon, BellIcon, StoreIcon } from "./icons";
 import { PageHeader, card, iconBtn } from "./ui";
 import { BrandMark } from "./Brand";
 import { USER, type ChatMessage } from "../lib/data";
@@ -151,6 +152,23 @@ export function ProfileScreen({ stats, onMenu, onLogout }: {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Dealer programme — opens the separate dealer app */}
+      <div style={{ padding: "14px 16px 0" }}>
+        <Link href="/dealer" className="press" style={{
+          display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 18, textDecoration: "none",
+          background: "linear-gradient(135deg,var(--blue-dark),var(--blue))", color: "white", boxShadow: "0 8px 20px rgba(11,92,255,0.25)",
+        }}>
+          <span style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(255,255,255,0.16)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <StoreIcon s={22} c="var(--gold)" />
+          </span>
+          <span style={{ flex: 1 }}>
+            <span style={{ display: "block", fontSize: 14.5, fontWeight: 700 }}>Own an RO shop?</span>
+            <span style={{ display: "block", fontSize: 12, color: "rgba(255,255,255,0.78)" }}>Become a Zavtoo dealer · list &amp; sell locally</span>
+          </span>
+          <ChevronRight s={16} c="white" />
+        </Link>
       </div>
 
       {/* Menu — flat rows on the canvas, split by hairlines */}

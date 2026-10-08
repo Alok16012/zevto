@@ -10,9 +10,10 @@ import { ChatScreen, InfoPage, ProfileScreen, type ProfileKey } from "./componen
 import { PrimaryButton, StatusBadge, card } from "./components/ui";
 import { ChevronRight, PinIcon, CardIcon, ShieldIcon } from "./components/icons";
 import {
-  INITIAL_CHAT, INITIAL_ORDERS, INITIAL_SERVICES, SERVICE_STEPS, inr, nowTime, productById, todayLabel,
+  INITIAL_CHAT, INITIAL_ORDERS, INITIAL_SERVICES, SERVICE_STEPS, USER, inr, nowTime, productById, setDealerListings, todayLabel,
   type ChatMessage, type Order, type ServiceRequest,
 } from "./lib/data";
+import { dealerProducts, sendOrderToDealer } from "./lib/dealer";
 
 const SHELL_MAX_W = 430;
 const ONBOARDED_KEY = "osmo:onboarded";
@@ -61,6 +62,9 @@ export default function CustomerApp() {
   const chatOpen = useRef(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // Pull in whatever local dealers currently have live on /dealer.
+  useEffect(() => { setDealerListings(dealerProducts()); }, []);
+
   // Returning users skip the Get Started tap.
   useEffect(() => {
     if (!readFlag()) return;
@@ -94,10 +98,19 @@ export default function CustomerApp() {
   const setQty = (id: string, qty: number) =>
     setCart((c) => (qty <= 0 ? c.filter((l) => l.id !== id) : c.map((l) => (l.id === id ? { ...l, qty } : l))));
 
-  const checkout = () => {
+  const checkout = (pay: "online" | "cod") => {
     const first = productById(cart[0].id)!;
     const amount = cart.reduce((s, l) => s + productById(l.id)!.price * l.qty, 0);
     const ref = nextRef("ZVT");
+    // Lines listed by a dealer go to that dealer's order inbox to fulfil.
+    const dealerLines = cart.filter((l) => productById(l.id)?.soldBy);
+    if (dealerLines.length) {
+      const items = dealerLines.map((l) => { const p = productById(l.id)!; return { listingId: p.id, name: p.name, qty: l.qty, price: p.price }; });
+      sendOrderToDealer({
+        id: ref, customer: USER.name, phone: USER.phone, address: "B-42, Sector 62, Noida, Uttar Pradesh 201309",
+        items, amount: items.reduce((s, i) => s + i.price * i.qty, 0), date: todayLabel(), pay: pay === "cod" ? "COD" : "Online",
+      });
+    }
     const title = cart.length > 1 ? `${first.name} + ${cart.length - 1} more` : first.name;
     setOrders((o) => [{ id: ref, kind: "product", title, art: first.art, amount, date: todayLabel(), status: "Placed" }, ...o]);
     setCart([]);

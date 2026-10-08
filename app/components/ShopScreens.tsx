@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { CartIcon, CheckIcon, FilterIcon, HeartIcon, LayersIcon, MinusIcon, PlusIcon, SearchIcon, ShareIcon, ShieldIcon, StarIcon, SunIcon, TrashIcon, PinIcon, CardIcon } from "./icons";
 import PurifierArt from "./PurifierArt";
 import { Footer, PageHeader, PrimaryButton, Tabs, card, iconBtn } from "./ui";
-import { PRODUCTS, inr, productById, USER, type Category } from "../lib/data";
+import { allProducts, inr, productById, USER, type Category } from "../lib/data";
 
 /* ───────────────────────── Product listing ───────────────────────── */
 
@@ -24,7 +24,7 @@ export function ProductListPage({ onBack, initialQuery = "", onOpen, onAdd, cart
 
   const list = useMemo(() => {
     const needle = q.toLowerCase();
-    const rows = PRODUCTS.filter((p) =>
+    const rows = allProducts().filter((p) =>
       (filter === "all" || p.category === filter) &&
       (!needle || `${p.name} ${p.spec}`.toLowerCase().includes(needle)));
     if (sort === "low") rows.sort((a, b) => a.price - b.price);
@@ -75,6 +75,7 @@ export function ProductListPage({ onBack, initialQuery = "", onOpen, onAdd, cart
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                 <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{p.name}</p>
                 <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--ink-soft)" }}>{p.spec}</p>
+                {p.soldBy && <p style={{ margin: "3px 0 0", fontSize: 11, fontWeight: 600, color: "var(--teal-text)" }}>Sold by {p.soldBy}</p>}
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
                   <StarIcon s={12} /><span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink)" }}>{p.rating}</span>
                   <span style={{ fontSize: 11.5, color: "var(--ink-mute)" }}>({p.reviews})</span>
@@ -170,6 +171,16 @@ export function ProductDetailPage({ id, onBack, onAdd, onBuyNow, wished, onToggl
 
         <h3 style={{ margin: "20px 0 6px", fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>Description</h3>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.65 }}>{p.description}</p>
+
+        {p.soldBy && (
+          <div style={{ ...card, marginTop: 16, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+            <PinIcon s={20} c="var(--teal-text)" />
+            <div>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>Sold by {p.soldBy}</p>
+              <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>Verified Zavtoo dealer · delivers &amp; installs locally</p>
+            </div>
+          </div>
+        )}
 
         <div style={{ ...card, marginTop: 16, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 20 }}>🚚</span>
