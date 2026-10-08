@@ -12,7 +12,7 @@ Website, customer app, technician (partner) app, dealer app and admin console fo
 
 ## Production setup
 
-1. **Database** — Supabase → SQL Editor → run `supabase/schema.sql`. It is safe to re-run and creates the tables, row-level security, server-side business functions, notification triggers, realtime, photo storage and the starting catalogue.
+1. **Database** — Supabase → SQL Editor → run `supabase/schema.sql`. Already set up before the dealer app? Running `supabase/dealer-migration.sql` adds just the dealer parts. It is safe to re-run and creates the tables, row-level security, server-side business functions, notification triggers, realtime, photo storage and the starting catalogue.
 2. **Environment** — set in `.env.local` locally **and** in Netlify → Site settings → Environment variables:
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public)
    - `SUPABASE_SERVICE_ROLE_KEY` (**secret, server only** — used by `/api/signup`, `/api/technician-signup`, `/api/dealer-signup`, `/api/dealer/technicians` and `/api/admin/technicians`)
