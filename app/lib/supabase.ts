@@ -4,15 +4,15 @@ import { createClient, type Session, type SupabaseClient } from "@supabase/supab
 import { useEffect, useRef, useState } from "react";
 
 /* One Supabase client per app. Each keeps its own login in localStorage, so a
- * customer, a technician and an admin can be signed in on the same browser. */
+ * customer, a technician, a dealer and an admin can be signed in on the same browser. */
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 export const supabaseConfigured = Boolean(URL && ANON);
 
-export type AppKind = "customer" | "technician" | "admin" | "store";
-export type Role = "customer" | "technician" | "admin" | "super_admin";
+export type AppKind = "customer" | "technician" | "dealer" | "admin" | "store";
+export type Role = "customer" | "technician" | "dealer" | "admin" | "super_admin";
 
 const clients: Partial<Record<AppKind, SupabaseClient>> = {};
 

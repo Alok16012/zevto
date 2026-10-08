@@ -309,25 +309,35 @@ function ResetPasswordModal({ who: tech, onClose, onReset }: { who: { name: stri
 
 export interface NewDealer { name: string; owner: string; phone: string; city: string; pincodes: string[] }
 
-export function DealersSection({ dealers, techs, onToggle, onCreate }: {
-  dealers: Dealer[]; techs: AdminTech[]; onToggle: (d: Dealer) => Promise<void>; onCreate: (d: NewDealer) => Promise<{ code: string } | null>;
+export function DealersSection({ dealers, techs, onToggle, onVerify, onCreate }: {
+  dealers: Dealer[]; techs: AdminTech[]; onToggle: (d: Dealer) => Promise<void>; onVerify: (d: Dealer) => Promise<void>;
+  onCreate: (d: NewDealer) => Promise<{ code: string } | null>;
 }) {
+  const pending = dealers.filter((d) => d.kyc === "Pending").length;
   const [adding, setAdding] = useState(false);
   return (
-    <Panel title={`Dealers (${dealers.length})`} pad={false} actions={<Btn onClick={() => setAdding(true)}>+ Add dealer</Btn>}>
+    <Panel title={`Dealers (${dealers.length})${pending ? ` · ${pending} awaiting KYC` : ""}`} pad={false} actions={<Btn onClick={() => setAdding(true)}>+ Add dealer</Btn>}>
       <Table rows={dealers} rowKey={(d) => d.id} empty="No dealers yet." cols={[
         { key: "n", head: "Dealer", render: (d) => <><b style={{ color: d.active ? "var(--ink)" : "var(--ink-mute)" }}>{d.name}</b><div style={muted}>{d.code}</div></> },
-        { key: "o", head: "Owner", render: (d) => <>{d.owner}<div style={muted}>{d.phone}</div></> },
-        { key: "c", head: "City", render: (d) => d.city },
+        { key: "o", head: "Owner", render: (d) => <>{d.owner}<div style={muted}>{d.phone}</div>{d.email && <div style={muted}>{d.email}</div>}</> },
+        { key: "c", head: "City", render: (d) => <>{d.city}{d.address && <div style={muted}>{d.address}</div>}{d.gstin && <div style={muted}>GST {d.gstin}</div>}</> },
         { key: "p", head: "Pincodes", render: (d) => <span style={muted}>{d.pincodes.join(", ")}</span> },
         { key: "t", head: "Technicians", render: (d) => {
           const mine = techs.filter((t) => t.dealerId === d.id);
           return mine.length ? <>{mine.length}<div style={muted}>{mine.map((t) => t.code).join(", ")}</div></> : <span style={muted}>None yet</span>;
         } },
+        { key: "l", head: "Listings", render: (d) => d.listings.total ? <>{d.listings.live} live<div style={muted}>{d.listings.total} total</div></> : <span style={muted}>None</span> },
+        { key: "q", head: "Open orders", render: (d) => d.openOrders ? <b>{d.openOrders}</b> : <span style={muted}>0</span> },
         { key: "s", head: "Since", render: (d) => <span style={muted}>{d.since}</span> },
-        { key: "a", head: "Status", render: (d) => <Badge tone={d.active ? "green" : "grey"}>{d.active ? "Active" : "Paused"}</Badge> },
+        { key: "a", head: "Status", render: (d) => <>
+          <Badge tone={d.active ? "green" : "grey"}>{d.active ? "Active" : "Paused"}</Badge>
+          {d.kyc === "Pending" && <div style={{ marginTop: 4 }}><Badge tone="amber">KYC pending</Badge></div>}
+        </> },
         { key: "x", head: "", align: "right", render: (d) => (
-          <Btn small kind={d.active ? "danger" : "primary"} onClick={() => void onToggle(d)}>{d.active ? "Pause" : "Activate"}</Btn>
+          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+            {d.kyc === "Pending" && <Btn small onClick={() => void onVerify(d)}>Verify</Btn>}
+            <Btn small kind={d.active ? "danger" : "primary"} onClick={() => void onToggle(d)}>{d.active ? "Pause" : "Activate"}</Btn>
+          </div>
         ) },
       ]} />
       {adding && <DealerModal onClose={() => setAdding(false)} onSave={async (d) => { if (await onCreate(d)) setAdding(false); }} />}

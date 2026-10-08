@@ -130,6 +130,9 @@ export default function AdminApp() {
   const toggleDealer = async (d: Dealer) => {
     await act(() => sb().from("dealers").update({ active: !d.active }).eq("id", d.id), d.active ? `${d.name} paused` : `${d.name} reactivated`);
   };
+  const verifyDealer = async (d: Dealer) => {
+    await act(() => sb().from("dealers").update({ kyc: "Verified" }).eq("id", d.id), `${d.name} verified — their listings are live`);
+  };
   const createDealer = async (d: NewDealer) => {
     const { data: row, error } = await sb().from("dealers").insert(d).select("code").single();
     if (error) { notify(friendly(error), true); return null; }
@@ -265,7 +268,7 @@ export default function AdminApp() {
                   return Boolean(out);
                 }} />
             )}
-            {section === "dealers" && <DealersSection dealers={dealers} techs={techs} onToggle={toggleDealer} onCreate={createDealer} />}
+            {section === "dealers" && <DealersSection dealers={dealers} techs={techs} onToggle={toggleDealer} onVerify={verifyDealer} onCreate={createDealer} />}
             {section === "technicians" && (
               <TechniciansSection techs={techs} jobs={jobs} dealers={dealers} onUpdate={updateTech} onCreate={createTech} onResetPassword={resetTechPassword} />
             )}

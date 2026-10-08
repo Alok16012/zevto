@@ -78,6 +78,7 @@ export function ProductListPage({ onBack, initialQuery = "", onOpen, onAdd, cart
               <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
                 <p style={{ margin: 0, fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>{p.name}</p>
                 <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--ink-soft)" }}>{p.spec}</p>
+                {p.soldBy && <p style={{ margin: "3px 0 0", fontSize: 11, fontWeight: 600, color: "var(--teal-text)" }}>Sold by {p.soldBy}</p>}
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
                   <StarIcon s={12} /><span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink)" }}>{p.rating}</span>
                   <span style={{ fontSize: 11.5, color: "var(--ink-mute)" }}>({p.reviews})</span>
@@ -175,13 +176,23 @@ export function ProductDetailPage({ id, onBack, onAdd, onBuyNow, wished, onToggl
         <h3 style={{ margin: "20px 0 6px", fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>Description</h3>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.65 }}>{p.description}</p>
 
-        <div style={{ ...card, marginTop: 16, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 20 }}>🚚</span>
-          <div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>Free delivery &amp; installation</p>
-            <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>Delivered in 2–3 days · 1st year AMC free</p>
+        {p.soldBy ? (
+          <div style={{ ...card, marginTop: 16, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+            <PinIcon s={20} c="var(--teal-text)" />
+            <div>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>Sold by {p.soldBy}</p>
+              <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>Verified Zavtoo dealer · delivers in their area only</p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ ...card, marginTop: 16, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 20 }}>🚚</span>
+            <div>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>Free delivery &amp; installation</p>
+              <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>Delivered in 2–3 days · 1st year AMC free</p>
+            </div>
+          </div>
+        )}
 
         <ProductReviewsSection productId={p.id} reviews={reviews} onSeeAll={onSeeReviews} onWrite={onWriteReview} />
         <div style={{ height: 12 }} />

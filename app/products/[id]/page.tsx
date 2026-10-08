@@ -20,6 +20,7 @@ const findProduct = cache(async (id: string): Promise<Product | null> => {
         id: p.id, name: p.name, spec: p.spec, price: p.price, mrp: p.mrp, category: p.category, art: p.art,
         rating: Number(p.rating) || 0, reviews: p.reviews_count ?? 0, stages: p.stages, warranty: p.warranty, description: p.description,
         stock: p.stock, active: p.active, images: p.images ?? [],
+        dealerId: p.dealer_id ?? undefined, soldBy: p.sold_by ?? undefined,
       };
     } catch { /* fall back to the built-in catalogue */ }
   }

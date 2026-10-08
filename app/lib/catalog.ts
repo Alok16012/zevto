@@ -39,6 +39,7 @@ async function loadCatalog(sb: SupabaseClient) {
     id: p.id, name: p.name, spec: p.spec, price: p.price, mrp: p.mrp, category: p.category, art: p.art,
     rating: Number(p.rating) || 0, reviews: p.reviews_count ?? 0, stages: p.stages, warranty: p.warranty, description: p.description,
     stock: p.stock, active: p.active, images: p.images ?? [],
+    dealerId: p.dealer_id ?? undefined, soldBy: p.sold_by ?? undefined,
   })));
   swap<ServiceOffering>(SERVICE_CATALOG, (services.data ?? []).map((s) => ({
     type: s.type as ServiceType, tagline: s.tagline, price: s.price, priceNote: s.price_note, duration: s.duration,

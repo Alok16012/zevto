@@ -43,6 +43,10 @@ export interface Product {
   active?: boolean;
   /** Uploaded photo URLs (first is the cover); the illustration is used when there are none. */
   images?: string[];
+  /** Set on listings from a local dealer rather than Zavtoo itself. */
+  dealerId?: string;
+  /** "Shop name, City" of that dealer. */
+  soldBy?: string;
 }
 
 export const PRODUCTS: Product[] = [

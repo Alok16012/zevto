@@ -250,6 +250,9 @@ export function ProfileScreen({ user, stats, walletBalance, unreadNotifs, onMenu
         <p style={{ textAlign: "center", fontSize: 12, marginTop: 14 }}>
           <Link href="/technician" style={{ color: "var(--blue)", fontWeight: 600, textDecoration: "none" }}>Are you a Zavtoo technician? Partner app →</Link>
         </p>
+        <p style={{ textAlign: "center", fontSize: 12, marginTop: 8 }}>
+          <Link href="/dealer" style={{ color: "var(--blue)", fontWeight: 600, textDecoration: "none" }}>Own an RO shop? Become a Zavtoo dealer →</Link>
+        </p>
         <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--text-disabled)", marginTop: 6 }}>Zavtoo v1.0.0</p>
       </div>
     </div>

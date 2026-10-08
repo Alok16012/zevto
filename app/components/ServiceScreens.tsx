@@ -109,7 +109,7 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
             <select id="svc-product" value={product} onChange={(e) => setProduct(e.target.value)}
               style={{ ...field, appearance: "none", color: product ? "var(--ink)" : "var(--ink-mute)", paddingRight: 40, ...err(product) }}>
               <option value="" disabled>Choose your product</option>
-              {PRODUCTS.filter((p) => p.category !== "spare").map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+              {PRODUCTS.filter((p) => p.category !== "spare" && !p.dealerId).map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
               <option value="Other brand purifier">Other brand purifier</option>
             </select>
             <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex" }}><ChevronDown s={18} c="var(--ink-soft)" /></span>

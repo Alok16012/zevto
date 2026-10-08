@@ -135,6 +135,16 @@ export interface Dealer {
   pincodes: string[];
   since: string;
   active: boolean;
+  /** Self sign-ups start Pending; ops-added dealers are Verified. */
+  kyc: "Pending" | "Verified";
+  /** Login email, for dealers who signed up themselves. */
+  email: string | null;
+  gstin: string;
+  address: string;
+  /** Live listings / all listings the dealer has. */
+  listings: { live: number; total: number };
+  /** Dealer orders still waiting on the dealer (New, Accepted, Shipped). */
+  openOrders: number;
 }
 
 export interface StockRequest {
@@ -177,7 +187,7 @@ async function all<T>(q: PromiseLike<{ data: T[] | null; error: unknown }>): Pro
 }
 
 export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
-  const [orders, requests, profiles, techs, products, coupons, reviews, dealers, broadcasts, wallet, stock, galleryParts] = await Promise.all([
+  const [orders, requests, profiles, techs, allProducts, coupons, reviews, dealers, broadcasts, wallet, stock, galleryParts, dealerOrders] = await Promise.all([
     all<DbOrder>(sb.from("orders").select("*").order("created_at", { ascending: false }).limit(2000)),
     all<DbRequest>(sb.from("service_requests").select("*").order("created_at", { ascending: false }).limit(2000)),
     all<{ id: string; code: string; full_name: string; email: string | null; phone: string | null; blocked: boolean; created_at: string; role: string }>(
@@ -185,17 +195,23 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     all<DbTechnician>(sb.from("technicians").select("*").order("created_at")),
     // "*" so the console still loads before the images column exists.
     all<{ id: string; name: string; category: string; price: number; mrp: number; stock: number | null; active: boolean; images?: string[] | null;
-      spec: string; art: string; stages: string; warranty: string; description: string; sort: number }>(sb.from("products").select("*").order("sort")),
+      spec: string; art: string; stages: string; warranty: string; description: string; sort: number; dealer_id?: string | null }>(sb.from("products").select("*").order("sort")),
     all<{ code: string; title: string; descr: string; kind: "flat" | "percent"; value: number; max_off: number | null; min_order: number; applies_to: "product" | "service" | "all"; expires: string; active: boolean; used: number }>(
       sb.from("coupons").select("*").order("created_at", { ascending: false })),
     all<DbReview>(sb.from("reviews").select("*").order("created_at", { ascending: false }).limit(1000)),
-    all<{ id: string; code: string; name: string; owner: string; phone: string; city: string; pincodes: string[]; active: boolean; created_at: string }>(sb.from("dealers").select("*").order("created_at")),
+    all<{ id: string; code: string; name: string; owner: string; phone: string; city: string; pincodes: string[]; active: boolean; created_at: string;
+      kyc?: "Pending" | "Verified"; email?: string | null; gstin?: string; address?: string }>(sb.from("dealers").select("*").order("created_at")),
     all<{ id: string; title: string; body: string; audience: string; channels: string[]; reach: number; created_at: string }>(sb.from("broadcasts").select("*").order("created_at", { ascending: false }).limit(100)),
     all<{ user_id: string; amount: number }>(sb.from("wallet_txns").select("user_id, amount").limit(20000)),
     all<{ id: string; tech_id: string; items: Record<string, number>; status: StockRequest["status"]; created_at: string }>(sb.from("stock_requests").select("*").order("created_at", { ascending: false }).limit(200)),
     // Optional until supabase/schema.sql has been re-run with the gallery table.
     all<DbGalleryPart>(sb.from("tech_parts").select("*").order("created_at", { ascending: false }).limit(1000)).catch(() => [] as DbGalleryPart[]),
+    // Optional until supabase/schema.sql has been re-run with dealer orders.
+    all<{ dealer_id: string; status: string }>(sb.from("dealer_orders").select("dealer_id, status").limit(5000)).catch(() => [] as { dealer_id: string; status: string }[]),
   ]);
+  // Dealer listings are managed by the dealers; the catalogue screens show Zavtoo's own products.
+  const products = allProducts.filter((p) => !p.dealer_id);
+  const dealerListings = allProducts.filter((p) => p.dealer_id);
 
   const techById = new Map(techs.map((t) => [t.id, t]));
   const walletBy = new Map<string, number>();
@@ -258,6 +274,12 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     dealers: dealers.map((d) => ({
       id: d.id, code: d.code, name: d.name, owner: d.owner, phone: d.phone, city: d.city, pincodes: d.pincodes ?? [],
       since: fmtDateOnly(d.created_at).slice(3), active: d.active,
+      kyc: d.kyc ?? "Verified", email: d.email ?? null, gstin: d.gstin ?? "", address: d.address ?? "",
+      listings: {
+        live: dealerListings.filter((p) => p.dealer_id === d.id && p.active && (p.stock ?? 0) > 0).length,
+        total: dealerListings.filter((p) => p.dealer_id === d.id).length,
+      },
+      openOrders: dealerOrders.filter((o) => o.dealer_id === d.id && ["New", "Accepted", "Shipped"].includes(o.status)).length,
     })),
     broadcasts: broadcasts.map((b) => ({
       id: b.id, title: b.title, body: b.body, audience: b.audience, channels: b.channels, reach: b.reach,
@@ -270,5 +292,5 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
 
 /** Tables whose changes should refresh the console. */
 export const ADMIN_WATCH = [
-  "orders", "service_requests", "profiles", "technicians", "products", "coupons", "reviews", "dealers", "broadcasts", "stock_requests", "tech_parts",
+  "orders", "service_requests", "profiles", "technicians", "products", "coupons", "reviews", "dealers", "broadcasts", "stock_requests", "tech_parts", "dealer_orders",
 ].map((table) => ({ table }));

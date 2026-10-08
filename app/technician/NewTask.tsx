@@ -109,7 +109,7 @@ export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit
         <label style={{ ...label, marginTop: 12 }} htmlFor="nt-product">Product</label>
         <select id="nt-product" value={product} onChange={(e) => setProduct(e.target.value)} style={{ ...field, color: product ? "var(--ink)" : "var(--ink-mute)", ...bad("product") }}>
           <option value="" disabled>Choose the purifier</option>
-          {PRODUCTS.filter((p) => p.category !== "spare").map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+          {PRODUCTS.filter((p) => p.category !== "spare" && !p.dealerId).map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
           <option value="Other brand purifier">Other brand purifier</option>
         </select>
 
