@@ -45,9 +45,20 @@ export function friendly(err: unknown): string {
   if (/Invalid login credentials/i.test(msg)) return "Wrong email or password.";
   if (/Failed to fetch|NetworkError|network/i.test(msg)) return "Can't reach the server. Check your internet connection.";
   if (/JWT|token is expired/i.test(msg)) return "Your session expired. Please log in again.";
+  if (/rate limit|only request this after/i.test(msg)) return "Too many reset emails. Please wait a few minutes and try again.";
+  if (/should be different from the old password/i.test(msg)) return "Choose a password you haven't used before.";
   if (/duplicate key|already exists|already been registered/i.test(msg)) return "That already exists.";
   if (/row-level security|permission denied/i.test(msg)) return "You don't have permission to do that.";
   return msg.replace(/^.*?ERROR:\s*/, "") || "Something went wrong. Please try again.";
+}
+
+/** Emails a link to /reset-password where the person picks a new password.
+ * Supabase doesn't say whether the email has an account, so neither do we. */
+export async function sendPasswordReset(app: "customer" | "admin", email: string) {
+  const { error } = await supabaseFor(app).auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: `${window.location.origin}/reset-password?app=${app}`,
+  });
+  if (error) throw error;
 }
 
 type Watch = { table: string; filter?: string };

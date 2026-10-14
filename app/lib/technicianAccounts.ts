@@ -2,6 +2,7 @@
  * admins adding technicians and by technicians signing themselves up. */
 
 import { EMAIL_RE, authAdmin, rest } from "./supabaseServer";
+import { emailProblem } from "./emailCheckServer";
 
 const PIN_RE = /^[1-9]\d{5}$/;
 
@@ -22,7 +23,7 @@ export function technicianProblem(t: NewTechnician) {
 }
 
 export async function createTechnician(t: NewTechnician): Promise<{ id: string; code: string } | { error: string }> {
-  const problem = technicianProblem(t);
+  const problem = technicianProblem(t) ?? await emailProblem(t.email);
   if (problem) return { error: problem };
 
   const { data: created, error } = await authAdmin.createUser({

@@ -1,4 +1,5 @@
-import { EMAIL_RE, authAdmin, json, rest } from "../../lib/supabaseServer";
+import { authAdmin, json, rest } from "../../lib/supabaseServer";
+import { emailProblem } from "../../lib/emailCheckServer";
 
 /* Customer sign-up. Accounts are created already confirmed because Supabase's
  * built-in mailer only reaches the project team; once a real email service is
@@ -14,10 +15,12 @@ export async function POST(req: Request) {
   const referral = (body.referral ?? "").trim().toUpperCase();
 
   if (name.length < 2 || name.length > 60) return json({ error: "Enter your full name" }, 400);
-  if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email" }, 400);
   if (password.length < 8) return json({ error: "Password must be at least 8 characters" }, 400);
   if (phone && !/^[6-9]\d{9}$/.test(phone)) return json({ error: "Enter a 10-digit mobile number" }, 400);
   if (referral && !/^CUS-\d{6}$/.test(referral)) return json({ error: "Referral codes look like CUS-100101" }, 400);
+
+  const badEmail = await emailProblem(email);
+  if (badEmail) return json({ error: badEmail, field: "email" }, 400);
 
   if (referral) {
     const { data } = await rest.select<{ id: string }>("profiles", `select=id&role=eq.customer&code=eq.${encodeURIComponent(referral)}`);

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandMark, Wordmark } from "../components/Brand";
 import { BagIcon, InboxIcon, BoxIcon, GridIcon, MegaphoneIcon, StarLineIcon, StoreIcon, TagIcon, TechnicianIcon, UsersIcon, WrenchIcon } from "../components/icons";
-import { friendly, roleOf, supabaseFor, useLive, useSession } from "../lib/supabase";
+import { friendly, roleOf, sendPasswordReset, supabaseFor, useLive, useSession } from "../lib/supabase";
 import { useCatalog } from "../lib/catalog";
 import {
   ADMIN_WATCH, loadAdminData,
@@ -312,10 +312,23 @@ function AdminLogin() {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const ready = Boolean(email && (forgot || pw));
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true); setErr(null);
+    if (forgot) {
+      try {
+        await sendPasswordReset("admin", email);
+        setSentTo(email.trim().toLowerCase());
+      } catch (e2) {
+        setErr(friendly(e2));
+      }
+      setBusy(false);
+      return;
+    }
     const { data, error } = await sb().auth.signInWithPassword({ email: email.trim().toLowerCase(), password: pw });
     if (error) { setErr(friendly(error)); setBusy(false); return; }
     const r = roleOf(data.session);
@@ -330,16 +343,24 @@ function AdminLogin() {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "linear-gradient(150deg,var(--blue-dark),var(--blue))" }}>
       <form onSubmit={submit} className="fade-up" style={{ width: "100%", maxWidth: 380, background: "var(--surface)", borderRadius: 20, padding: 26, boxShadow: "0 20px 50px rgba(4,36,107,0.35)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}><BrandMark size={40} /><Wordmark /></div>
-        <h1 style={{ margin: "20px 0 2px", fontSize: 22, fontWeight: 800 }}>Admin console</h1>
-        <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--ink-soft)" }}>Sign in to manage orders, service jobs and customers.</p>
+        <h1 style={{ margin: "20px 0 2px", fontSize: 22, fontWeight: 800 }}>{forgot ? "Reset your password" : "Admin console"}</h1>
+        <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--ink-soft)" }}>
+          {!forgot ? "Sign in to manage orders, service jobs and customers."
+            : sentTo ? `If ${sentTo} has an admin account, we've emailed it a link to choose a new password.`
+            : "Enter your admin email and we'll send you a link to choose a new password."}
+        </p>
         <label><span style={fieldLabel}>Email</span><input type="email" autoComplete="username" value={email} onChange={(e) => { setEmail(e.target.value); setErr(null); }} style={input} /></label>
-        <label style={{ display: "block", marginTop: 12 }}><span style={fieldLabel}>Password</span><input type="password" autoComplete="current-password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(null); }} style={input} /></label>
+        {!forgot && <label style={{ display: "block", marginTop: 12 }}><span style={fieldLabel}>Password</span><input type="password" autoComplete="current-password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(null); }} style={input} /></label>}
         {err && <p role="alert" style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>}
-        <button type="submit" disabled={!email || !pw || busy} className="press" style={{
-          width: "100%", marginTop: 18, border: "none", borderRadius: 12, padding: 12, fontSize: 14.5, fontWeight: 700, cursor: email && pw && !busy ? "pointer" : "not-allowed",
-          background: email && pw ? "var(--blue)" : "var(--line-strong)", color: email && pw ? "white" : "var(--ink-mute)",
-        }}>{busy ? "Signing in…" : "Sign in"}</button>
-        <p style={{ margin: "14px 0 0", fontSize: 11.5, color: "var(--ink-mute)", textAlign: "center" }}>Forgot your password? Ask the super admin to reset it.</p>
+        <button type="submit" disabled={!ready || busy} className="press" style={{
+          width: "100%", marginTop: 18, border: "none", borderRadius: 12, padding: 12, fontSize: 14.5, fontWeight: 700, cursor: ready && !busy ? "pointer" : "not-allowed",
+          background: ready ? "var(--blue)" : "var(--line-strong)", color: ready ? "white" : "var(--ink-mute)",
+        }}>{busy ? (forgot ? "Sending…" : "Signing in…") : forgot ? (sentTo ? "Send again" : "Send reset link") : "Sign in"}</button>
+        <p style={{ margin: "14px 0 0", textAlign: "center" }}>
+          <button type="button" onClick={() => { setForgot((f) => !f); setErr(null); setSentTo(null); }} style={{ background: "none", border: "none", padding: 0, color: "var(--blue)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+            {forgot ? "Back to sign in" : "Forgot password?"}
+          </button>
+        </p>
       </form>
     </div>
   );

@@ -2,6 +2,7 @@
  * themselves up from /dealer and start as KYC Pending until ops verify them. */
 
 import { EMAIL_RE, authAdmin, rest } from "./supabaseServer";
+import { emailProblem } from "./emailCheckServer";
 
 const PIN_RE = /^[1-9]\d{5}$/;
 const GSTIN_RE = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
@@ -28,7 +29,7 @@ export function dealerProblem(d: NewDealerAccount) {
 }
 
 export async function createDealerAccount(d: NewDealerAccount): Promise<{ id: string; code: string } | { error: string }> {
-  const problem = dealerProblem(d);
+  const problem = dealerProblem(d) ?? await emailProblem(d.email);
   if (problem) return { error: problem };
 
   const { data: created, error } = await authAdmin.createUser({
