@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BrandMark, Wordmark } from "../components/Brand";
+import { EmailPopup, signupEmailProblem } from "../components/Auth";
 import { PrimaryButton, field, label } from "../components/ui";
 import { helpline } from "../storefront/content";
 import { PARTS, type Job } from "../lib/techData";
@@ -350,6 +351,7 @@ function LoginScreen() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [emailPopup, setEmailPopup] = useState<{ reason: string; suggestion: string | null } | null>(null);
   const signup = mode === "signup";
 
   const problem = !signup ? (!email || !password ? "" : null)
@@ -370,11 +372,14 @@ function LoginScreen() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (signup && problem === "Enter a valid email") { setEmailPopup(await signupEmailProblem(email)); return; }
     if (problem) { setErr(problem); return; }
     if (problem === "") return;
     setBusy(true); setErr(null);
     try {
       if (signup) {
+        const bad = await signupEmailProblem(email);
+        if (bad) { setEmailPopup(bad); setBusy(false); return; }
         const res = await fetch("/api/technician-signup", {
           method: "POST", headers: { "content-type": "application/json" },
           body: JSON.stringify({ name: name.trim(), phone, years: Number(years) || 0, email: email.trim().toLowerCase(), password }),
@@ -432,6 +437,7 @@ function LoginScreen() {
           {signup ? "Already a partner? " : "New technician? "}
           <button type="button" onClick={switchMode} style={{ ...linkBtn, padding: 0, fontSize: 13 }}>{signup ? "Log in" : "Create your partner profile"}</button>
         </p>
+        {emailPopup && <EmailPopup {...emailPopup} onClose={() => setEmailPopup(null)} onUse={(s) => { setEmail(s); setEmailPopup(null); setErr(null); }} />}
         {!signup && <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "10px 0 0" }}>Forgot your password? Call technician help at <a href={helpline("Technician help").href} style={{ color: "var(--blue)", fontWeight: 600 }}>{helpline("Technician help").number}</a></p>}
       </div>
     </form>

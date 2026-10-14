@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, EditIcon, HelpIcon, PinIcon, ShieldIcon, StoreIcon, UsersIcon } from "../icons";
 import { BrandMark, Wordmark } from "../Brand";
+import { EmailPopup, signupEmailProblem } from "../Auth";
 import { Footer, PageHeader, PrimaryButton, card, iconBtn } from "../ui";
 import { Badge, Empty, Field, inputStyle, sectionH } from "./kit";
 import { Avatar } from "./WorkScreens";
@@ -34,6 +35,7 @@ export function DealerAuthScreen({ onLogin, onSignup }: {
   const [f, setF] = useState({ shopName: "", owner: "", phone: "", email: "", password: "", gstin: "", address: "", city: "", pincode: "", areas: "" });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [emailPopup, setEmailPopup] = useState<{ reason: string; suggestion: string | null } | null>(null);
   const signup = mode === "signup";
   const set = (k: keyof typeof f, clean: (v: string) => string = (v) => v) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { const v = clean(e.target.value); setF((p) => ({ ...p, [k]: v })); setErr(null); };
@@ -55,8 +57,13 @@ export function DealerAuthScreen({ onLogin, onSignup }: {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (signup && problem === "Enter a valid email — it's your login ID") { setEmailPopup(await signupEmailProblem(f.email)); return; }
     if (problem) { setErr(problem); return; }
     setBusy(true); setErr(null);
+    if (signup) {
+      const bad = await signupEmailProblem(f.email);
+      if (bad) { setEmailPopup(bad); setBusy(false); return; }
+    }
     const error = signup
       ? await onSignup({
         shopName: f.shopName.trim(), owner: f.owner.trim(), phone: f.phone, email: f.email.trim().toLowerCase(), password: f.password,
@@ -127,6 +134,7 @@ export function DealerAuthScreen({ onLogin, onSignup }: {
           {signup ? "Already registered? " : "Own an RO shop? "}
           <button type="button" onClick={switchMode} style={linkBtn}>{signup ? "Log in" : "Register as a dealer"}</button>
         </p>
+        {emailPopup && <EmailPopup {...emailPopup} onClose={() => setEmailPopup(null)} onUse={(s) => { setF((p) => ({ ...p, email: s })); setEmailPopup(null); setErr(null); }} />}
         {!signup && <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "10px 0 0" }}>Forgot your password? Call <a href={DEALER_HELP.href} style={{ color: "var(--blue)", fontWeight: 600 }}>{DEALER_HELP.number}</a></p>}
       </div>
     </form>

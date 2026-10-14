@@ -180,7 +180,23 @@ export function CustomerAuth({ initialReferral = "" }: { initialReferral?: strin
   );
 }
 
-function EmailPopup({ reason, suggestion, onUse, onClose }: {
+/** Sign-up email check for any sign-up form: format, throwaway inbox, and a domain that can receive mail.
+ *  Returns what to show in <EmailPopup>, or null when the email is usable (or the check couldn't run). */
+export async function signupEmailProblem(value: string): Promise<{ reason: string; suggestion: string | null } | null> {
+  const e = value.trim().toLowerCase();
+  const suggestion = emailTypo(e);
+  const local = emailFormatProblem(e);
+  if (local) return { reason: local, suggestion };
+  try {
+    const out = await (await fetch(`/api/check-email?email=${encodeURIComponent(e)}`)).json();
+    if (out.error) return { reason: out.error, suggestion };
+  } catch {
+    // Offline or server hiccup: the sign-up API checks again.
+  }
+  return null;
+}
+
+export function EmailPopup({ reason, suggestion, onUse, onClose }: {
   reason: string; suggestion: string | null; onUse: (s: string) => void; onClose: () => void;
 }) {
   const okRef = useRef<HTMLButtonElement>(null);
