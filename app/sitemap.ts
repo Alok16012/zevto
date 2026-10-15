@@ -16,7 +16,7 @@ async function productIds(): Promise<string[]> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const pages = ["", "/shop", "/services", "/about-us", "/contact-us", "/privacy-policy", "/terms-and-condition"];
+  const pages = ["", "/shop", "/services", "/about-us", "/contact-us", "/privacy-policy", "/delete-account", "/terms-and-condition"];
   return [
     ...pages.map((p) => ({ url: `${SITE}${p}`, changeFrequency: "weekly" as const, priority: p ? 0.8 : 1 })),
     ...(await productIds()).map((id) => ({ url: `${SITE}/products/${id}`, changeFrequency: "weekly" as const, priority: 0.7 })),

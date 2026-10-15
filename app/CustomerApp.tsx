@@ -12,6 +12,7 @@ import { OffersPage } from "./components/Offers";
 import { AllReviewsPage, MyReviewsPage, TechnicianPage, WriteReviewPage } from "./components/Reviews";
 import { ServiceDetailPage, ServicesHubScreen } from "./components/ServicesHub";
 import { CustomerAuth } from "./components/Auth";
+import { useReturnToLastApp } from "./components/AppSwitch";
 import { PrimaryButton, StatusBadge, card } from "./components/ui";
 import { HELPLINES } from "./storefront/content";
 import { ChevronRight, CardIcon, ShieldIcon } from "./components/icons";
@@ -129,6 +130,7 @@ function useTechPosition(techId: string | null | undefined, riding: boolean): Li
 }
 
 export default function CustomerApp() {
+  useReturnToLastApp();
   const session = useSession("customer");
   const isCustomer = roleOf(session ?? null) === "customer";
   const uid = isCustomer ? session!.user.id : null;

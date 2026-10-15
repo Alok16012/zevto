@@ -30,6 +30,9 @@ export interface DbDealerOrder {
   whole_order: boolean; status: DealerOrderStatus; reject_reason: string | null; created_at: string; updated_at: string;
 }
 
+/** A seller's share of a customer order — dealer_orders and tech_orders rows have the same shape. */
+export type ShopOrder = Omit<DbDealerOrder, "dealer_id">;
+
 export interface DealerData {
   dealer: DbDealer;
   listings: DbListing[];

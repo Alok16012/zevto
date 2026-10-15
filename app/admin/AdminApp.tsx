@@ -18,9 +18,11 @@ import { BroadcastSection, CouponsSection, ProductsSection, ReviewsSection, type
 import { removeProductImages } from "../lib/photos";
 import { SupportSection, useSupportUnread } from "./Support";
 import { SparePartsSection } from "./SpareParts";
+import { TechShopSection } from "./TechShop";
+import type { DbTechPurchase } from "../lib/techShop";
 import type { DbGalleryPart } from "../lib/partsGallery";
 
-export type Section = "dashboard" | "support" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "spareparts" | "coupons" | "reviews" | "broadcast";
+export type Section = "dashboard" | "support" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "spareparts" | "techshop" | "coupons" | "reviews" | "broadcast";
 
 type NavIcon = (p: { s?: number; c?: string; w?: number }) => React.ReactElement;
 
@@ -29,14 +31,14 @@ const NAV: { group: string; items: { id: Section; label: string; Icon: NavIcon }
   { group: "Operations", items: [{ id: "orders", label: "Orders", Icon: BagIcon }, { id: "services", label: "Service Jobs", Icon: WrenchIcon }, { id: "support", label: "Support Chat", Icon: InboxIcon }] },
   { group: "People", items: [{ id: "customers", label: "Customers", Icon: UsersIcon }, { id: "technicians", label: "Technicians", Icon: TechnicianIcon }, { id: "dealers", label: "Dealers", Icon: StoreIcon }] },
   { group: "Catalogue & growth", items: [
-    { id: "products", label: "Products & Stock", Icon: BoxIcon }, { id: "spareparts", label: "Technician Parts", Icon: WrenchIcon }, { id: "coupons", label: "Offers & Coupons", Icon: TagIcon },
+    { id: "products", label: "Products & Stock", Icon: BoxIcon }, { id: "spareparts", label: "Technician Parts", Icon: WrenchIcon }, { id: "techshop", label: "Technician Shop", Icon: StoreIcon }, { id: "coupons", label: "Offers & Coupons", Icon: TagIcon },
     { id: "reviews", label: "Reviews", Icon: StarLineIcon }, { id: "broadcast", label: "Notifications", Icon: MegaphoneIcon },
   ] },
 ];
 
 const TITLES: Record<Section, string> = {
   dashboard: "Dashboard", support: "Support Chat", orders: "Orders", services: "Service Jobs & Dispatch", customers: "Customers", technicians: "Technicians", dealers: "Dealers",
-  products: "Products & Stock", spareparts: "Technician Spare Parts", coupons: "Offers & Coupons", reviews: "Reviews", broadcast: "Broadcast Notifications",
+  products: "Products & Stock", spareparts: "Technician Spare Parts", techshop: "Technician Shop", coupons: "Offers & Coupons", reviews: "Reviews", broadcast: "Broadcast Notifications",
 };
 
 const sb = () => supabaseFor("admin");
@@ -170,6 +172,9 @@ export default function AdminApp() {
   const reviewGalleryPart = (p: DbGalleryPart, status: "Approved" | "Rejected", reason?: string) =>
     act(() => sb().from("tech_parts").update({ status, reject_reason: status === "Rejected" ? reason || null : null }).eq("id", p.id),
       status === "Approved" ? `${p.name} approved — the technician can share it now` : `${p.name} rejected`);
+  const decideTechPurchase = (p: DbTechPurchase, status: "Delivered" | "Rejected", note?: string) =>
+    act(() => sb().rpc("admin_tech_purchase", { p_id: p.id, p_status: status, p_note: note ?? null }),
+      status === "Delivered" ? `#${p.ref} delivered — the units are in the technician's shop` : `#${p.ref} rejected`);
   const sendBroadcast = async (b: { title: string; body: string; audience: string }) => {
     const { data: row, error } = await sb().from("broadcasts").insert({ ...b, channels: ["In-app"] }).select("id").single();
     if (error) { notify(friendly(error), true); return null; }
@@ -181,7 +186,7 @@ export default function AdminApp() {
   if (session === undefined) return <Splash text="Loading…" />;
   if (!staff) return <AdminLogin />;
   if (!data) return <Splash text={live.error ?? "Loading console…"} error={!!live.error} onRetry={live.reload} />;
-  const { orders, jobs, customers, techs, products, coupons, reviews, dealers, broadcasts, galleryParts } = data;
+  const { orders, jobs, customers, techs, products, coupons, reviews, dealers, broadcasts, galleryParts, techPurchases, techListings } = data;
   const me = session!.user;
 
   // Sidebar counters for work waiting on someone.
@@ -193,6 +198,7 @@ export default function AdminApp() {
     reviews: reviews.filter((r) => r.status === "Flagged").length,
     products: products.filter((p) => p.active && p.stock != null && p.stock <= 5).length,
     spareparts: galleryParts.filter((p) => p.status === "Pending").length,
+    techshop: techPurchases.filter((p) => p.status === "Pending").length,
   };
 
 
@@ -274,6 +280,7 @@ export default function AdminApp() {
             )}
             {section === "products" && <ProductsSection products={products} onUpdate={updateProduct} onCreate={createProduct} onDelete={deleteProduct} />}
             {section === "spareparts" && <SparePartsSection parts={galleryParts} techs={techs} onReview={reviewGalleryPart} />}
+            {section === "techshop" && <TechShopSection purchases={techPurchases} listings={techListings} techs={techs} onDecide={decideTechPurchase} />}
             {section === "coupons" && <CouponsSection coupons={coupons} onUpdate={updateCoupon} onCreate={createCoupon} />}
             {section === "reviews" && <ReviewsSection reviews={reviews} onStatus={setReviewStatus} onDelete={deleteReview} />}
             {section === "broadcast" && <BroadcastSection history={broadcasts} onSend={sendBroadcast} />}

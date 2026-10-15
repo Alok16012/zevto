@@ -9,6 +9,7 @@ import {
   type DealerPage, type DealerSignup, type NewTeamMember, type ShopEdit,
 } from "../components/dealer/ProfileScreens";
 import { BrandMark } from "../components/Brand";
+import { rememberApp } from "../components/AppSwitch";
 import { useCatalog } from "../lib/catalog";
 import { friendly, roleOf, supabaseFor, useLive, useSession } from "../lib/supabase";
 import { isOpenJob, loadDealerData, type DbListing, type DealerOrderStatus } from "../lib/dealerData";
@@ -69,8 +70,9 @@ export default function DealerApp() {
     if (error) return friendly(error);
     if (roleOf(d.session) !== "dealer") {
       await sb().auth.signOut();
-      return "This isn't a dealer account. Customers use the Zavtoo app and technicians the Partner app.";
+      return "This isn't a dealer account. Pick Customer or Technician above to log in.";
     }
+    rememberApp("dealer");
     setTab("home"); setStack([]);
     return null;
   };

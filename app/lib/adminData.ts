@@ -8,6 +8,7 @@ import { fmtDay, toTechnician, type DbTechnician } from "./catalog";
 import { fmtDateOnly, type DbOrder, type DbRequest, type DbReview } from "./db";
 import type { Coupon, Review, ServiceType, Technician } from "./data";
 import type { DbGalleryPart } from "./partsGallery";
+import type { DbTechListing, DbTechPurchase } from "./techShop";
 
 /* ───────────── Shapes ───────────── */
 
@@ -167,6 +168,8 @@ export interface AdminData {
   broadcasts: Broadcast[];
   stockRequests: StockRequest[];
   galleryParts: DbGalleryPart[];
+  techPurchases: DbTechPurchase[];
+  techListings: DbTechListing[];
 }
 
 /* ───────────── Loader ───────────── */
@@ -187,7 +190,7 @@ async function all<T>(q: PromiseLike<{ data: T[] | null; error: unknown }>): Pro
 }
 
 export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
-  const [orders, requests, profiles, techs, allProducts, coupons, reviews, dealers, broadcasts, wallet, stock, galleryParts, dealerOrders] = await Promise.all([
+  const [orders, requests, profiles, techs, allProducts, coupons, reviews, dealers, broadcasts, wallet, stock, galleryParts, dealerOrders, techPurchases, techListings] = await Promise.all([
     all<DbOrder>(sb.from("orders").select("*").order("created_at", { ascending: false }).limit(2000)),
     all<DbRequest>(sb.from("service_requests").select("*").order("created_at", { ascending: false }).limit(2000)),
     all<{ id: string; code: string; full_name: string; email: string | null; phone: string | null; blocked: boolean; created_at: string; role: string }>(
@@ -195,7 +198,7 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     all<DbTechnician>(sb.from("technicians").select("*").order("created_at")),
     // "*" so the console still loads before the images column exists.
     all<{ id: string; name: string; category: string; price: number; mrp: number; stock: number | null; active: boolean; images?: string[] | null;
-      spec: string; art: string; stages: string; warranty: string; description: string; sort: number; dealer_id?: string | null }>(sb.from("products").select("*").order("sort")),
+      spec: string; art: string; stages: string; warranty: string; description: string; sort: number; dealer_id?: string | null; tech_id?: string | null }>(sb.from("products").select("*").order("sort")),
     all<{ code: string; title: string; descr: string; kind: "flat" | "percent"; value: number; max_off: number | null; min_order: number; applies_to: "product" | "service" | "all"; expires: string; active: boolean; used: number }>(
       sb.from("coupons").select("*").order("created_at", { ascending: false })),
     all<DbReview>(sb.from("reviews").select("*").order("created_at", { ascending: false }).limit(1000)),
@@ -208,9 +211,12 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     all<DbGalleryPart>(sb.from("tech_parts").select("*").order("created_at", { ascending: false }).limit(1000)).catch(() => [] as DbGalleryPart[]),
     // Optional until supabase/schema.sql has been re-run with dealer orders.
     all<{ dealer_id: string; status: string }>(sb.from("dealer_orders").select("dealer_id, status").limit(5000)).catch(() => [] as { dealer_id: string; status: string }[]),
+    // Optional until supabase/technician-shop-migration.sql has been run.
+    all<DbTechPurchase>(sb.from("tech_purchases").select("*").order("created_at", { ascending: false }).limit(1000)).catch(() => [] as DbTechPurchase[]),
+    all<DbTechListing>(sb.from("tech_listings").select("*").limit(5000)).catch(() => [] as DbTechListing[]),
   ]);
-  // Dealer listings are managed by the dealers; the catalogue screens show Zavtoo's own products.
-  const products = allProducts.filter((p) => !p.dealer_id);
+  // Dealer and technician listings are managed by them; the catalogue screens show Zavtoo's own products.
+  const products = allProducts.filter((p) => !p.dealer_id && !p.tech_id);
   const dealerListings = allProducts.filter((p) => p.dealer_id);
 
   const techById = new Map(techs.map((t) => [t.id, t]));
@@ -287,10 +293,12 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     })),
     stockRequests: stock.map((s) => ({ id: s.id, techId: s.tech_id, items: s.items, status: s.status, at: fmtDateOnly(s.created_at) })),
     galleryParts,
+    techPurchases,
+    techListings,
   };
 }
 
 /** Tables whose changes should refresh the console. */
 export const ADMIN_WATCH = [
-  "orders", "service_requests", "profiles", "technicians", "products", "coupons", "reviews", "dealers", "broadcasts", "stock_requests", "tech_parts", "dealer_orders",
+  "orders", "service_requests", "profiles", "technicians", "products", "coupons", "reviews", "dealers", "broadcasts", "stock_requests", "tech_parts", "dealer_orders", "tech_purchases", "tech_listings",
 ].map((table) => ({ table }));

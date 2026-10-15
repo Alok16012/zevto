@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { PrivacyLinks } from "../PrivacyLinks";
 import { ChevronRight, EditIcon, HelpIcon, PinIcon, ShieldIcon, StoreIcon, UsersIcon } from "../icons";
 import { BrandMark, Wordmark } from "../Brand";
 import { EmailPopup, signupEmailProblem } from "../Auth";
+import { AppSwitch } from "../AppSwitch";
 import { Footer, PageHeader, PrimaryButton, card, iconBtn } from "../ui";
 import { Badge, Empty, Field, inputStyle, sectionH } from "./kit";
 import { Avatar } from "./WorkScreens";
@@ -81,6 +83,7 @@ export function DealerAuthScreen({ onLogin, onSignup }: {
     <form onSubmit={submit} className="fade-up no-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", padding: "0 20px" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingTop: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}><BrandMark size={44} /><Wordmark /></div>
+        {!signup && <div style={{ marginTop: 18 }}><AppSwitch current="dealer" /></div>}
         <span style={{ alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>DEALER APP</span>
         <h1 style={{ margin: "12px 0 4px", fontSize: 25, fontWeight: 800, lineHeight: 1.2 }}>{signup ? "Grow your RO business with Zavtoo" : "Dealer login"}</h1>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.55 }}>
@@ -300,6 +303,7 @@ export function DealerProfileScreen({ data, onOpen, onLogout }: { data: DealerDa
         <Link href="/" className="press" style={{ display: "block", textAlign: "center", background: "var(--surface)", color: "var(--blue)", borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, textDecoration: "none" }}>
           See your listings on zavtoo.in
         </Link>
+        <PrivacyLinks />
         <button onClick={onLogout} className="press" style={{ width: "100%", background: "var(--surface)", color: "var(--red)", border: "none", borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Log Out</button>
       </div>
     </div>

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { PrivacyLinks } from "./PrivacyLinks";
 import { BrandMark, Wordmark } from "./Brand";
 import { PrimaryButton, field, label } from "./ui";
 import { friendly, roleOf, sendPasswordReset, supabaseFor } from "../lib/supabase";
 import { EMAIL_RE, emailFormatProblem, emailTypo } from "../lib/emailCheck";
+import { AppSwitch, rememberApp } from "./AppSwitch";
 
 /* Customer login / sign-up (email + password), plus "forgot password" which emails a reset link. */
 
@@ -64,8 +66,9 @@ export function CustomerAuth({ initialReferral = "" }: { initialReferral?: strin
     if (error) throw error;
     if (roleOf(data.session) !== "customer") {
       await sb().auth.signOut();
-      throw new Error("This is a staff account. Technicians use /technician and admins use /admin.");
+      throw new Error("This isn't a customer account. Pick Technician or Dealer above to log in.");
     }
+    rememberApp("customer");
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -101,6 +104,7 @@ export function CustomerAuth({ initialReferral = "" }: { initialReferral?: strin
     <form onSubmit={submit} className="fade-up no-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", padding: "0 20px" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingTop: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}><BrandMark size={48} /><Wordmark /></div>
+        {mode === "login" && <div style={{ marginTop: 18 }}><AppSwitch current="customer" /></div>}
         <h1 style={{ margin: "22px 0 4px", fontSize: 26, fontWeight: 800 }}>{signup ? "Create your account" : forgot ? "Reset your password" : "Welcome back"}</h1>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)" }}>
           {signup ? "Buy purifiers, book service and track your technician live."
@@ -170,6 +174,7 @@ export function CustomerAuth({ initialReferral = "" }: { initialReferral?: strin
             {signup || forgot ? "Log in" : "Create an account"}
           </button>
         </p>
+        <PrivacyLinks />
         {forgot && <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "8px 0 0" }}>No email? Call our account helpline at 89-290-290-06 and we&apos;ll reset it.</p>}
       </div>
       {emailPopup && (
