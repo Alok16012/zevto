@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import "./mobile-theme.css";
+import RecoveryRedirect from "./components/RecoveryRedirect";
 
 // Same typeface as the CLATians student app — self-hosted via next/font.
 const poppins = Poppins({
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={poppins.variable}>
       <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "var(--font-poppins)" }}>
+        <RecoveryRedirect />
         {children}
       </body>
     </html>
