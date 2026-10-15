@@ -85,7 +85,7 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
                 flexShrink: 0, display: "flex", alignItems: "center", gap: 6, borderRadius: 999, padding: "8px 14px 8px 10px",
                 fontSize: 13, fontWeight: 600, cursor: "pointer",
                 background: on ? "var(--blue)" : "var(--surface)", color: on ? "white" : "var(--text-secondary)",
-                border: "none", boxShadow: on ? "0 4px 12px rgba(11,92,255,0.28)" : "var(--shadow-card)",
+                border: "none", boxShadow: on ? "0 4px 12px rgba(0,134,158,0.28)" : "var(--shadow-card)",
               }}><ic.Icon s={16} c={on ? "white" : ic.fg} /> {o.type}</button>
             );
           })}

@@ -138,7 +138,7 @@ export function EarningsScreen({ jobs, payouts }: { jobs: Job[]; payouts: Payout
     <div style={{ paddingBottom: 12 }}>
       <PageHeader title="Earnings" />
       <div style={{ padding: "0 16px" }}>
-        <div style={{ borderRadius: 22, padding: 18, color: "white", background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(11,92,255,0.28)" }}>
+        <div style={{ borderRadius: 22, padding: 18, color: "white", background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(0,134,158,0.28)" }}>
           <p style={{ margin: 0, fontSize: 12.5, color: "rgba(255,255,255,0.8)" }}>Last 7 days</p>
           <p style={{ margin: "4px 0 14px", fontSize: 30, fontWeight: 800 }}>{inr(weekTotal)}</p>
           {/* Bar chart */}

@@ -9,6 +9,7 @@ import {
   type DealerPage, type DealerSignup, type NewTeamMember, type ShopEdit,
 } from "../components/dealer/ProfileScreens";
 import { BrandMark } from "../components/Brand";
+import { ROLE_NAME } from "../components/RoleSwitch";
 import { useCatalog } from "../lib/catalog";
 import { friendly, roleOf, supabaseFor, useLive, useSession } from "../lib/supabase";
 import { isOpenJob, loadDealerData, type DbListing, type DealerOrderStatus } from "../lib/dealerData";
@@ -22,7 +23,7 @@ type Detail =
   | { k: "job"; id: string }
   | { k: "page"; p: DealerPage };
 
-export default function DealerApp() {
+export default function DealerApp({ roleSwitch }: { roleSwitch?: React.ReactNode } = {}) {
   const session = useSession("dealer");
   const isDealer = roleOf(session ?? null) === "dealer";
   const uid = isDealer ? session!.user.id : null;
@@ -67,9 +68,12 @@ export default function DealerApp() {
   const login = async (email: string, password: string) => {
     const { data: d, error } = await sb().auth.signInWithPassword({ email, password });
     if (error) return friendly(error);
-    if (roleOf(d.session) !== "dealer") {
+    const role = roleOf(d.session);
+    if (role !== "dealer") {
       await sb().auth.signOut();
-      return "This isn't a dealer account. Customers use the Zavtoo app and technicians the Partner app.";
+      return role === "customer" || role === "technician"
+        ? `This is a ${ROLE_NAME[role].toLowerCase()} account. Choose ${ROLE_NAME[role]} under "Log in as".`
+        : "This isn't a dealer account.";
     }
     setTab("home"); setStack([]);
     return null;
@@ -90,7 +94,7 @@ export default function DealerApp() {
 
   const showNav = !!data && !detail;
   const shell = (children: React.ReactNode) => (
-    <div style={{ position: "fixed", inset: 0, background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
+    <div className="zavtoo-app" style={{ position: "fixed", inset: 0, background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: SHELL_MAX_W, height: "100%", position: "relative", background: "var(--app-bg)", overflow: "hidden", boxShadow: "var(--shadow-float)", display: "flex", flexDirection: "column" }}>
         {children}
         {showNav && data && (
@@ -111,7 +115,7 @@ export default function DealerApp() {
   );
 
   if (session === undefined) return shell(<Centered text="Loading…" />);
-  if (!isDealer) return shell(<DealerAuthScreen onLogin={login} onSignup={signup} />);
+  if (!isDealer) return shell(<DealerAuthScreen onLogin={login} onSignup={signup} roleSwitch={roleSwitch} />);
   if (live.error && /NO_DEALER/.test(live.error)) {
     return shell(<Centered text="This login isn't linked to a dealer shop yet. Call dealer help to finish setting it up." action={<button onClick={logout} style={linkBtn}>Log out</button>} />);
   }

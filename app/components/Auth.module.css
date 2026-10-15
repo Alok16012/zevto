@@ -1,0 +1,42 @@
+.page { flex: 1; min-height: 0; width: 100%; max-width: 430px; margin: 0 auto; overflow-y: auto; overflow-x: hidden; container-type: inline-size; background: #fff; color: #03343f; padding-bottom: env(safe-area-inset-bottom); }
+.hero { position: relative; width: 100%; aspect-ratio: 941 / 600; overflow: hidden; }
+.heroImage { position: absolute; inset: 0 0 auto; width: 100%; height: auto; display: block; clip-path: polygon(0 0, 100% 0, 100% 35.9%, 48% 35.9%, 42% 30.5%, 0 30.5%); }
+.form { position: relative; margin-top: -10cqw; padding: 0 7.5cqw; }
+.form button { font-family: inherit; cursor: pointer; }
+.back { min-height: 5.2cqw; margin-bottom: 3.4cqw; display: flex; align-items: flex-start; }
+.back button { margin: 0 !important; padding: 0 !important; background: none; border: 0; color: #007d96 !important; font-size: 3cqw !important; font-weight: 700 !important; }
+.badge { display: flex; align-items: center; gap: 2.4cqw; width: fit-content; border-radius: 2.4cqw; background: #e3faf5; padding: 1.3cqw 2.6cqw; font-size: 2.55cqw; font-weight: 700; line-height: 1.4; }
+.badge svg { width: 3.7cqw; height: 3.7cqw; }
+.form h1 { margin: 2.1cqw 0 .5cqw; font-size: 7.6cqw; font-weight: 800; letter-spacing: -.035em; line-height: 1.25; }
+.intro { margin: 0; font-size: 3.4cqw; line-height: 1.55; letter-spacing: -.025em; color: #606880; }
+.fields { display: flex; flex-direction: column; gap: 2.8cqw; margin-top: 4cqw; }
+.field label { display: block; font-size: 3.05cqw; font-weight: 700; margin-bottom: 1.3cqw; }
+.field label span { font-weight: 400; color: #667087; }
+.field input { width: 100%; min-width: 0; min-height: 10.2cqw; border: 1px solid #dfe7f2; border-radius: 2.3cqw; background: #fafcff; padding: 2cqw 3cqw; font: inherit; font-size: max(16px, 3.05cqw); color: #03343f; outline: none; }
+.field input::placeholder { color: #717b93; opacity: 1; }
+.field input:focus { border-color: #008ba0; box-shadow: 0 0 0 2px #008ba01a; }
+.inputWrap { position: relative; }
+.inputWrap > svg { position: absolute; top: 50%; left: 4cqw; transform: translateY(-50%); width: 4.4cqw; height: 4.4cqw; pointer-events: none; }
+.inputWrap input { padding-left: 12.6cqw; padding-right: 10cqw; }
+.eye { position: absolute; top: 0; right: 1.5cqw; width: 9cqw; height: 100%; display: grid; place-items: center; border: 0; background: none; color: #606880; }
+.eye svg { width: 4.5cqw; height: 4.5cqw; }
+.phone { display: flex; gap: 2cqw; align-items: center; }
+.phone > span { color: #606880; font-size: 3.3cqw; }
+.forgot { text-decoration: none; align-self: flex-end; margin-top: -1.4cqw; padding: 0; border: 0; background: none; color: #00819e; font-size: 3.05cqw; font-weight: 700; }
+.submit { display: flex; align-items: center; justify-content: center; gap: 3.3cqw; width: 100%; min-height: 10.7cqw; margin-top: 4.3cqw; border: 0; border-radius: 3.8cqw; background: linear-gradient(120deg, #0096aa, #005061); box-shadow: 0 1.5cqw 3.5cqw #008c9d40; color: #fff; font-size: 4.2cqw; font-weight: 700; }
+.submit svg { width: 4.5cqw; height: 4.5cqw; }
+.submit:disabled { opacity: .65; cursor: wait; }
+.switchMode { text-align: center; margin: 3.7cqw 0 0; font-size: 3.05cqw; letter-spacing: -.035em; color: #606880; }
+.switchMode button, .hint button { border: 0; padding: 0; background: none; color: #00819e; font-size: inherit; font-weight: 700; }
+.secure { display: flex; align-items: center; justify-content: center; gap: 2.4cqw; margin: 3.8cqw 0 0; color: #606880; font-size: 2.55cqw; white-space: nowrap; }
+.secure::before, .secure::after { content: ''; height: 1px; flex: 1; background: #e3e8f0; }
+.secure svg { width: 3.8cqw; height: 3.8cqw; flex-shrink: 0; color: #006476; }
+.help { margin: 3.5cqw 0 0; text-align: center; font-size: 3.05cqw; color: #606880; }
+.help a { margin-left: 1cqw; text-decoration: none; font-weight: 700; color: #00819e; }
+.footer { padding: 4.2cqw 4cqw 4.5cqw; }
+.footer nav { margin: 0 !important; gap: 0 !important; flex-wrap: nowrap !important; }
+.footer nav a { color: #606880 !important; font-size: 2.5cqw !important; line-height: 1.2; white-space: nowrap; padding: 0 4cqw; }
+.footer nav a + a { border-left: 1px solid #dfe4ed; }
+.hint { font-size: 12px; color: #606880; line-height: 1.5; }
+.error { margin: 0; font-size: 13px; font-weight: 600; color: #bc2538; }
+.form button:focus-visible, .page a:focus-visible { outline: 2px solid #00869a; outline-offset: 4px; }

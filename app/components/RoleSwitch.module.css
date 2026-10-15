@@ -1,0 +1,42 @@
+.page {
+  width: 100%;
+  max-width: 430px;
+  min-height: 100svh;
+  margin: 0 auto;
+  padding-bottom: env(safe-area-inset-bottom);
+  container-type: inline-size;
+  background: #fff;
+  color: #03343f;
+  box-shadow: 0 0 70px #003c4610;
+}
+.hero { position: relative; width: 100%; aspect-ratio: 941 / 600; overflow: hidden; }
+.heroImage { display: block; width: 100%; height: auto; position: absolute; inset: 0 0 auto; }
+.chooser { padding: 0 4.25cqw; }
+.welcome { padding: 0 3.4cqw; }
+.welcome h1 { margin: 0; font-size: 7.43cqw; font-weight: 800; letter-spacing: -.035em; line-height: 1.25; }
+.welcome p { margin: .6cqw 0 0; color: #60667c; font-size: 4.05cqw; letter-spacing: -.025em; line-height: 1.5; }
+.roles { display: flex; flex-direction: column; gap: 3.1cqw; margin-top: 3cqw; }
+.role { display: flex; width: 100%; min-height: 19.55cqw; align-items: center; gap: 3.6cqw; text-align: left; padding: 3.2cqw 2.7cqw 3.2cqw 3.7cqw; border: 1px solid #e8edf2; background: #fff; border-radius: 3.1cqw; cursor: pointer; color: #03343f; box-shadow: 0 1.2cqw 2.7cqw #183b5610; transition: background .18s, border-color .18s, transform .18s; font-family: inherit; }
+.customer { border-color: #c2eee4; background: #effcf7; }
+.role:hover { border-color: #68cfc6; background: #eafbf7; transform: translateY(-2px); }
+.role:active { transform: translateY(0); }
+.role:focus-visible, .page a:focus-visible { outline: 3px solid #008c9f; outline-offset: 4px; }
+.roleIcon { width: 12.8cqw; height: 12.8cqw; flex-shrink: 0; display: grid; place-items: center; border-radius: 3.6cqw; background: linear-gradient(135deg, #cafaf4, #b6f5ed); color: #073b46; }
+.roleIcon svg { width: 7.1cqw; height: 7.1cqw; stroke-width: 1.5; }
+.technician .roleIcon { background: #e5f0ff; }
+.dealer .roleIcon { background: #fff2d6; }
+.roleContent { flex: 1; min-width: 0; }
+.roleTitle { display: block; font-weight: 700; font-size: 4.4cqw; letter-spacing: -.035em; line-height: 1.4; }
+.roleDetail { display: block; color: #60667c; font-size: 3cqw; letter-spacing: -.025em; margin-top: .45cqw; line-height: 1.5; }
+.roleArrow { color: #006579; display: grid; place-items: center; flex-shrink: 0; width: 8.3cqw; height: 8.3cqw; border-radius: 50%; background: #eff9fc; }
+.roleArrow svg { width: 4.8cqw; height: 4.8cqw; }
+.customer .roleArrow { background: #dff9f2; color: #034854; }
+.continueNote { display: flex; align-items: center; justify-content: center; gap: 2.3cqw; font-size: 2.55cqw; color: #677087; margin: 4.1cqw 0 0; line-height: 1.7; }
+.continueNote svg { width: 4.5cqw; height: 4.5cqw; color: #00616c; }
+.mobileHelp { width: fit-content; min-width: 48cqw; margin: 3.1cqw auto 0; padding-top: 3cqw; border-top: 1px solid #e6ebf1; text-align: center; font-size: 2.55cqw; color: #677087; }
+.mobileHelp a { margin-left: 1cqw; color: #00819c; font-weight: 700; text-decoration: none; }
+.footer { padding: 3.7cqw 4cqw 4.5cqw; }
+.footer nav { margin: 0 !important; gap: 0 !important; flex-wrap: nowrap !important; }
+.footer nav a { color: #677087 !important; font-size: 2.5cqw !important; line-height: 1.2; white-space: nowrap; padding: 0 4cqw; }
+.footer nav a + a { border-left: 1px solid #dfe4ed; }
+@media (prefers-reduced-motion: reduce) { .role { transition: none; } }

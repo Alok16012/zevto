@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import TechnicianApp from "./TechnicianApp";
+import ZavtooApp from "../ZavtooApp";
 
 export const metadata: Metadata = {
   title: "Zavtoo Partner",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <TechnicianApp />;
+  return <ZavtooApp initialRole="technician" />;
 }

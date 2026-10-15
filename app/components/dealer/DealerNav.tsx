@@ -4,10 +4,9 @@ import { BagIcon, BoxIcon, StoreIcon, WrenchIcon } from "../icons";
 
 export type DealerTab = "home" | "listings" | "orders" | "jobs" | "profile";
 
-const ProfileGlyph = ({ s = 21, c = "currentColor" }: { s?: number; c?: string }) => (
-  <svg width={s} height={s} viewBox="0 0 24 24" fill={c} aria-hidden="true">
-    <circle cx="12" cy="7.8" r="4.3" />
-    <path d="M3.8 20.2a8.2 8.2 0 0 1 16.4 0 1 1 0 0 1-1 1H4.8a1 1 0 0 1-1-1z" />
+const ProfileGlyph = ({ s = 22, c = "currentColor" }: { s?: number; c?: string }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="7" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" />
   </svg>
 );
 
@@ -25,14 +24,14 @@ export default function DealerNav({ active, onChange, badges }: {
 }) {
   return (
     <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "0 14px calc(10px + env(safe-area-inset-bottom))", pointerEvents: "none", zIndex: 50 }}>
-      <nav style={{
+      <nav className="app-bottom-nav" aria-label="Main navigation" style={{
         display: "flex", alignItems: "stretch", background: "rgba(255,255,255,0.94)",
         backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
         borderRadius: 999, padding: 4, boxShadow: "0 8px 24px rgba(15,23,41,0.14)", pointerEvents: "auto",
       }}>
         {tabs.map(({ id, label, Icon }) => {
           const on = active === id;
-          const color = on ? "var(--blue)" : "var(--ink)";
+          const color = on ? "white" : "var(--ink-soft)";
           const n = badges[id] ?? 0;
           return (
             <button key={id} aria-label={label} aria-current={on ? "page" : undefined} onClick={() => onChange(id)} style={{

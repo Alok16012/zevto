@@ -5,6 +5,7 @@ import { CheckIcon, ChevronRight, ClockIcon, MinusIcon, PhoneIcon, PinIcon, Plus
 import { Avatar, BottomSheet, Footer, PageHeader, PrimaryButton, Tabs, Toggle, card, field, label, sectionTitle } from "../components/ui";
 import { SERVICE_ICON } from "../components/ServicesHub";
 import TechAvatar from "../components/TechAvatar";
+import WaterBanner from "../components/WaterBanner";
 import { PhotoStrip } from "../components/PhotoPicker";
 import { inr } from "../lib/data";
 import { useSignedUrls } from "../lib/photos";
@@ -57,8 +58,9 @@ export function JobsScreen({ techId, techName, rating, online, onToggleOnline, j
 
   return (
     <div style={{ paddingBottom: 12 }}>
+      <div className="app-dashboard-header">
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 16px 12px" }}>
+      <div className="app-dashboard-top" style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 16px 12px" }}>
         <button onClick={onProfile} aria-label="Open your profile" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", borderRadius: "50%" }}>
           <TechAvatar id={techId} name={techName} size={46} ring photoUrl={photoUrl} />
         </button>
@@ -67,16 +69,19 @@ export function JobsScreen({ techId, techName, rating, online, onToggleOnline, j
           <p style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{techName}</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: online ? "var(--success-text)" : "var(--ink-mute)" }}>{online ? "ONLINE" : "OFFLINE"}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: online ? "#b6f3cd" : "#c7e9e8" }}>{online ? "ONLINE" : "OFFLINE"}</span>
           <Toggle on={online} onChange={onToggleOnline} label="Go online" />
         </div>
+      </div>
+
+      <WaterBanner eyebrow="ZAVTOO PARTNER" title="Good work. Better water." detail="Your jobs, inventory and earnings, all in one place." />
       </div>
 
       <div style={{ padding: "0 16px" }}>
         {/* Today strip */}
         <div style={{
           borderRadius: 20, padding: 16, color: "white", display: "flex",
-          background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(11,92,255,0.28)",
+          background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(0,134,158,0.28)",
         }}>
           {[[String(jobs.filter((j) => j.isoDate === today && j.status !== "Rejected").length), "Jobs today"], [String(doneToday.length), "Completed"], [inr(earnedToday), "Earned today"], [rating ? `${rating}★` : "New", "Rating"]].map(([v, l], i) => (
             <div key={l} style={{ flex: 1, textAlign: "center", borderRight: i < 3 ? "1px solid rgba(255,255,255,0.18)" : "none" }}>

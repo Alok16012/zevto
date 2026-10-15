@@ -203,7 +203,7 @@ export function WalletPage({ balance, txns, onBack, onRefer }: {
       <div style={{ padding: "0 16px 24px" }}>
         <div style={{
           borderRadius: 22, padding: "18px 18px 16px", color: "white", position: "relative", overflow: "hidden",
-          background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(11,92,255,0.28)",
+          background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(0,134,158,0.28)",
         }}>
           <div style={{ position: "absolute", right: -40, top: -60, width: 180, height: 180, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,166,35,0.3), transparent 70%)" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 8, position: "relative" }}>

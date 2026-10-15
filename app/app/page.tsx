@@ -1,5 +1,5 @@
-import CustomerApp from "../CustomerApp";
+import ZavtooApp from "../ZavtooApp";
 
 export default function Page() {
-  return <CustomerApp />;
+  return <ZavtooApp />;
 }

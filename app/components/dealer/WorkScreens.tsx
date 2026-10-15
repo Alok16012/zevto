@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BagIcon, BoxIcon, CalendarIcon, ChevronRight, ClockIcon, PhoneIcon, PinIcon, PlusIcon, UsersIcon, WrenchIcon } from "../icons";
 import { BrandMark } from "../Brand";
+import WaterBanner from "../WaterBanner";
 import { Footer, PageHeader, PrimaryButton, card } from "../ui";
 import { Badge, Chips, Empty, JOB_LABEL, JOB_TONE, ORDER_TONE, Row, ghostBtn, inputStyle, sectionH } from "./kit";
 import { inr } from "../../lib/data";
@@ -38,13 +39,17 @@ export function DealerHome({ data, onOrders, onJobs, onListings, onTeam, onAddLi
 
   return (
     <div style={{ paddingBottom: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 16px 14px" }}>
+      <div className="app-dashboard-header">
+      <div className="app-dashboard-top" style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 16px 14px" }}>
         <BrandMark size={34} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>{greet},</p>
           <p style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dealer.name}</p>
         </div>
         <Badge tone={!dealer.active ? "grey" : verified ? "green" : "amber"}>{!dealer.active ? "Paused" : verified ? "✓ Verified" : "KYC pending"}</Badge>
+      </div>
+
+      <WaterBanner eyebrow="ZAVTOO DEALER" title="Your store. More possibilities." detail="Manage your products, orders and team with ease." />
       </div>
 
       {!dealer.active && <Notice tone="grey">Zavtoo has paused your shop, so customers can&apos;t see your listings right now. Call dealer help to sort it out.</Notice>}
@@ -56,7 +61,7 @@ export function DealerHome({ data, onOrders, onJobs, onListings, onTeam, onAddLi
 
       {/* Sales hero */}
       <div style={{ padding: "0 16px" }}>
-        <div style={{ borderRadius: 22, padding: 18, background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", color: "white", boxShadow: "0 10px 28px rgba(11,92,255,0.28)" }}>
+        <div style={{ borderRadius: 22, padding: 18, background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", color: "white", boxShadow: "0 10px 28px rgba(0,134,158,0.28)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.75)" }}>Delivered this month</p>

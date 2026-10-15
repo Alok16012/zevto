@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import PurifierArt from "../components/PurifierArt";
 import ProductImage, { ProductGallery } from "../components/ProductImage";
 import { BrandMark, Wordmark } from "../components/Brand";
@@ -13,6 +14,7 @@ import { COMPANY, HELPLINES } from "./content";
 import { PRIVACY, TERMS } from "./policies";
 import s from "./storefront.module.css";
 import ServiceBooking, { ServiceBookings } from "./ServiceBooking";
+import PurifierShowcase from "./PurifierShowcase";
 
 type View = "home" | "shop" | "product" | "cart" | "checkout" | "orders" | "services" | "booking" | "about" | "contact" | "privacy" | "terms";
 const INFO_VIEWS: View[] = ["services", "about", "contact", "privacy", "terms"];
@@ -35,6 +37,12 @@ function readSaved(): Saved {
     return { cart: validLines(v.cart), wish: Array.isArray(v.wish) ? v.wish.filter((id: unknown) => PRODUCTS.some(p => p.id === id)) : [], coupon: typeof v.coupon === "string" ? v.coupon : "", orders: Array.isArray(v.orders) ? v.orders.filter((o: Receipt) => o && typeof o.id === "string" && typeof o.date === "string" && Number.isFinite(o.total) && Array.isArray(o.lines)).map((o: Receipt) => ({ ...o, lines: validLines(o.lines) })) : [] };
   } catch { return empty; }
 }
+const FEATURED_IMAGES: Record<string, string> = {
+  pro: "/products/featured/zavtoo-pro.png",
+  premium: "/products/featured/zavtoo-premium.png",
+  "commercial-50": "/products/featured/zavtoo-commercial-50.png",
+};
+
 const BADGES: Record<string, string> = {
   pro: "Best Seller", "membrane-75": "Best Seller", "sediment-5": "New Arrival", "cto-carbon": "Top Rated", "service-kit-7": "Combo Deal", "valve-kit": "Hot Deal",
 };
@@ -145,10 +153,13 @@ export default function Storefront({ view, product: initialProduct, filters, ser
       </div>
     </article>;
   }
-  // Homepage picks: a purifier, the best-selling membrane and the service kit (falls back if any is missing).
+  // Homepage picks: two home purifiers and one commercial RO system.
   const picks = ["pro", "premium", "commercial-50"].map(id => PRODUCTS.find(p => p.id === id)).filter((p): p is Product => !!p);
   const featured = picks.length === 3 ? picks : PRODUCTS.slice(0, 3);
   function renderFeatureCard(p: Product) {
+    const generatedPhoto = !p.images?.length
+      ? FEATURED_IMAGES[p.id] ?? (p.category === "commercial" ? FEATURED_IMAGES["commercial-50"] : p.art === "premium" ? FEATURED_IMAGES.premium : p.category === "domestic" ? FEATURED_IMAGES.pro : undefined)
+      : undefined;
     const about = `${p.spec} ${p.stages} ${p.description}`;
     const chips = p.category === "commercial"
       ? [{ Icon: LayersIcon, label: "High capacity" }, { Icon: GearIcon, label: "Custom solutions" }]
@@ -159,7 +170,9 @@ export default function Storefront({ view, product: initialProduct, filters, ser
     return <article className={s.featureCard} key={p.id}>
       <Link href={`/products/${p.id}`} className={s.featureImage} aria-label={`View ${p.name}`}>
         {BADGES[p.id] && <span className={s.bestSeller}>{BADGES[p.id]}</span>}
-        <ProductImage product={p} size={170} />
+        {generatedPhoto
+          ? <Image src={generatedPhoto} alt={`Zavtoo ${p.category === "commercial" ? "commercial RO system" : p.art === "premium" ? "premium smart water purifier" : "home water purifier"}`} width={1254} height={1254} sizes="(max-width: 700px) 40vw, (max-width: 1100px) 25vw, 180px" />
+          : <ProductImage product={p} size={170} />}
       </Link>
       <div className={s.featureBody}>
         <Link href={`/products/${p.id}`}><h3>{p.name}</h3></Link>
@@ -231,6 +244,7 @@ export default function Storefront({ view, product: initialProduct, filters, ser
             <div key={title}><span className={s.benefitIcon}><Icon s={22} /></span><span><strong>{title}</strong><small>{detail}</small></span></div>
           ))}
         </div>
+        <div className={s.container}><PurifierShowcase /></div>
         <section className={`${s.container} ${s.section}`}>
           <div className={s.featureHeading}><div><h2>Find your perfect purifier</h2><p>Advanced purification. Thoughtful designs. For every need.</p></div><Link className={s.featureAll} href="/shop">View all products <ArrowRight /></Link></div>
           <div className={s.featureGrid}>{featured.map(p => renderFeatureCard(p))}</div>
@@ -243,7 +257,7 @@ export default function Storefront({ view, product: initialProduct, filters, ser
       </> : <div className={`${s.container} ${s.innerPage}`}>
         <div className={s.breadcrumb}><Link href="/">Home</Link><span>/</span>{view === "product" ? <><Link href="/shop">Shop</Link><span>/</span>{product?.name}</> : <span>{view === "shop" ? "Shop" : VIEW_LABEL[view] ?? view[0].toUpperCase() + view.slice(1)}</span>}</div>
         {view !== "product" && view !== "booking" && !INFO_VIEWS.includes(view) && !placed && <div className={s.pageHeading}><span className={s.kicker}>ZAVTOO · MADE FOR YOUR EVERYDAY</span><h1>{title}</h1><p>{view === "shop" ? "From home essentials to hardworking commercial systems. Find your fit." : view === "services" ? "Installation, maintenance and a helping hand whenever you need it." : view === "orders" ? "Your orders and service visits live in your Zavtoo account." : "A few simple steps to your everyday essential."}</p></div>}
-        {view === "shop" && <><div className={s.shopTools}><div className={s.tabs}>{categories.map(c => <button key={c.id} aria-pressed={category === c.id} className={category === c.id ? s.selected : ""} onClick={() => browseFilter(c.id)}>{c.title}</button>)}</div><label className={s.sort}>Sort by <select value={sort} onChange={e => setSort(e.target.value)}><option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="rating">Top rated</option></select><ChevronDown s={15} /></label></div><div className={s.resultsBar}><span>{filtered.length} products{query && ` matching “${query}”`}</span><button aria-pressed={onlySaved} onClick={() => setOnlySaved(!onlySaved)}><HeartIcon s={17} filled={onlySaved} /> Saved only</button></div>{filtered.length ? <div className={s.productGrid}>{filtered.map(p => renderProductCard({ p }))}</div> : <div className={s.empty}><SearchIcon s={40} /><h2>No products found.</h2><p>Try another search or explore the full collection.</p><button className={s.primary} onClick={() => { setQuery(""); browseFilter("all"); setOnlySaved(false); window.history.replaceState(null, "", "/shop"); }}>Show all products</button></div>}{(category === "all" || category === "spare") && !onlySaved && <PartsShowcase />}</>}
+        {view === "shop" && <>{!onlySaved && !query && (category === "all" || category === "domestic") && <PurifierShowcase compact />}<div className={s.shopTools}><div className={s.tabs}>{categories.map(c => <button key={c.id} aria-pressed={category === c.id} className={category === c.id ? s.selected : ""} onClick={() => browseFilter(c.id)}>{c.title}</button>)}</div><label className={s.sort}>Sort by <select value={sort} onChange={e => setSort(e.target.value)}><option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="rating">Top rated</option></select><ChevronDown s={15} /></label></div><div className={s.resultsBar}><span>{filtered.length} products{query && ` matching “${query}”`}</span><button aria-pressed={onlySaved} onClick={() => setOnlySaved(!onlySaved)}><HeartIcon s={17} filled={onlySaved} /> Saved only</button></div>{filtered.length ? <div className={s.productGrid}>{filtered.map(p => renderProductCard({ p }))}</div> : <div className={s.empty}><SearchIcon s={40} /><h2>No products found.</h2><p>Try another search or explore the full collection.</p><button className={s.primary} onClick={() => { setQuery(""); browseFilter("all"); setOnlySaved(false); window.history.replaceState(null, "", "/shop"); }}>Show all products</button></div>}{(category === "all" || category === "spare") && !onlySaved && <PartsShowcase />}</>}
         {view === "product" && product && <><div className={s.productDetail}><div className={s.detailArt}><span className={s.sale}>SAVE {inr(product.mrp - product.price)}</span><ProductGallery product={product} size={410} />{!product.images?.length && <span>Product illustration</span>}</div><div className={s.detailCopy}><span className={s.kicker}>{categories.find(c => c.id === product.category)?.title}</span><h1>{product.name}</h1>{product.soldBy && <p className={s.formNote}>Sold by {product.soldBy} · verified Zavtoo dealer, delivers in their area only</p>}<p className={s.rating}><StarIcon s={18} /> {product.reviews ? <>{product.rating} <span>· {product.reviews} reviews</span></> : <span>New · no reviews yet</span>}</p><p>{product.description}</p><div className={s.detailPrice}><strong>{inr(product.price)}</strong><del>{inr(product.mrp)}</del><span>{sale(product)}% off</span></div><small>Inclusive of all taxes</small><div className={s.specGrid}><div><DropIcon /><strong>{product.stages}</strong><span>Purification / filters</span></div><div><ShieldIcon /><strong>{product.warranty}</strong><span>Product warranty</span></div></div><div className={s.detailActions}><button className={s.primary} onClick={() => add(product)} disabled={!ready}><CartIcon s={19} /> Add to cart</button><button className={s.secondary} aria-pressed={saved.wish.includes(product.id)} onClick={() => wish(product.id)} disabled={!ready}><HeartIcon filled={saved.wish.includes(product.id)} /> Save</button></div><form className={s.pinForm} onSubmit={e => { e.preventDefault(); setPinMessage(PIN_AREAS[pin] ? `Available in ${PIN_AREAS[pin]}. Technician visits and delivery are available — exact timing is confirmed with your order.` : "Technician visits aren't available at this pincode yet — spare parts still ship pan India. Call 89-294-546-47 to check."); }}><label htmlFor="delivery-pin"><PinIcon s={18} /> Check your delivery area</label><div><input id="delivery-pin" aria-label="Delivery pincode" inputMode="numeric" pattern="[1-9][0-9]{5}" maxLength={6} placeholder="Enter 6-digit pincode" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ""))} required /><button>Check</button></div><p role="status">{pinMessage}</p></form></div></div><section className={s.section}><div className={s.sectionHeading}><h2>Also worth a look.</h2><Link href="/shop" className={s.textLink}>View collection</Link></div><div className={s.productGrid}>{PRODUCTS.filter(p => p.id !== product.id).slice(0, 4).map(p => renderProductCard({ p }))}</div></section></>}
         {(view === "cart" || view === "checkout") && !placed && (!ready ? <p role="status">Loading your basket…</p> : !saved.cart.length ? <div className={s.empty}><CartIcon s={46} /><h2>Your cart is waiting.</h2><p>Bring a little more purity to your everyday.</p><Link className={s.primary} href="/shop">Explore products</Link></div> : <div className={s.checkoutGrid}>{view === "cart" ? <div>{saved.cart.map(l => { const p = PRODUCTS.find(p => p.id === l.id)!; return <article className={s.cartItem} key={l.id}><Link className={s.cartArt} href={`/products/${p.id}`}><ProductImage product={p} size={100} /></Link><div><Link href={`/products/${p.id}`}><h3>{p.name}</h3></Link><p>{p.spec}</p><strong>{inr(p.price)}</strong><div className={s.quantity}><button aria-label={`Decrease ${p.name} quantity`} onClick={() => quantity(p.id, l.qty - 1)}><MinusIcon s={14} /></button><span>{l.qty}</span><button disabled={l.qty === 9} aria-label={`Increase ${p.name} quantity`} onClick={() => quantity(p.id, l.qty + 1)}><PlusIcon s={14} /></button></div></div><div className={s.lineTotal}><strong>{inr(p.price * l.qty)}</strong><button onClick={() => quantity(p.id, 0)} aria-label={`Remove ${p.name}`}><CloseIcon s={18} /> Remove</button></div></article>; })}<Link className={s.textLink} href="/shop">Continue shopping</Link></div> : <div className={s.checkoutForm}><h2>Secure checkout</h2><p className={s.formNote}>You&apos;ll finish your order in the Zavtoo customer app: log in or create an account, choose your delivery address, apply coupons or wallet balance, and pay online or on delivery. Your cart comes with you.</p><button type="button" className={s.primary} onClick={() => { try { localStorage.setItem("zavtoo:cart", JSON.stringify(saved.cart)); } catch { /* storage blocked */ } window.location.href = "/app?screen=cart"; }}>Continue to checkout · {inr(total)}</button><Link className={s.textLink} href="/cart">Back to cart</Link></div>}{renderSummary({ checkout: view === "checkout" })}</div>)}
         {placed && <div className={s.empty}><span className={s.successIcon}><CheckIcon s={34} /></span><span className={s.kicker}>THANK YOU FOR TRYING ZAVTOO</span><h1>Your demo order is saved.</h1><p>Order {placed.id} · {inr(placed.total)}</p><p>No payment was taken. This order will not be fulfilled.</p><Link className={s.primary} href="/orders">View my demo orders</Link><Link className={s.textLink} href="/shop">Continue shopping</Link></div>}

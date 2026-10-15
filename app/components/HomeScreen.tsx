@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BellIcon, CartIcon, SearchIcon, ArrowRight, ShieldIcon, GiftIcon } from "./icons";
 import { BrandMark, Wordmark } from "./Brand";
 import PurifierArt from "./PurifierArt";
+import WaterBanner from "./WaterBanner";
 import ProductImage from "./ProductImage";
 import { ViewAll, iconBtn } from "./ui";
 import { SERVICE_ICON } from "./ServicesHub";
@@ -29,7 +30,7 @@ interface HomeProps {
 }
 
 /* ── Quick-action artwork — flat two-tone tiles, straight from the student
-      app's "Tools" row. ── */
+      app's service shortcuts. ── */
 const BuyArt = () => (
   <svg width="40" height="40" viewBox="0 0 42 42" fill="none">
     <path d="M7 12h28l-3 17H10z" fill="var(--blue-soft)" />
@@ -50,8 +51,8 @@ const BookArt = () => (
 );
 const AmcArt = () => (
   <svg width="40" height="40" viewBox="0 0 42 42" fill="none">
-    <path d="M19 5l13 5v9c0 8-5.6 14.3-13 16.5C11.6 33.3 6 27 6 19v-9z" fill="#F0A44A" />
-    <path d="M23 7l13 5v9c0 8-5.6 14.3-13 16.5z" fill="#E07B1F" />
+    <path d="M19 5l13 5v9c0 8-5.6 14.3-13 16.5C11.6 33.3 6 27 6 19v-9z" fill="var(--teal-light)" />
+    <path d="M23 7l13 5v9c0 8-5.6 14.3-13 16.5z" fill="var(--blue)" />
     <path d="M14 20l4 4 8-8" stroke="white" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
@@ -78,8 +79,9 @@ export default function HomeScreen(p: HomeProps) {
 
   return (
     <div style={{ paddingBottom: 24 }}>
+      <div className="app-dashboard-header">
       {/* ── Top bar: brand + bell + cart ── */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 10px" }}>
+      <div className="app-dashboard-top" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 18px 10px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <BrandMark size={38} />
           <Wordmark />
@@ -108,6 +110,9 @@ export default function HomeScreen(p: HomeProps) {
         </div>
       </div>
 
+      <WaterBanner eyebrow="THE ZAVTOO APP" title="Pure water. Simpler living." detail="Everything your home’s water needs, in one place." />
+      </div>
+
       {/* ── Search ── */}
       <form onSubmit={(e) => { e.preventDefault(); p.onOpenProducts(q.trim()); }} style={{ padding: "4px 16px 14px" }}>
         <label style={{
@@ -132,7 +137,7 @@ export default function HomeScreen(p: HomeProps) {
             <div style={{
               width: "100%", maxWidth: 70, aspectRatio: "1 / 1", background: "var(--surface)", borderRadius: "28%",
               display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 6px 10px -2px rgba(15,23,41,0.16), 0 2px 4px rgba(15,23,41,0.06)",
+              boxShadow: "var(--shadow-card)",
             }}><Art /></div>
             <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)", textAlign: "center", lineHeight: 1.35, whiteSpace: "pre-line" }}>{label}</span>
           </button>
@@ -221,7 +226,7 @@ export default function HomeScreen(p: HomeProps) {
         <button onClick={p.onRefer} className="press" style={{
           width: "100%", border: "none", cursor: "pointer", textAlign: "left", borderRadius: 18, padding: 14,
           background: "linear-gradient(135deg,var(--blue-dark),var(--blue))", color: "white",
-          display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 20px rgba(11,92,255,0.25)",
+          display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 20px rgba(0,134,158,0.25)",
         }}>
           <div style={{ width: 48, height: 48, borderRadius: 14, background: "rgba(255,255,255,0.14)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><GiftIcon s={25} c="var(--gold)" /></div>
           <div style={{ flex: 1 }}>
@@ -262,7 +267,7 @@ function MiniCard({ product, onOpen, onAdd }: { product: Product; onOpen: () => 
         <button aria-label={`Add ${product.name} to cart`} onClick={(e) => { e.stopPropagation(); onAdd(); }} className="press" style={{
           width: 28, height: 28, borderRadius: "50%", border: "none", cursor: "pointer",
           background: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 4px 10px rgba(11,92,255,0.3)",
+          boxShadow: "0 4px 10px rgba(0,134,158,0.3)",
         }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
         </button>
@@ -291,7 +296,7 @@ function HeroCarousel({ onShop, onAmc }: { onShop: () => void; onAmc: () => void
       <div style={{
         height: "100%", borderRadius: 24, padding: "20px 18px", position: "relative", overflow: "hidden",
         background: "linear-gradient(150deg,var(--blue-dark) 0%,var(--blue-dark) 55%,var(--blue) 100%)",
-        boxShadow: "0 10px 28px rgba(11,92,255,0.28)",
+        boxShadow: "0 10px 28px rgba(0,134,158,0.28)",
       }}>
         <div style={{ position: "absolute", right: -50, top: -60, width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,166,35,0.30), transparent 70%)" }} />
         <div style={{ position: "absolute", left: -40, bottom: -70, width: 170, height: 170, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,255,255,0.14), transparent 70%)" }} />
@@ -309,7 +314,7 @@ function HeroCarousel({ onShop, onAmc }: { onShop: () => void; onAmc: () => void
         {slide(
           <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <span style={{ display: "inline-block", background: "#CFFB6B", color: "var(--blue-dark)", fontSize: 10.5, fontWeight: 700, padding: "4px 10px", borderRadius: 8 }}>Up to 20% off</span>
+              <span style={{ display: "inline-block", background: "var(--teal-light)", color: "var(--blue-dark)", fontSize: 10.5, fontWeight: 700, padding: "4px 10px", borderRadius: 8 }}>Up to 20% off</span>
               <p style={{ margin: "10px 0 0", fontSize: 23, fontWeight: 800, color: "white", lineHeight: 1.2 }}>
                 Clean Water<br /><span style={{ color: "var(--gold)" }}>Healthy Life</span>
               </p>
@@ -320,7 +325,7 @@ function HeroCarousel({ onShop, onAmc }: { onShop: () => void; onAmc: () => void
                 boxShadow: "0 6px 16px rgba(245,166,35,0.40)", display: "inline-flex", alignItems: "center", gap: 6,
               }}>Shop Now <ArrowRight s={15} c="var(--blue-dark)" w={2.2} /></button>
             </div>
-            <div style={{ flexShrink: 0, filter: "drop-shadow(0 10px 18px rgba(4,36,107,0.45))" }}>
+            <div style={{ flexShrink: 0, filter: "drop-shadow(0 10px 18px rgba(0,65,79,0.45))" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/products/parts/osmo-housing-1.jpg" alt="Genuine OSMO filter housing" width={112} height={112} style={{ display: "block", borderRadius: 16, objectFit: "cover" }} />
             </div>
@@ -349,7 +354,7 @@ function HeroCarousel({ onShop, onAmc }: { onShop: () => void; onAmc: () => void
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 12 }}>
         {[0, 1].map((i) => (
-          <span key={i} style={{ width: i === index ? 20 : 7, height: 7, borderRadius: 999, background: i === index ? "var(--blue)" : "rgba(11,92,255,0.22)", transition: "width 0.3s" }} />
+          <span key={i} style={{ width: i === index ? 20 : 7, height: 7, borderRadius: 999, background: i === index ? "var(--blue)" : "rgba(0,134,158,0.22)", transition: "width 0.3s" }} />
         ))}
       </div>
     </div>

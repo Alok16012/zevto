@@ -76,10 +76,10 @@ export default function ResetPassword() {
   };
 
   const login = LOGIN[loginKey];
-  const forgotHref = loginKey === "admin" || loginKey === "super_admin" ? "/admin" : "/app";
+  const forgotHref = login.href;
 
   return (
-    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "var(--app-bg)" }}>
+    <main className="zavtoo-app" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "var(--app-bg)" }}>
       <form onSubmit={submit} className="fade-up" style={{ width: "100%", maxWidth: 400, background: "var(--surface)", borderRadius: 20, padding: 26, boxShadow: "var(--shadow-card)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}><BrandMark size={40} /><Wordmark /></div>
 

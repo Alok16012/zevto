@@ -128,7 +128,8 @@ function useTechPosition(techId: string | null | undefined, riding: boolean): Li
   return pos;
 }
 
-export default function CustomerApp() {
+/** `skipIntro` opens straight on the login (no splash/onboarding) when nobody is signed in. */
+export default function CustomerApp({ roleSwitch, skipIntro = false }: { roleSwitch?: React.ReactNode; skipIntro?: boolean } = {}) {
   const session = useSession("customer");
   const isCustomer = roleOf(session ?? null) === "customer";
   const uid = isCustomer ? session!.user.id : null;
@@ -141,7 +142,7 @@ export default function CustomerApp() {
   ]);
   const data = live.data;
 
-  const [stage, setStage] = useState<"splash" | "onboarding" | "app">("splash");
+  const [stage, setStage] = useState<"splash" | "onboarding" | "app">(skipIntro ? "app" : "splash");
   const [tab, setTab] = useState<Tab>("home");
   const [stack, setStack] = useState<Detail[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -359,7 +360,7 @@ export default function CustomerApp() {
   const showNav = stage === "app" && isCustomer && !!data && !data.profile.blocked && !detail;
   const frame = (children: React.ReactNode) => (
     // Pinned to the viewport so the page itself never scrolls — only the content area does.
-    <div style={{ position: "fixed", inset: 0, background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
+    <div className="zavtoo-app" style={{ position: "fixed", inset: 0, background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: SHELL_MAX_W, height: "100%", position: "relative", background: "var(--app-bg)", overflow: "hidden", boxShadow: "var(--shadow-float)", display: "flex", flexDirection: "column" }}>
         {children}
         {showNav && <BottomNav active={tab} onChange={goTab} unreadChat={unreadChat} />}
@@ -377,7 +378,7 @@ export default function CustomerApp() {
   if (stage === "splash") return frame(<SplashScreen onStart={() => setStage(readFlag() ? "app" : "onboarding")} />);
   if (stage === "onboarding") return frame(<OnboardingScreen onDone={() => { writeFlag(true); setStage("app"); }} />);
   if (session === undefined) return frame(<Centered text="Loading…" />);
-  if (!isCustomer) return frame(<CustomerAuth initialReferral={referral} />);
+  if (!isCustomer) return frame(<CustomerAuth initialReferral={referral} roleSwitch={roleSwitch} />);
   if (!data) return frame(<Centered text={live.error ?? "Loading your account…"} onRetry={live.error ? live.reload : undefined} />);
   if (data.profile.blocked) return frame(<Centered text="Your account is on hold. Please call our account helpline at 89-290-290-06." onRetry={() => void logout()} retryLabel="Log out" />);
 

@@ -1,0 +1,101 @@
+/* The mobile apps share the login's deep teal, aqua water and white surfaces. */
+.zavtoo-app {
+  --app-bg: #f6fbfa;
+  --bg-primary: #f6fbfa;
+  --bg-secondary: #edf7f6;
+  --surface: #ffffff;
+  --surface-dim: #eef6f5;
+  --surface-input: #fafdfd;
+  --ink: #03343f;
+  --ink-primary: #03343f;
+  --text-primary: #03343f;
+  --ink-soft: #606880;
+  --ink-mute: #73868c;
+  --text-secondary: #365c65;
+  --text-muted: #606880;
+  --text-disabled: #8b9d9f;
+  --blue: #00869e;
+  --blue-dark: #005061;
+  --blue-tint: #e1f8f3;
+  --blue-ghost: #c1eee5;
+  --blue-soft: #78d6d6;
+  --blue-pale: #dff4f3;
+  --brand-50: #effbf8;
+  --brand-100: #d5f5ee;
+  --teal: #14b9be;
+  --teal-light: #a8eeea;
+  --teal-bg: #e4faf5;
+  --teal-text: #087b78;
+  --teal-border: #bcebe2;
+  --cyan: #09a6b9;
+  --cyan-dark: #007489;
+  --line: #e0eeec;
+  --line-strong: #c9e2df;
+  --border: #e0eeec;
+  --info-bg: #e7f7fa;
+  --info-text: #006b80;
+  --info-border: #bee9ed;
+  --gold: #f3c66b;
+  --gold-dark: #9b691b;
+  --gold-tint: #fff5df;
+  --gold-100: #fce9ba;
+  --purple-tint: #eef0fb;
+  --purple: #6967a7;
+  --purple-400: #a4b5d9;
+  --purple-600: #607ca6;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --shadow-sm: 0 2px 8px #003e4606;
+  --shadow-md: 0 5px 16px #003e460a;
+  --shadow-lg: 0 8px 22px #003e4610;
+  --shadow-xl: 0 16px 40px #003e461c;
+  --shadow-card: 0 0 0 1px #e0eeec, 0 6px 18px #003e4608;
+  --shadow-float: 0 0 50px #003e4614;
+  --action-ink: #fff;
+  --action-shadow: 0 7px 18px #008c9d30;
+  --action-gradient: linear-gradient(120deg, #0096aa, #005061);
+  --header-gradient: radial-gradient(ellipse at 95% 0, #17b5ba55, transparent 65%), linear-gradient(120deg, #004e5b, #007f8c);
+  --font-body: var(--font-poppins), sans-serif;
+  color: var(--ink);
+  accent-color: var(--blue);
+}
+.zavtoo-app button, .zavtoo-app a, .zavtoo-app input, .zavtoo-app select, .zavtoo-app textarea { -webkit-tap-highlight-color: transparent; }
+.zavtoo-app :is(button, a, [role="button"]):focus-visible { outline: 2px solid #00869e; outline-offset: 3px; }
+.zavtoo-app :is(input, textarea, select):focus-visible { outline: 2px solid #00869e; outline-offset: 2px; }
+.zavtoo-app .app-primary-button { min-height: 50px; }
+.zavtoo-app .app-page-header {
+  --ink: #fff;
+  --ink-soft: #d3eeee;
+  --text-secondary: #e0ffff;
+  border-radius: 0 0 24px 24px;
+  margin-bottom: 16px;
+  min-height: 88px;
+  flex-shrink: 0;
+  padding: calc(22px + env(safe-area-inset-top)) 18px 22px !important;
+  box-shadow: 0 5px 16px #003e460b;
+}
+.zavtoo-app .app-page-header h2 { font-size: 20px !important; letter-spacing: -.035em; }
+.zavtoo-app .app-page-header > button { width: 36px; height: 36px; border-radius: 12px; background: #ffffff16 !important; justify-content: center; flex-shrink: 0; }
+.zavtoo-app .app-header-actions > button { color: #fff !important; }
+.zavtoo-app .app-header-actions svg[fill="none"] { stroke: #fff; }
+.zavtoo-app .app-tabs { border: 1px solid var(--line); }
+.zavtoo-app .app-tabs button { min-height: 36px; }
+.zavtoo-app .app-bottom-nav { border: 1px solid #d5eae6; box-shadow: 0 8px 26px #00445120 !important; }
+.zavtoo-app .app-bottom-nav button { min-height: 51px; }
+.zavtoo-app .app-bottom-nav button[aria-current="page"] { background: var(--action-gradient) !important; box-shadow: 0 3px 10px #00899b22; }
+.zavtoo-app .app-bottom-nav button[aria-current="page"] :is(span, svg) { color: #fff !important; }
+.zavtoo-app .app-dashboard-header { background: var(--header-gradient); border-radius: 0 0 28px 28px; overflow: hidden; margin-bottom: 18px; padding-top: env(safe-area-inset-top); position: relative; }
+.zavtoo-app .app-dashboard-top { --ink: #fff; --ink-soft: #c7e9e8; --text-secondary: #dcffff; color: #fff; }
+.zavtoo-app .app-dashboard-top [role="switch"] { box-shadow: 0 0 0 1px #ffffff45; }
+.app-water-banner { display: flex; align-items: center; min-height: 142px; padding: 8px 22px 27px; position: relative; color: #fff; }
+.app-water-banner::after { content: ''; position: absolute; left: -10%; bottom: -24px; width: 120%; height: 36px; background: #b8f7eb; opacity: .5; border-radius: 50% 50% 0 0; transform: rotate(3deg); }
+.app-water-copy { flex: 1; min-width: 0; position: relative; z-index: 1; }
+.app-eyebrow { margin: 0 0 7px; color: #94eee6; font-size: 9px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
+.app-water-copy h1 { margin: 0; max-width: 250px; font-size: clamp(23px, 6vw, 29px); font-weight: 800; line-height: 1.2; letter-spacing: -.04em; text-wrap: balance; }
+.app-water-detail { margin: 8px 0 0; max-width: 230px; color: #d3eeee; font-size: 11.5px; line-height: 1.6; }
+.app-water-art { width: 106px; height: 128px; flex-shrink: 0; margin: -8px -3px -10px 8px; }
+.zavtoo-app .app-registration { background: var(--surface); }
+.zavtoo-app .app-registration h1 { color: var(--ink); letter-spacing: -.035em; }
+@media (max-width: 360px) { .app-water-banner { padding-inline: 18px; } .app-water-art { width: 84px; } .app-water-detail { font-size: 11px; } }
+@media (prefers-reduced-motion: reduce) { .zavtoo-app .press { transition: none; } }

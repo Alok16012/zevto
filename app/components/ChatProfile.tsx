@@ -46,7 +46,7 @@ export function ChatScreen({ messages, typing, onSend, onBack }: {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px 12px", background: "var(--app-bg)", borderBottom: "1px solid var(--line)" }}>
+      <div className="app-page-header" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px 12px", background: "var(--header-gradient, var(--app-bg))", borderBottom: "1px solid var(--line)" }}>
         {onBack && <button onClick={onBack} aria-label="Back" className="press" style={iconBtn}><BackIcon c="var(--ink)" /></button>}
         <div style={{ position: "relative" }}>
           <div style={{ width: 42, height: 42, borderRadius: "50%", background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "var(--shadow-card)" }}><BrandMark size={28} /></div>
@@ -54,7 +54,7 @@ export function ChatScreen({ messages, typing, onSend, onBack }: {
         </div>
         <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontSize: 15.5, fontWeight: 600, color: "var(--ink)" }}>Zavtoo Support</p>
-          <p style={{ margin: 0, fontSize: 11.5, color: "var(--success-text)", fontWeight: 500 }}>{typing ? "typing…" : "Online · replies in ~2 min"}</p>
+          <p style={{ margin: 0, fontSize: 11.5, color: "#c6f5df", fontWeight: 500 }}>{typing ? "typing…" : "Online · replies in ~2 min"}</p>
         </div>
       </div>
 
@@ -73,7 +73,7 @@ export function ChatScreen({ messages, typing, onSend, onBack }: {
                   borderRadius: me ? "18px 18px 6px 18px" : "18px 18px 18px 6px",
                   background: me ? "linear-gradient(135deg,var(--blue),var(--blue-dark))" : "var(--surface)",
                   color: me ? "white" : "var(--ink)",
-                  boxShadow: me ? "0 4px 12px rgba(11,92,255,0.22)" : "var(--shadow-card)",
+                  boxShadow: me ? "0 4px 12px rgba(0,134,158,0.22)" : "var(--shadow-card)",
                 }}>
                   {m.image && (
                     <button onClick={() => setView(m.image!)} aria-label="View photo" style={{ display: "block", padding: 0, border: "none", background: "none", cursor: "zoom-in", margin: "-4px -8px 6px", borderRadius: 12, overflow: "hidden" }}>
@@ -121,7 +121,7 @@ export function ChatScreen({ messages, typing, onSend, onBack }: {
             width: 46, height: 46, borderRadius: "50%", border: "none", cursor: "pointer", flexShrink: 0,
             background: draft.trim() ? "linear-gradient(135deg,var(--blue),var(--blue-dark))" : "var(--line-strong)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: draft.trim() ? "0 6px 14px rgba(11,92,255,0.3)" : "none",
+            boxShadow: draft.trim() ? "0 6px 14px rgba(0,134,158,0.3)" : "none",
           }}><SendIcon s={19} c="white" w={2} /></button>
         </form>
       </div>

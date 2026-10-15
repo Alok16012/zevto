@@ -10,7 +10,7 @@ export function SplashScreen({ onStart }: { onStart: () => void }) {
   return (
     <div style={{
       position: "absolute", inset: 0, zIndex: 200,
-      background: "linear-gradient(165deg,#04246b 0%,#020b24 100%)",
+      background: "linear-gradient(150deg,#007f8c 0%,#003b49 100%)",
       display: "flex", flexDirection: "column", overflow: "hidden",
     }}>
       <div style={{ position: "absolute", right: -80, top: -90, width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,184,207,0.32), transparent 70%)" }} />
@@ -28,7 +28,7 @@ export function SplashScreen({ onStart }: { onStart: () => void }) {
       </div>
 
       <div style={{ padding: "0 20px calc(28px + env(safe-area-inset-bottom))", position: "relative", zIndex: 1 }}>
-        <PrimaryButton tone="gold" onClick={onStart}>Get Started <ArrowRight s={18} c="var(--blue-dark)" /></PrimaryButton>
+        <PrimaryButton tone="gold" onClick={onStart}>Get Started <ArrowRight s={18} c="white" /></PrimaryButton>
       </div>
     </div>
   );
@@ -39,7 +39,7 @@ const SLIDES = [
     title: "Pure Water", accent: "for a Healthier Life",
     body: "RO purifiers, service & AMC — all in one place.",
     // eslint-disable-next-line @next/next/no-img-element
-    art: <img src="/products/parts/osmo-housing-1.jpg" alt="Genuine OSMO filter housing" width={220} height={220} style={{ display: "block", borderRadius: 28, boxShadow: "0 16px 40px rgba(4,36,107,0.18)" }} />,
+    art: <img src="/products/parts/osmo-housing-1.jpg" alt="Genuine OSMO filter housing" width={220} height={220} style={{ display: "block", borderRadius: 28, boxShadow: "0 16px 40px rgba(0,65,79,0.18)" }} />,
   },
   {
     title: "Book a Technician", accent: "in under a minute",
@@ -88,7 +88,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
         {SLIDES.map((_, i) => (
           <span key={i} style={{
             width: i === index ? 20 : 7, height: 7, borderRadius: 999,
-            background: i === index ? "var(--blue)" : "rgba(11,92,255,0.22)",
+            background: i === index ? "var(--blue)" : "rgba(0,134,158,0.22)",
             transition: "width 0.3s, background 0.3s",
           }} />
         ))}

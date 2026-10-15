@@ -44,7 +44,7 @@ export function ServicesHubScreen({ services, onOpen, onTrack, onOpenTech }: {
         {/* Hero */}
         <div style={{
           borderRadius: 22, padding: "18px 18px", color: "white", position: "relative", overflow: "hidden",
-          background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(11,92,255,0.28)",
+          background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(0,134,158,0.28)",
         }}>
           <div style={{ position: "absolute", right: -40, top: -60, width: 180, height: 180, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,166,35,0.3), transparent 70%)" }} />
           <p style={{ margin: 0, fontSize: 20, fontWeight: 800, lineHeight: 1.25, position: "relative" }}>Expert RO service<br /><span style={{ color: "var(--gold)" }}>at your doorstep</span></p>

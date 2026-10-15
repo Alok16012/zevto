@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BrandMark, Wordmark } from "../components/Brand";
-import { EmailPopup, signupEmailProblem } from "../components/Auth";
+import { EmailPopup, PasswordInput, ResetOffer, signupEmailProblem } from "../components/Auth";
+import RoleLoginForm from "../components/RoleLoginForm";
+import { AuthFooter, ROLE_NAME } from "../components/RoleSwitch";
 import { PrimaryButton, field, label } from "../components/ui";
 import { helpline } from "../storefront/content";
 import { PARTS, type Job } from "../lib/techData";
@@ -68,7 +70,7 @@ async function loadTechData(client: ReturnType<typeof sb>, uid: string): Promise
 /** Worksheet edits are saved shortly after the technician stops typing. */
 type Worksheet = Pick<Job, "checklist" | "tdsBefore" | "tdsAfter" | "parts" | "notes">;
 
-export default function TechnicianApp() {
+export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.ReactNode } = {}) {
   const session = useSession("technician");
   const isTech = roleOf(session ?? null) === "technician";
   const uid = isTech ? session!.user.id : null;
@@ -247,7 +249,7 @@ export default function TechnicianApp() {
   const logout = () => { setTab("jobs"); setOpenJob(null); setNewTask(false); void sb().auth.signOut(); };
 
   const shell = (children: React.ReactNode, nav = false) => (
-    <div style={{ position: "fixed", inset: 0, background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
+    <div className="zavtoo-app" style={{ position: "fixed", inset: 0, background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: SHELL_MAX_W, height: "100%", position: "relative", background: "var(--app-bg)", overflow: "hidden", boxShadow: "var(--shadow-float)", display: "flex", flexDirection: "column" }}>
         {children}
         {nav && <PartnerNav active={tab} onChange={(t) => { setTab(t); setOpenJob(null); setNewTask(false); setPartEditing(false); }} newRequest={incoming.length > 0} />}
@@ -263,7 +265,7 @@ export default function TechnicianApp() {
   );
 
   if (session === undefined) return shell(<Centered text="Loading…" />);
-  if (!isTech) return shell(<LoginScreen />);
+  if (!isTech) return shell(<LoginScreen roleSwitch={roleSwitch} />);
   if (live.error === "NO_TECH" || (live.error && /NO_TECH/.test(live.error))) {
     return shell(<Centered text="This login isn't linked to a technician profile yet. Ask your Zavtoo admin to finish setting it up." action={<button onClick={logout} style={linkBtn}>Log out</button>} />);
   }
@@ -342,7 +344,7 @@ function Centered({ text, action }: { text: string; action?: React.ReactNode }) 
 
 /* ───────────────────────── Login ───────────────────────── */
 
-function LoginScreen() {
+function LoginScreen({ roleSwitch }: { roleSwitch?: React.ReactNode }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -352,6 +354,7 @@ function LoginScreen() {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [emailPopup, setEmailPopup] = useState<{ reason: string; suggestion: string | null } | null>(null);
+  const [forgotStart, setForgotStart] = useState(false);
   const signup = mode === "signup";
 
   const problem = !signup ? (!email || !password ? "" : null)
@@ -364,9 +367,12 @@ function LoginScreen() {
   const login = async () => {
     const { data, error } = await sb().auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
     if (error) throw error;
-    if (roleOf(data.session) !== "technician") {
+    const role = roleOf(data.session);
+    if (role !== "technician") {
       await sb().auth.signOut();
-      throw new Error("This isn't a technician account. Customers should use the Zavtoo app instead.");
+      throw new Error(role === "customer" || role === "dealer"
+        ? `This is a ${ROLE_NAME[role].toLowerCase()} account. Choose ${ROLE_NAME[role]} under "Log in as".`
+        : "This isn't a technician account.");
     }
   };
 
@@ -396,15 +402,22 @@ function LoginScreen() {
   const switchMode = () => { setMode(signup ? "login" : "signup"); setErr(null); };
   const change = (set: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => { set(e.target.value); setErr(null); };
 
+  if (!signup) return <RoleLoginForm key={String(forgotStart)} initialForgot={forgotStart} role="technician" email={email} password={password}
+    onEmail={(value) => { setEmail(value); setErr(null); }}
+    onPassword={(value) => { setPassword(value); setErr(null); }}
+    onSubmit={submit} onSignup={switchMode} roleSwitch={roleSwitch}
+    busy={busy} disabled={problem === ""} error={err} help={helpline("Technician help")} />;
+
   return (
-    <form onSubmit={submit} className="fade-up no-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", padding: "0 20px" }}>
+    <form onSubmit={submit} className="fade-up no-scroll app-registration" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", padding: "0 20px" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingTop: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <BrandMark size={48} />
           <Wordmark />
         </div>
-        <span style={{ alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>PARTNER APP{signup ? " · STEP 1 OF 2" : ""}</span>
-        <h1 style={{ margin: "12px 0 4px", fontSize: 26, fontWeight: 800 }}>{signup ? "Become a Zavtoo partner" : "Technician login"}</h1>
+        {!signup && roleSwitch}
+        <span style={{ display: !signup && roleSwitch ? "none" : undefined, alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>PARTNER APP{signup ? " · STEP 1 OF 2" : ""}</span>
+        <h1 style={{ margin: !signup && roleSwitch ? "22px 0 4px" : "12px 0 4px", fontSize: 26, fontWeight: 800 }}>{signup ? "Become a Zavtoo partner" : "Technician login"}</h1>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
           {signup ? "Create your technician profile. You'll start getting jobs once Zavtoo verifies your KYC." : "Use the email and password Zavtoo gave you."}
         </p>
@@ -426,9 +439,10 @@ function LoginScreen() {
           <label style={{ ...label, marginTop: signup ? 14 : 0 }} htmlFor="t-email">Email</label>
           <input id="t-email" type="email" autoComplete="username" value={email} onChange={change(setEmail)} style={field} />
           <label style={{ ...label, marginTop: 14 }} htmlFor="t-pass">{signup ? "Create a password" : "Password"}</label>
-          <input id="t-pass" type="password" autoComplete={signup ? "new-password" : "current-password"} value={password} onChange={change(setPassword)} style={field}
+          <PasswordInput id="t-pass" autoComplete={signup ? "new-password" : "current-password"} value={password} onChange={change(setPassword)} style={field}
             placeholder={signup ? "At least 8 characters" : undefined} />
           {err && <p role="alert" style={{ margin: "10px 2px 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>}
+          {err && /already used/.test(err) && <ResetOffer onReset={() => { setForgotStart(true); setMode("login"); setErr(null); }} onLogin={() => { setMode("login"); setErr(null); }} />}
         </div>
       </div>
       <div style={{ padding: "16px 0 calc(24px + env(safe-area-inset-bottom))" }}>
@@ -439,6 +453,7 @@ function LoginScreen() {
         </p>
         {emailPopup && <EmailPopup {...emailPopup} onClose={() => setEmailPopup(null)} onUse={(s) => { setEmail(s); setEmailPopup(null); setErr(null); }} />}
         {!signup && <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "10px 0 0" }}>Forgot your password? Call technician help at <a href={helpline("Technician help").href} style={{ color: "var(--blue)", fontWeight: 600 }}>{helpline("Technician help").number}</a></p>}
+        {roleSwitch && <AuthFooter />}
       </div>
     </form>
   );
@@ -447,13 +462,13 @@ function LoginScreen() {
 /* ───────────────────────── Bottom nav ───────────────────────── */
 
 const NavIcon = ({ id, c }: { id: Tab; c: string }) => {
-  const p = { width: 21, height: 21, viewBox: "0 0 24 24", fill: "none", stroke: c, strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  const p = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: c, strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
   switch (id) {
-    case "jobs": return <svg {...p}><rect x="4" y="5" width="16" height="15" rx="2.5" fill={c} stroke="none" /><path d="M9 3.5v3M15 3.5v3" /><path d="M8.5 13l2.3 2.3 4.7-4.7" stroke="white" /></svg>;
-    case "inventory": return <svg {...p}><path d="M3.5 8L12 3.5 20.5 8v8.5L12 21l-8.5-4.5z" fill={c} stroke="none" /><path d="M3.8 8.2L12 12.5l8.2-4.3M12 12.5V21" stroke="white" strokeWidth={1.6} /></svg>;
-    case "parts": return <svg {...p}><path d="M14.7 6.3a4 4 0 0 0 5 5L21 12.6a6 6 0 0 1-7.7.8L6 20.7a2 2 0 0 1-2.8-2.8l7.3-7.3a6 6 0 0 1 .8-7.7l1.3 1.3a4 4 0 0 0 2.1 2.1z" fill={c} stroke="none" /></svg>;
-    case "earnings": return <svg {...p}><rect x="3" y="6" width="18" height="13" rx="2.5" fill={c} stroke="none" /><circle cx="12" cy="12.5" r="2.6" stroke="white" strokeWidth={1.7} /></svg>;
-    default: return <svg {...p}><circle cx="12" cy="7.8" r="4.3" fill={c} stroke="none" /><path d="M3.8 20.2a8.2 8.2 0 0 1 16.4 0 1 1 0 0 1-1 1H4.8a1 1 0 0 1-1-1z" fill={c} stroke="none" /></svg>;
+    case "jobs": return <svg {...p}><rect x="4" y="5" width="16" height="16" rx="3" /><path d="M8 3v4M16 3v4M4 11h16m-11 5 2 2 4-4" /></svg>;
+    case "inventory": return <svg {...p}><path d="m3 7 9-4 9 4v10l-9 4-9-4ZM3 7l9 5 9-5M12 12v9M7 5l10 5" /></svg>;
+    case "parts": return <svg {...p}><path d="M14.5 6.5 18 3a7 7 0 0 0-9 8.8l-7 7a2.8 2.8 0 0 0 4 4l7-7A7 7 0 0 0 21.8 7l-3.5 3.5-3.8-4Z" /></svg>;
+    case "earnings": return <svg {...p}><rect x="3" y="5" width="18" height="15" rx="3" /><path d="M3 10h18M7 16h4" /></svg>;
+    default: return <svg {...p}><circle cx="12" cy="7" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></svg>;
   }
 };
 
@@ -464,13 +479,13 @@ const TABS: { id: Tab; label: string }[] = [
 function PartnerNav({ active, onChange, newRequest }: { active: Tab; onChange: (t: Tab) => void; newRequest: boolean }) {
   return (
     <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "0 14px calc(10px + env(safe-area-inset-bottom))", pointerEvents: "none", zIndex: 50 }}>
-      <nav style={{
+      <nav className="app-bottom-nav" aria-label="Main navigation" style={{
         display: "flex", background: "rgba(255,255,255,0.94)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
         borderRadius: 999, padding: 4, boxShadow: "0 8px 24px rgba(15,23,41,0.14)", pointerEvents: "auto",
       }}>
         {TABS.map((t) => {
           const on = t.id === active;
-          const color = on ? "var(--blue)" : "var(--ink)";
+          const color = on ? "white" : "var(--ink-soft)";
           return (
             <button key={t.id} aria-label={t.label} aria-current={on ? "page" : undefined} onClick={() => onChange(t.id)} style={{
               flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, position: "relative",

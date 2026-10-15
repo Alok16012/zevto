@@ -29,13 +29,13 @@ function Portrait({ id, size }: { id: string; size: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" style={{ display: "block" }}>
       <defs>
-        <linearGradient id={`bg-${uid}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#dce9fd" /><stop offset="1" stopColor="#b9d2fb" /></linearGradient>
+        <linearGradient id={`bg-${uid}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#dff6f2" /><stop offset="1" stopColor="#a9dfdb" /></linearGradient>
         <clipPath id={`clip-${uid}`}><circle cx="32" cy="32" r="32" /></clipPath>
       </defs>
       <g clipPath={`url(#clip-${uid})`}>
         <rect width="64" height="64" fill={`url(#bg-${uid})`} />
         {/* Uniform */}
-        <path d="M8 64c0-11 9-17.5 24-17.5S56 53 56 64z" fill="#0b5cff" />
+        <path d="M8 64c0-11 9-17.5 24-17.5S56 53 56 64z" fill="#00869e" />
         <path d="M25 47.5l7 7 7-7" fill="none" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
         <path d="M44.5 55.5s-1.6 1.9-1.6 2.9a1.6 1.6 0 0 0 3.2 0c0-1-1.6-2.9-1.6-2.9z" fill="#f5a623" />
         {/* Neck + head */}
@@ -63,7 +63,7 @@ export default function TechAvatar({ id, name, size = 44, ring, photoUrl }: { id
   return (
     <span role="img" aria-label={`Photo of ${name}`} style={{
       width: size, height: size, borderRadius: "50%", overflow: "hidden", flexShrink: 0, display: "inline-block",
-      boxShadow: ring ? "0 0 0 2.5px white, 0 2px 8px rgba(11,92,255,0.3)" : undefined, background: "var(--blue-pale)",
+      boxShadow: ring ? "0 0 0 2.5px white, 0 2px 8px rgba(0,134,158,0.3)" : undefined, background: "var(--blue-pale)",
     }}>
       {photo
         // eslint-disable-next-line @next/next/no-img-element

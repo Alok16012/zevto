@@ -54,7 +54,7 @@ export function friendly(err: unknown): string {
 
 /** Emails a link to /reset-password where the person picks a new password.
  * Supabase doesn't say whether the email has an account, so neither do we. */
-export async function sendPasswordReset(app: "customer" | "admin", email: string) {
+export async function sendPasswordReset(app: "customer" | "technician" | "dealer" | "admin", email: string) {
   const { error } = await supabaseFor(app).auth.resetPasswordForEmail(email.trim().toLowerCase(), {
     redirectTo: `${window.location.origin}/reset-password?app=${app}`,
   });

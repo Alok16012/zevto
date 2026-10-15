@@ -26,7 +26,7 @@ export function OffersPage({ onBack, onShop, onBook }: { onBack: () => void; onS
       <div style={{ padding: "0 16px 24px" }}>
         <div style={{
           borderRadius: 20, padding: "16px 18px", marginBottom: 14, color: "white", position: "relative", overflow: "hidden",
-          background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(11,92,255,0.28)",
+          background: "linear-gradient(150deg,var(--blue-dark),var(--blue))", boxShadow: "0 10px 28px rgba(0,134,158,0.28)",
         }}>
           <div style={{ position: "absolute", right: -40, top: -50, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,166,35,0.35), transparent 70%)" }} />
           <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>Festive season</p>

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
+import "./mobile-theme.css";
 
 // Same typeface as the CLATians student app — self-hosted via next/font.
 const poppins = Poppins({

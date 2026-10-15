@@ -6,17 +6,17 @@ import type { OrderStatus } from "../lib/data";
 /** Detail-page header: back arrow + title on the canvas, optional actions right. */
 export function PageHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: React.ReactNode }) {
   return (
-    <div style={{
+    <div className="app-page-header" style={{
       display: "flex", alignItems: "center", gap: 14, padding: "18px 16px 12px",
-      position: "sticky", top: 0, zIndex: 20, background: "var(--app-bg)",
+      position: "sticky", top: 0, zIndex: 20, background: "var(--header-gradient, var(--app-bg))",
     }}>
       {onBack && (
         <button onClick={onBack} aria-label="Back" className="press" style={iconBtn}>
           <BackIcon c="var(--ink)" />
         </button>
       )}
-      <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: "var(--ink)", flex: 1 }}>{title}</h2>
-      {right && <div style={{ display: "flex", alignItems: "center", gap: 18 }}>{right}</div>}
+      <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: "var(--ink)", flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>{title}</h2>
+      {right && <div className="app-header-actions" style={{ display: "flex", alignItems: "center", gap: 18 }}>{right}</div>}
     </div>
   );
 }
@@ -29,7 +29,7 @@ export const iconBtn: React.CSSProperties = {
 /** Segmented pill tabs — white track, blue active pill. */
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: string }[]; value: T; onChange: (id: T) => void }) {
   return (
-    <div style={{
+    <div className="app-tabs" style={{
       display: "flex", background: "var(--surface)", borderRadius: 999, padding: 4,
       boxShadow: "var(--shadow-card)",
     }}>
@@ -75,20 +75,20 @@ export function PrimaryButton({ children, onClick, disabled, tone = "blue", styl
 }) {
   const gold = tone === "gold";
   return (
-    <button onClick={onClick} disabled={disabled} className="press" style={{
+    <button onClick={onClick} disabled={disabled} className="press app-primary-button" style={{
       width: "100%", border: "none", borderRadius: 16, padding: "15px 18px",
       fontSize: 15, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
       display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-      background: disabled ? "var(--line-strong)" : gold ? "linear-gradient(135deg,var(--gold),var(--gold-dark))" : "linear-gradient(135deg,var(--blue),var(--blue-dark))",
-      color: disabled ? "var(--ink-mute)" : gold ? "var(--blue-dark)" : "white",
-      boxShadow: disabled ? "none" : gold ? "0 6px 16px rgba(245,166,35,0.40)" : "0 6px 16px rgba(11,92,255,0.30)",
+      background: disabled ? "var(--line-strong)" : gold ? "var(--action-gradient, linear-gradient(135deg,var(--gold),var(--gold-dark)))" : "var(--action-gradient, linear-gradient(135deg,var(--blue),var(--blue-dark)))",
+      color: disabled ? "var(--ink-mute)" : gold ? "var(--action-ink, var(--blue-dark))" : "white",
+      boxShadow: disabled ? "none" : gold ? "var(--action-shadow, 0 6px 16px rgba(245,166,35,0.20))" : "var(--action-shadow, 0 6px 16px rgba(0,134,158,0.30))",
       ...style,
     }}>{children}</button>
   );
 }
 
 export const card: React.CSSProperties = {
-  background: "var(--surface)", borderRadius: 18, boxShadow: "var(--shadow-card)",
+  background: "var(--surface)", borderRadius: 20, boxShadow: "var(--shadow-card)",
 };
 
 export const label: React.CSSProperties = {
@@ -96,8 +96,8 @@ export const label: React.CSSProperties = {
 };
 
 export const field: React.CSSProperties = {
-  width: "100%", background: "var(--surface)", border: "1.5px solid var(--line)",
-  borderRadius: 14, padding: "13px 14px", fontSize: 14, color: "var(--ink)", outline: "none",
+  width: "100%", background: "var(--surface-input)", border: "1.5px solid var(--line)",
+  borderRadius: 16, padding: "14px 15px", fontSize: 14, color: "var(--ink)", outline: "none",
 };
 
 /** Sticky footer bar for detail pages with a main action. */
@@ -106,7 +106,7 @@ export function Footer({ children }: { children: React.ReactNode }) {
     <div style={{
       position: "sticky", bottom: 0, zIndex: 20,
       padding: "12px 16px calc(14px + env(safe-area-inset-bottom))",
-      background: "linear-gradient(to top, var(--app-bg) 75%, rgba(238,241,251,0))",
+      background: "linear-gradient(to top, var(--app-bg) 75%, transparent)",
     }}>{children}</div>
   );
 }
@@ -170,7 +170,7 @@ export function Avatar({ initials, size = 44 }: { initials: string; size?: numbe
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%", flexShrink: 0,
-      background: "linear-gradient(135deg,var(--blue),var(--blue-dark))", color: "white",
+      background: "var(--action-gradient, linear-gradient(135deg,var(--blue),var(--blue-dark)))", color: "white",
       display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.32, fontWeight: 700,
     }}>{initials}</div>
   );

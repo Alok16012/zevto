@@ -108,7 +108,7 @@ function LiveMap({ position, home, techId, techName }: { position: LivePoint; ho
       const initials = techName.split(" ").map((w) => w[0]).join("").slice(0, 2);
       // Built with DOM nodes, not an HTML string — the photo URL comes from user data.
       const badge = document.createElement("div");
-      badge.style.cssText = "width:38px;height:38px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 6px rgba(11,92,255,.25),0 2px 8px rgba(0,0,0,.3);overflow:hidden;background:#0b5cff;color:white;font:700 13px sans-serif;display:flex;align-items:center;justify-content:center";
+      badge.style.cssText = "width:38px;height:38px;border-radius:50%;border:3px solid white;box-shadow:0 0 0 6px rgba(0,134,158,.25),0 2px 8px rgba(0,0,0,.3);overflow:hidden;background:#00869e;color:white;font:700 13px sans-serif;display:flex;align-items:center;justify-content:center";
       if (photo && /^https:\/\//.test(photo)) {
         const img = document.createElement("img");
         img.src = photo;
@@ -147,7 +147,7 @@ function LiveMap({ position, home, techId, techName }: { position: LivePoint; ho
     }
   }, [position.lat, position.lng, home]);
 
-  return <div ref={el} role="img" aria-label={`Map showing ${techName}'s live location`} style={{ height: 220, width: "100%", background: "#eef2f7" }} />;
+  return <div ref={el} role="img" aria-label={`Map showing ${techName}'s live location`} style={{ height: 220, width: "100%", background: "#edf7f6" }} />;
 }
 
 /** Before the ride starts the customer sees who is coming, but not where they are. */

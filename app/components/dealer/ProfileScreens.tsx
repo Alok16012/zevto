@@ -4,7 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, EditIcon, HelpIcon, PinIcon, ShieldIcon, StoreIcon, UsersIcon } from "../icons";
 import { BrandMark, Wordmark } from "../Brand";
-import { EmailPopup, signupEmailProblem } from "../Auth";
+import { EmailPopup, PasswordInput, ResetOffer, signupEmailProblem } from "../Auth";
+import RoleLoginForm from "../RoleLoginForm";
+import { AuthFooter } from "../RoleSwitch";
 import { Footer, PageHeader, PrimaryButton, card, iconBtn } from "../ui";
 import { Badge, Empty, Field, inputStyle, sectionH } from "./kit";
 import { Avatar } from "./WorkScreens";
@@ -27,15 +29,17 @@ export interface DealerSignup {
   gstin: string; address: string; city: string; pincodes: string[];
 }
 
-export function DealerAuthScreen({ onLogin, onSignup }: {
+export function DealerAuthScreen({ onLogin, onSignup, roleSwitch }: {
   onLogin: (email: string, password: string) => Promise<string | null>;
   onSignup: (d: DealerSignup) => Promise<string | null>;
+  roleSwitch?: React.ReactNode;
 }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [f, setF] = useState({ shopName: "", owner: "", phone: "", email: "", password: "", gstin: "", address: "", city: "", pincode: "", areas: "" });
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [emailPopup, setEmailPopup] = useState<{ reason: string; suggestion: string | null } | null>(null);
+  const [forgotStart, setForgotStart] = useState(false);
   const signup = mode === "signup";
   const set = (k: keyof typeof f, clean: (v: string) => string = (v) => v) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { const v = clean(e.target.value); setF((p) => ({ ...p, [k]: v })); setErr(null); };
@@ -77,12 +81,19 @@ export function DealerAuthScreen({ onLogin, onSignup }: {
   const switchMode = () => { setMode(signup ? "login" : "signup"); setErr(null); };
   const linkBtn: React.CSSProperties = { background: "none", border: "none", color: "var(--blue)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 };
 
+  if (!signup) return <RoleLoginForm key={String(forgotStart)} initialForgot={forgotStart} role="dealer" email={f.email} password={f.password}
+    onEmail={(value) => { setF((previous) => ({ ...previous, email: value })); setErr(null); }}
+    onPassword={(value) => { setF((previous) => ({ ...previous, password: value })); setErr(null); }}
+    onSubmit={submit} onSignup={switchMode} roleSwitch={roleSwitch}
+    busy={busy} error={err} help={DEALER_HELP} />;
+
   return (
-    <form onSubmit={submit} className="fade-up no-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", padding: "0 20px" }}>
+    <form onSubmit={submit} className="fade-up no-scroll app-registration" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", padding: "0 20px" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingTop: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}><BrandMark size={44} /><Wordmark /></div>
-        <span style={{ alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>DEALER APP</span>
-        <h1 style={{ margin: "12px 0 4px", fontSize: 25, fontWeight: 800, lineHeight: 1.2 }}>{signup ? "Grow your RO business with Zavtoo" : "Dealer login"}</h1>
+        {!signup && roleSwitch}
+        <span style={{ display: !signup && roleSwitch ? "none" : undefined, alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>DEALER APP</span>
+        <h1 style={{ margin: !signup && roleSwitch ? "22px 0 4px" : "12px 0 4px", fontSize: 25, fontWeight: 800, lineHeight: 1.2 }}>{signup ? "Grow your RO business with Zavtoo" : "Dealer login"}</h1>
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.55 }}>
           {signup
             ? "List the purifiers and spares you stock, get orders from customers in your pincodes, and send your technicians on Zavtoo service jobs."
@@ -104,7 +115,7 @@ export function DealerAuthScreen({ onLogin, onSignup }: {
           )}
           <Field id="d-email" label="Email"><input id="d-email" type="email" autoComplete="username" value={f.email} onChange={set("email")} style={inputStyle()} /></Field>
           <Field id="d-pass" label={signup ? "Create a password" : "Password"}>
-            <input id="d-pass" type="password" autoComplete={signup ? "new-password" : "current-password"} value={f.password} onChange={set("password")}
+            <PasswordInput id="d-pass" autoComplete={signup ? "new-password" : "current-password"} value={f.password} onChange={set("password")}
               placeholder={signup ? "At least 8 characters" : undefined} style={inputStyle()} />
           </Field>
           {signup && (
@@ -126,6 +137,7 @@ export function DealerAuthScreen({ onLogin, onSignup }: {
             </>
           )}
           {err && <p role="alert" style={{ margin: "0 2px", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>}
+          {err && /already used/.test(err) && <ResetOffer onReset={() => { setForgotStart(true); setMode("login"); setErr(null); }} onLogin={() => { setMode("login"); setErr(null); }} />}
         </div>
       </div>
       <div style={{ padding: "16px 0 calc(24px + env(safe-area-inset-bottom))" }}>
@@ -136,6 +148,7 @@ export function DealerAuthScreen({ onLogin, onSignup }: {
         </p>
         {emailPopup && <EmailPopup {...emailPopup} onClose={() => setEmailPopup(null)} onUse={(s) => { setF((p) => ({ ...p, email: s })); setEmailPopup(null); setErr(null); }} />}
         {!signup && <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-mute)", margin: "10px 0 0" }}>Forgot your password? Call <a href={DEALER_HELP.href} style={{ color: "var(--blue)", fontWeight: 600 }}>{DEALER_HELP.number}</a></p>}
+        {roleSwitch && <AuthFooter />}
       </div>
     </form>
   );
@@ -239,7 +252,7 @@ export function DealerProfileScreen({ data, onOpen, onLogout }: { data: DealerDa
       <div style={{ padding: "0 16px" }}>
         <div style={{ ...card, padding: "18px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <span style={{ width: 58, height: 58, borderRadius: 16, flexShrink: 0, background: "linear-gradient(135deg,var(--blue),var(--blue-dark))", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(11,92,255,0.3)" }}>
+            <span style={{ width: 58, height: 58, borderRadius: 16, flexShrink: 0, background: "linear-gradient(135deg,var(--blue),var(--blue-dark))", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(0,134,158,0.3)" }}>
               <StoreIcon s={28} c="white" />
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
