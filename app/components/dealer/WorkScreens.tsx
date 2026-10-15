@@ -9,7 +9,7 @@ import { Badge, Chips, Empty, JOB_LABEL, JOB_TONE, ORDER_TONE, Row, ghostBtn, in
 import { inr } from "../../lib/data";
 import { fmtDay, type DbTechnician } from "../../lib/catalog";
 import { fmtDateOnly, fmtStamp, type DbRequest } from "../../lib/db";
-import { LOW_STOCK, assignable, isOpenJob, type DbDealerOrder, type DealerData, type DealerOrderStatus } from "../../lib/dealerData";
+import { LOW_STOCK, assignable, isOpenJob, type DealerData, type DealerOrderStatus, type ShopOrder } from "../../lib/dealerData";
 
 const tel = (p: string) => `tel:+91${p.replace(/\D/g, "").slice(-10)}`;
 const canWork = (t: DbTechnician) => t.active && t.kyc === "Verified";
@@ -160,7 +160,7 @@ function SectionHead({ title, onAll }: { title: string; onAll: () => void }) {
 
 /* ───────────────────────── Orders ───────────────────────── */
 
-function OrderCard({ order: o, onOpen }: { order: DbDealerOrder; onOpen: () => void }) {
+function OrderCard({ order: o, onOpen }: { order: ShopOrder; onOpen: () => void }) {
   const units = o.items.reduce((s, i) => s + i.qty, 0);
   return (
     <button onClick={onOpen} className="press" style={{ ...card, width: "100%", border: "none", padding: 14, cursor: "pointer", textAlign: "left" }}>
@@ -180,14 +180,16 @@ function OrderCard({ order: o, onOpen }: { order: DbDealerOrder; onOpen: () => v
 
 type OrderFilter = "open" | DealerOrderStatus | "all";
 
-export function DealerOrdersScreen({ orders, onOpen }: { orders: DbDealerOrder[]; onOpen: (id: string) => void }) {
+export function DealerOrdersScreen({ orders, onOpen, onBack, empty = "When a customer in your pincodes buys one of your live listings, the order lands here." }: {
+  orders: ShopOrder[]; onOpen: (id: string) => void; onBack?: () => void; empty?: string;
+}) {
   const [f, setF] = useState<OrderFilter>("open");
   const count = (s: DealerOrderStatus) => orders.filter((o) => o.status === s).length;
   const rows = orders.filter((o) => f === "all" || (f === "open" ? ["New", "Accepted", "Shipped"].includes(o.status) : o.status === f));
 
   return (
     <div>
-      <PageHeader title="Orders" />
+      <PageHeader title="Orders" onBack={onBack} />
       <div style={{ padding: "0 16px 24px" }}>
         <Chips<OrderFilter> value={f} onChange={setF} items={[
           { id: "open", label: "Open", count: count("New") + count("Accepted") + count("Shipped") },
@@ -197,7 +199,7 @@ export function DealerOrdersScreen({ orders, onOpen }: { orders: DbDealerOrder[]
           { id: "all", label: "All", count: orders.length },
         ]} />
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
-          {orders.length === 0 && <Empty title="No orders yet" body="When a customer in your pincodes buys one of your live listings, the order lands here." />}
+          {orders.length === 0 && <Empty title="No orders yet" body={empty} />}
           {orders.length > 0 && rows.length === 0 && <p style={{ textAlign: "center", color: "var(--ink-soft)", fontSize: 13.5, padding: "30px 0" }}>Nothing here.</p>}
           {rows.map((o) => <OrderCard key={o.id} order={o} onOpen={() => onOpen(o.id)} />)}
         </div>
@@ -214,7 +216,7 @@ const NEXT_ACTION: Partial<Record<DealerOrderStatus, [DealerOrderStatus, string]
 };
 
 export function DealerOrderDetail({ order: o, onBack, onStatus }: {
-  order: DbDealerOrder; onBack: () => void; onStatus: (s: DealerOrderStatus, reason?: string) => Promise<boolean>;
+  order: ShopOrder; onBack: () => void; onStatus: (s: DealerOrderStatus, reason?: string) => Promise<boolean>;
 }) {
   const step = ORDER_FLOW.indexOf(o.status);
   const next = NEXT_ACTION[o.status];

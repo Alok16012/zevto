@@ -45,7 +45,9 @@ export interface Product {
   images?: string[];
   /** Set on listings from a local dealer rather than Zavtoo itself. */
   dealerId?: string;
-  /** "Shop name, City" of that dealer. */
+  /** Set on spare parts a Zavtoo technician sells from their own stock. */
+  techId?: string;
+  /** "Shop name, City" of that dealer, or "Name · Zavtoo technician". */
   soldBy?: string;
 }
 

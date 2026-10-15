@@ -181,7 +181,7 @@ export function ProductDetailPage({ id, onBack, onAdd, onBuyNow, wished, onToggl
             <PinIcon s={20} c="var(--teal-text)" />
             <div>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>Sold by {p.soldBy}</p>
-              <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>Verified Zavtoo dealer · delivers in their area only</p>
+              <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-soft)" }}>{p.techId ? "Verified technician · delivers in their service area only" : "Verified Zavtoo dealer · delivers in their area only"}</p>
             </div>
           </div>
         ) : (

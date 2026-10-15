@@ -1,5 +1,7 @@
 #!/bin/sh
-# Builds the three iOS apps (customer, partner, dealer).
+# Builds the Zavtoo iOS app — one app for customers, technicians and dealers
+# (they pick on the login screen). APPS="customer partner dealer" also builds
+# the old separate apps.
 #
 #   ./build-ios.sh                      → simulator builds in dist/ios-simulator/
 #   DEVELOPMENT_TEAM=ABCDE12345 ./build-ios.sh
@@ -13,7 +15,7 @@ npx -y node@22 node_modules/@capacitor/cli/bin/capacitor sync ios
 PROJECT=ios/App/App.xcodeproj
 BUILD=ios/App/build
 
-for APP in customer partner dealer; do
+for APP in ${APPS:-customer}; do
   CONFIG="ios/$APP.xcconfig"
   if [ -n "$DEVELOPMENT_TEAM" ]; then
     xcodebuild -project "$PROJECT" -scheme App -configuration Release -xcconfig "$CONFIG" \

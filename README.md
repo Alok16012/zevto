@@ -10,9 +10,11 @@ Website, customer app, technician (partner) app, dealer app and admin console fo
 | `/dealer` | Dealers (local RO shops) | email + password (register the shop in the app) |
 | `/admin` | Super admin / admins | email + password |
 
+`/app`, `/technician` and `/dealer` are one app (`app/ZavtooApp.tsx`): logged out, it opens on a **Log in as Customer / Technician / Dealer** screen and then that role's login; whoever is already signed in goes straight into their app. `/technician` and `/dealer` skip the chooser. The mobile app opens `/app`.
+
 ## Production setup
 
-1. **Database** — Supabase → SQL Editor → run `supabase/schema.sql`. Already set up before the dealer app? Running `supabase/dealer-migration.sql` adds just the dealer parts. It is safe to re-run and creates the tables, row-level security, server-side business functions, notification triggers, realtime, photo storage and the starting catalogue.
+1. **Database** — Supabase → SQL Editor → run `supabase/schema.sql`. Already set up before the dealer app? Running `supabase/dealer-migration.sql` adds just the dealer parts, and `supabase/technician-shop-migration.sql` just the technician shop (run it after the dealer one). It is safe to re-run and creates the tables, row-level security, server-side business functions, notification triggers, realtime, photo storage and the starting catalogue.
 2. **Environment** — set in `.env.local` locally **and** in Netlify → Site settings → Environment variables:
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (public)
    - `SUPABASE_SERVICE_ROLE_KEY` (**secret, server only** — used by `/api/signup`, `/api/technician-signup`, `/api/dealer-signup`, `/api/dealer/technicians` and `/api/admin/technicians`)
@@ -36,6 +38,7 @@ Website, customer app, technician (partner) app, dealer app and admin console fo
 - Customers chat with support from the app; admins answer in Admin → Support Chat.
 - **Dealers** list products (their own, or a Zavtoo model with its official photos). A listing is a normal `products` row with `dealer_id` set, so it shows in the app and website as "Sold by *Shop, City*" and goes through the same `place_order` checkout — which only lets customers whose delivery pincode the dealer serves buy it. Each order is split into a `dealer_orders` row per dealer; the dealer accepts → dispatches → delivers (or rejects, which puts the stock back). When the whole order is that dealer's, the customer's order and notifications follow along; mixed orders stay with ops. Pausing a dealer in admin hides all their listings.
 - Dealers see unassigned service jobs in their pincodes and their own technicians' jobs, and can assign them to verified technicians on their team (`dealer_assign_job`). Technicians a dealer adds still need Zavtoo KYC.
+- **Technician shop** — technicians buy Zavtoo products in Partner app → Shop → *Buy stock* (`tech_buy`, at Zavtoo's price). Ops tap **Mark delivered** in Admin → Technician Shop (`admin_tech_purchase`), which takes the units out of Zavtoo's stock and into the technician's shop (`tech_listings`). Technicians set their own price (up to MRP), switch items on/off and mark units used outside the app. Each item is a `products` row with `tech_id` set, shown as "Sold by *Name* · Zavtoo technician" to customers in that technician's pincodes, checked out through `place_order` and handed to the technician as a `tech_orders` row (accept → dispatch → deliver, or reject to put the stock back), same as dealer orders. Paying Zavtoo for stock is settled offline with ops for now.
 - RO photos are stored privately (customer, their technician and staff only); technician photos are public.
 
 ## Still needs third-party services

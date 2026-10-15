@@ -70,7 +70,7 @@ export function AuthFooter() {
     <nav aria-label="Legal" style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "6px 20px", marginTop: 16 }}>
       <Link href="/privacy-policy" style={footLink}>Privacy policy</Link>
       <Link href="/terms-and-condition" style={footLink}>Terms &amp; conditions</Link>
-      <a href={`mailto:${COMPANY.email}?subject=${encodeURIComponent("Delete my Zavtoo account")}`} style={footLink}>Delete account</a>
+      <Link href="/delete-account" style={footLink}>Delete account</Link>
     </nav>
   );
 }

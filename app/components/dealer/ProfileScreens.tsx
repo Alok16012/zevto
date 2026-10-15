@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { PrivacyLinks } from "../PrivacyLinks";
 import { ChevronRight, EditIcon, HelpIcon, PinIcon, ShieldIcon, StoreIcon, UsersIcon } from "../icons";
 import { BrandMark, Wordmark } from "../Brand";
 import { EmailPopup, PasswordInput, ResetOffer, signupEmailProblem } from "../Auth";
@@ -313,6 +314,7 @@ export function DealerProfileScreen({ data, onOpen, onLogout }: { data: DealerDa
         <Link href="/" className="press" style={{ display: "block", textAlign: "center", background: "var(--surface)", color: "var(--blue)", borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, textDecoration: "none" }}>
           See your listings on zavtoo.in
         </Link>
+        <PrivacyLinks />
         <button onClick={onLogout} className="press" style={{ width: "100%", background: "var(--surface)", color: "var(--red)", border: "none", borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Log Out</button>
       </div>
     </div>

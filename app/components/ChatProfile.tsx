@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { PrivacyLinks } from "./PrivacyLinks";
 import { BackIcon, BagIcon, CardIcon, ChevronRight, ClipIcon, GearIcon, GiftIcon, HelpIcon, HistoryIcon, InfoIcon, PinIcon, SendIcon, ShieldIcon, BellIcon, StarLineIcon, TagIcon, WalletIcon } from "./icons";
 import { Avatar, PageHeader, card, iconBtn } from "./ui";
 import { BrandMark } from "./Brand";
@@ -243,6 +244,7 @@ export function ProfileScreen({ user, stats, walletBalance, unreadNotifs, onMenu
       ))}
 
       <div style={{ padding: "22px 16px 12px" }}>
+        <PrivacyLinks />
         <button onClick={onLogout} className="press" style={{
           width: "100%", background: "var(--surface)", color: "var(--red)", border: "none", borderRadius: 16,
           padding: 15, fontSize: 15, fontWeight: 600, cursor: "pointer",

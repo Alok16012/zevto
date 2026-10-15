@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { PrivacyLinks } from "../components/PrivacyLinks";
 import { CheckIcon, StarIcon } from "../components/icons";
 import { BottomSheet, PageHeader, PrimaryButton, card, sectionTitle } from "../components/ui";
 import TechAvatar, { photoToDataUrl } from "../components/TechAvatar";
@@ -292,6 +293,7 @@ export function PartnerProfileScreen({ tech, kyc, email, dealer, reviews, onLogo
         </div>
 
         <div style={{ marginTop: 22 }}>
+          <PrivacyLinks />
           <button onClick={onLogout} className="press" style={{ width: "100%", background: "var(--surface)", color: "var(--red)", border: "none", borderRadius: 16, padding: 15, fontSize: 15, fontWeight: 600, cursor: "pointer" }}>Log Out</button>
           <p style={{ textAlign: "center", fontSize: 12, marginTop: 14 }}>
             <Link href="/" style={{ color: "var(--blue)", fontWeight: 600, textDecoration: "none" }}>Open customer app →</Link>

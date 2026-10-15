@@ -8,7 +8,7 @@ import { AuthFooter, ROLE_NAME } from "../components/RoleSwitch";
 import { PrimaryButton, field, label } from "../components/ui";
 import { helpline } from "../storefront/content";
 import { PARTS, type Job } from "../lib/techData";
-import { TECHNICIANS, type Review } from "../lib/data";
+import { PRODUCTS, TECHNICIANS, type Review } from "../lib/data";
 import { friendly, roleOf, supabaseFor, useLive, useSession } from "../lib/supabase";
 import { toTechnician, useCatalog, type DbTechnician } from "../lib/catalog";
 import { etaMinutes, fmtDateOnly, fmtStamp, kmBetween, toJob, toReview, type DbRequest, type DbReview } from "../lib/db";
@@ -19,6 +19,10 @@ import { NewTaskPage, SentToOpsList, type NewTask, type SentTask, type TaskRoute
 import { ServiceAreaEditor } from "./ServiceArea";
 import { EarningsScreen, InventoryScreen, PartnerProfileScreen, type MyStockRequest, type Payout } from "./PartnerScreens";
 import { PartsGalleryScreen } from "./PartsGallery";
+import { BuyStockPage, TechShopScreen } from "./TechShop";
+import type { DbTechListing, DbTechPurchase } from "../lib/techShop";
+import { DealerOrderDetail, DealerOrdersScreen } from "../components/dealer/WorkScreens";
+import type { DealerOrderStatus, ShopOrder } from "../lib/dealerData";
 
 const SHELL_MAX_W = 430;
 const sb = () => supabaseFor("technician");
@@ -34,10 +38,16 @@ interface TechData {
   payouts: Payout[];
   reviews: Review[];
   gallery: DbGalleryPart[];
+  /** Zavtoo products this technician holds and sells. */
+  listings: DbTechListing[];
+  /** What they've bought from Zavtoo. */
+  purchases: DbTechPurchase[];
+  /** Customers' orders for their products. */
+  orders: ShopOrder[];
 }
 
 async function loadTechData(client: ReturnType<typeof sb>, uid: string): Promise<TechData> {
-  const [me, reqs, stock, stockReqs, payouts, reviews, gallery] = await Promise.all([
+  const [me, reqs, stock, stockReqs, payouts, reviews, gallery, orders, listings, purchases] = await Promise.all([
     client.from("technicians").select("*").eq("id", uid).maybeSingle(),
     // Row-level security returns only this technician's jobs, requests to them and tasks they raised.
     client.from("service_requests").select("*").order("visit_date", { ascending: true }).limit(500),
@@ -46,6 +56,9 @@ async function loadTechData(client: ReturnType<typeof sb>, uid: string): Promise
     client.from("payouts").select("*").eq("tech_id", uid).order("created_at", { ascending: false }).limit(20),
     client.from("reviews").select("*").eq("tech_id", uid).eq("status", "Published").order("created_at", { ascending: false }).limit(50),
     client.from("tech_parts").select("*").eq("tech_id", uid).order("created_at", { ascending: false }).limit(200),
+    client.from("tech_orders").select("*").eq("tech_id", uid).order("created_at", { ascending: false }).limit(300),
+    client.from("tech_listings").select("*").eq("tech_id", uid).order("updated_at", { ascending: false }),
+    client.from("tech_purchases").select("*").eq("tech_id", uid).order("created_at", { ascending: false }).limit(50),
   ]);
   if (me.error) throw me.error;
   if (!me.data) throw new Error("NO_TECH");
@@ -64,6 +77,10 @@ async function loadTechData(client: ReturnType<typeof sb>, uid: string): Promise
     payouts: (payouts.data ?? []).map((p) => ({ id: p.id, period: p.period, amount: p.amount, status: p.status, paidAt: p.paid_at ? fmtDateOnly(p.paid_at) : null })),
     reviews: ((reviews.data ?? []) as DbReview[]).map((r) => toReview(r)),
     gallery: (gallery.data ?? []) as DbGalleryPart[],
+    // Older databases without the shop migration just have an empty shop.
+    orders: (orders.data ?? []) as ShopOrder[],
+    listings: (listings.data ?? []) as DbTechListing[],
+    purchases: (purchases.data ?? []) as DbTechPurchase[],
   };
 }
 
@@ -78,7 +95,8 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
   const live = useLive("technician", uid, (c) => loadTechData(c, uid!), [
     { table: "service_requests" }, { table: "technicians", filter: `id=eq.${uid}` },
     { table: "tech_stock", filter: `tech_id=eq.${uid}` }, { table: "stock_requests", filter: `tech_id=eq.${uid}` },
-    { table: "tech_parts", filter: `tech_id=eq.${uid}` },
+    { table: "tech_parts", filter: `tech_id=eq.${uid}` }, { table: "tech_orders", filter: `tech_id=eq.${uid}` },
+    { table: "tech_listings", filter: `tech_id=eq.${uid}` }, { table: "tech_purchases", filter: `tech_id=eq.${uid}` },
   ]);
   const data = live.data;
 
@@ -86,6 +104,8 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
   const [openJob, setOpenJob] = useState<string | null>(null);
   const [newTask, setNewTask] = useState(false);
   const [partEditing, setPartEditing] = useState(false);
+  // Shop pages open full-screen over the Shop tab.
+  const [shopView, setShopView] = useState<null | "orders" | "buy" | "gallery" | { order: string }>(null);
   const [drafts, setDrafts] = useState<Record<string, Partial<Worksheet>>>({});
   const [toast, setToast] = useState<{ msg: string; bad?: boolean } | null>(null);
   const [sharing, setSharing] = useState<string | null>(null);
@@ -93,7 +113,7 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [tab, openJob, newTask, partEditing]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [tab, openJob, newTask, partEditing, shopView]);
   // Customer/admin accounts can't use the partner app.
   useEffect(() => { if (session && !isTech) void sb().auth.signOut(); }, [session, isTech]);
 
@@ -246,13 +266,31 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
     if (ok && paths.length) void sb().storage.from("part-photos").remove(paths);
     return ok;
   };
-  const logout = () => { setTab("jobs"); setOpenJob(null); setNewTask(false); void sb().auth.signOut(); };
+  /* ── Shop ── */
+  const listingName = (l: DbTechListing) => productName(l.product_id) ?? "Product";
+  const setListingPrice = (l: DbTechListing, price: number) => run(sb().from("tech_listings").update({ price }).eq("id", l.id), "Price updated");
+  const setListingStock = (l: DbTechListing, stock: number) => run(sb().from("tech_listings").update({ stock }).eq("id", l.id), `${listingName(l)}: ${stock} left`);
+  const setListingSelling = (l: DbTechListing, selling: boolean) =>
+    run(sb().from("tech_listings").update({ selling }).eq("id", l.id), selling ? `${listingName(l)} is on sale in the app` : `${listingName(l)} is hidden from the app`);
+  const buyStock = async (items: { id: string; qty: number }[]) => {
+    const ok = await run(sb().rpc("tech_buy", { p_items: items }), "Order sent to Zavtoo — it lands in your shop once delivered");
+    if (ok) setShopView(null);
+    return ok;
+  };
+  const cancelPurchase = (p: DbTechPurchase) => { if (confirm(`Cancel purchase #${p.ref}?`)) void run(sb().rpc("tech_cancel_purchase", { p_id: p.id }), "Purchase cancelled"); };
+  const setOrderStatus = (id: string, status: DealerOrderStatus, reason?: string) =>
+    run(sb().rpc("tech_set_order_status", { p_id: id, p_status: status, p_reason: reason ?? null }), {
+      Accepted: "Order accepted", Shipped: "Marked as dispatched", Delivered: "Marked as delivered",
+      Rejected: "Order rejected — stock is back in your shop", New: "", Cancelled: "",
+    }[status]);
+  const logout = () => { setTab("jobs"); setOpenJob(null); setNewTask(false); setShopView(null); void sb().auth.signOut(); };
 
   const shell = (children: React.ReactNode, nav = false) => (
     <div className="zavtoo-app" style={{ position: "fixed", inset: 0, background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: SHELL_MAX_W, height: "100%", position: "relative", background: "var(--app-bg)", overflow: "hidden", boxShadow: "var(--shadow-float)", display: "flex", flexDirection: "column" }}>
         {children}
-        {nav && <PartnerNav active={tab} onChange={(t) => { setTab(t); setOpenJob(null); setNewTask(false); setPartEditing(false); }} newRequest={incoming.length > 0} />}
+        {nav && <PartnerNav active={tab} onChange={(t) => { setTab(t); setOpenJob(null); setNewTask(false); setPartEditing(false); setShopView(null); }}
+          newRequest={incoming.length > 0} newOrder={(data?.orders ?? []).some((o) => o.status === "New")} />}
         {toast && (
           <div className="fade-up" role={toast.bad ? "alert" : "status"} style={{
             position: "absolute", left: 16, right: 16, bottom: nav ? 90 : 96, zIndex: 120,
@@ -288,7 +326,9 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
     );
   }
 
-  const showNav = !job && !newTask && !(tab === "parts" && partEditing);
+  const showNav = !job && !newTask && !(tab === "parts" && (shopView === "gallery" ? partEditing : shopView));
+  const shopOrder = shopView && typeof shopView === "object" ? data.orders.find((o) => o.id === shopView.order) : undefined;
+  const openOrders = data.orders.filter((o) => ["New", "Accepted", "Shipped"].includes(o.status));
   return shell(
     <div ref={scrollRef} className="no-scroll" style={{
       flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain",
@@ -317,7 +357,26 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
               footer={<SentToOpsList tasks={sentToOps} />} />
           )}
           {tab === "inventory" && <InventoryScreen stock={data.stock} requests={data.stockRequests} onRequest={requestStock} />}
-          {tab === "parts" && <PartsGalleryScreen parts={data.gallery} onSave={saveGalleryPart} onDelete={deleteGalleryPart} onEditingChange={setPartEditing} />}
+          {tab === "parts" && (shopView === "orders" ? (
+            <DealerOrdersScreen orders={data.orders} onBack={() => setShopView(null)} onOpen={(id) => setShopView({ order: id })}
+              empty="When a customer in your pincodes buys one of your products in the Zavtoo app, the order lands here." />
+          ) : shopView === "buy" ? (
+            <BuyStockPage onBack={() => setShopView(null)} onSubmit={buyStock} />
+          ) : shopView === "gallery" ? (
+            <>
+              {!partEditing && <button onClick={() => setShopView(null)} style={{ ...linkBtn, margin: "8px 8px 0" }}>‹ Back to shop</button>}
+              <PartsGalleryScreen parts={data.gallery} onSave={saveGalleryPart} onDelete={deleteGalleryPart} onEditingChange={setPartEditing} />
+            </>
+          ) : shopView ? (
+            shopOrder ? <DealerOrderDetail order={shopOrder} onBack={() => setShopView("orders")} onStatus={(st, r) => setOrderStatus(shopOrder.id, st, r)} />
+              : <Centered text="This order isn't available any more." action={<button onClick={() => setShopView("orders")} style={linkBtn}>Go back</button>} />
+          ) : (
+            <TechShopScreen listings={data.listings} purchases={data.purchases}
+              onBuy={() => setShopView("buy")} onGallery={() => setShopView("gallery")}
+              onPrice={setListingPrice} onStock={(l, n) => void setListingStock(l, n)} onSelling={(l, v) => void setListingSelling(l, v)}
+              onCancelPurchase={cancelPurchase}
+              ordersBar={<ShopOrdersBar total={data.orders.length} open={openOrders.length} fresh={data.orders.filter((o) => o.status === "New").length} onOpen={() => setShopView("orders")} />} />
+          ))}
           {tab === "earnings" && <EarningsScreen jobs={jobs} payouts={data.payouts} />}
           {tab === "profile" && (
             <PartnerProfileScreen tech={tech} kyc={me.kyc} email={me.email ?? session!.user.email ?? ""} dealer={data.dealer} reviews={data.reviews}
@@ -330,7 +389,28 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
   );
 }
 
+const productName = (id: string) => PRODUCTS.find((p) => p.id === id)?.name;
+
 const linkBtn: React.CSSProperties = { background: "none", border: "none", color: "var(--blue)", fontSize: 14, fontWeight: 600, cursor: "pointer", padding: 8 };
+
+function ShopOrdersBar({ total, open, fresh, onOpen }: { total: number; open: number; fresh: number; onOpen: () => void }) {
+  return (
+    <button onClick={onOpen} className="press" style={{
+      width: "100%", display: "flex", alignItems: "center", gap: 12, marginBottom: 14, padding: "12px 14px", cursor: "pointer", textAlign: "left",
+      border: fresh ? "1.5px solid var(--blue)" : "none", borderRadius: 16, background: "var(--surface)", boxShadow: "var(--shadow-card)",
+    }}>
+      <span style={{ fontSize: 22 }}>📦</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>Shop orders</span>
+        <span style={{ display: "block", fontSize: 12, color: "var(--ink-soft)" }}>
+          {total === 0 ? "No orders yet" : `${open} open · ${total} total`}
+        </span>
+      </span>
+      {fresh > 0 && <span style={{ background: "var(--red)", color: "white", fontSize: 11.5, fontWeight: 700, borderRadius: 999, padding: "3px 9px" }}>{fresh} new</span>}
+      <span aria-hidden style={{ color: "var(--ink-mute)", fontSize: 18 }}>›</span>
+    </button>
+  );
+}
 
 function Centered({ text, action }: { text: string; action?: React.ReactNode }) {
   return (
@@ -473,10 +553,10 @@ const NavIcon = ({ id, c }: { id: Tab; c: string }) => {
 };
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "jobs", label: "Jobs" }, { id: "inventory", label: "Inventory" }, { id: "parts", label: "Parts" }, { id: "earnings", label: "Earnings" }, { id: "profile", label: "Profile" },
+  { id: "jobs", label: "Jobs" }, { id: "inventory", label: "Inventory" }, { id: "parts", label: "Shop" }, { id: "earnings", label: "Earnings" }, { id: "profile", label: "Profile" },
 ];
 
-function PartnerNav({ active, onChange, newRequest }: { active: Tab; onChange: (t: Tab) => void; newRequest: boolean }) {
+function PartnerNav({ active, onChange, newRequest, newOrder }: { active: Tab; onChange: (t: Tab) => void; newRequest: boolean; newOrder: boolean }) {
   return (
     <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "0 14px calc(10px + env(safe-area-inset-bottom))", pointerEvents: "none", zIndex: 50 }}>
       <nav className="app-bottom-nav" aria-label="Main navigation" style={{
@@ -493,7 +573,7 @@ function PartnerNav({ active, onChange, newRequest }: { active: Tab; onChange: (
             }}>
               <NavIcon id={t.id} c={color} />
               <span style={{ fontSize: 10.5, fontWeight: on ? 600 : 500, color }}>{t.label}</span>
-              {t.id === "jobs" && newRequest && !on && (
+              {((t.id === "jobs" && newRequest) || (t.id === "parts" && newOrder)) && !on && (
                 <span style={{ position: "absolute", top: 5, left: "calc(50% + 7px)", width: 9, height: 9, borderRadius: "50%", background: "var(--red)", border: "1.5px solid white" }} />
               )}
             </button>

@@ -3,6 +3,8 @@
 -- Run once in Supabase → SQL Editor on a database that already has
 -- supabase/schema.sql applied. Safe to run again. (Running the full
 -- schema.sql instead does the same thing.)
+-- Already ran technician-shop-migration.sql? Run it again after this file —
+-- this one puts back the older checkout without technician products.
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ─────── Dealer role ───────
