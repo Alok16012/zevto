@@ -1039,3 +1039,136 @@
     bottom:calc(84px + env(safe-area-inset-bottom))
   }
 }
+
+/* ───────── Clean retail look (matches neo.module.css) ───────── */
+.section {
+  padding-block:56px 0
+}
+.head {
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  gap:12px;
+  margin-bottom:30px
+}
+.head>div {
+  display:flex;
+  flex-direction:column;
+  align-items:center
+}
+.head h2,.split h2,.founder h2,.startToday h2,.cta h2,.pageHero h1 {
+  font-family:var(--font-display),sans-serif;
+  font-weight:400;
+  text-transform:uppercase;
+  letter-spacing:.01em;
+  line-height:1.02;
+  color:#1c1c1e
+}
+.head h2,.split h2,.founder h2,.startToday h2,.cta h2 {
+  font-size:clamp(32px,3.4vw,44px)
+}
+.pageHero h1 {
+  font-size:clamp(38px,4.6vw,62px)
+}
+.head p {
+  max-width:640px;
+  color:#6b6f76
+}
+.kicker {
+  font-size:11.5px;
+  letter-spacing:.16em;
+  color:#6b6f76
+}
+.textLink {
+  color:#1c1c1e!important;
+  border:1.5px solid #1c1c1e;
+  border-radius:999px;
+  padding:9px 20px;
+  font-size:14px;
+  font-weight:500
+}
+.textLink:hover {
+  background:#1c1c1e;
+  color:#fff!important
+}
+.card {
+  border:1px solid #ececec;
+  border-radius:16px;
+  box-shadow:none;
+  transition:box-shadow .2s,transform .2s
+}
+.card:hover {
+  box-shadow:0 12px 28px rgba(0,0,0,.07)
+}
+.card h3 {
+  font-weight:500;
+  color:#1c1c1e
+}
+.cardCta,.card h3 svg {
+  color:#0b5394!important
+}
+.btnPrimary,.btnOutline {
+  border-radius:12px;
+  font-weight:500;
+  min-height:48px
+}
+.btnPrimary {
+  background:#ffc629;
+  border-color:#ffc629;
+  color:#1c1c1e!important
+}
+.btnPrimary:hover {
+  background:#f5b800
+}
+.btnOutline {
+  color:#1c1c1e!important;
+  border-color:#1c1c1e
+}
+.btnOutline:hover {
+  background:#1c1c1e;
+  color:#fff!important
+}
+.badge {
+  background:#e8f0ea;
+  color:#1d6b30
+}
+.stepNo {
+  font-family:var(--font-display),sans-serif;
+  font-weight:400
+}
+.statRow strong {
+  font-family:var(--font-display),sans-serif;
+  font-weight:400;
+  font-size:40px;
+  letter-spacing:.01em
+}
+.brands {
+  margin-top:56px;
+  background:transparent;
+  border:0;
+  border-top:1px solid #ececec;
+  border-bottom:1px solid #ececec;
+  border-radius:0
+}
+.brands h2 {
+  font-family:var(--font-display),sans-serif;
+  font-weight:400;
+  font-size:28px;
+  text-transform:uppercase;
+  letter-spacing:.02em
+}
+.brands li {
+  border-color:#e2e2e2;
+  color:#1c1c1e
+}
+.pageHero {
+  background:linear-gradient(150deg,#e9f1f9 0%,#f3f5f7 70%);
+  border:0;
+  border-radius:22px
+}
+.startToday {
+  padding-bottom:56px
+}
+.booking {
+  border-radius:16px
+}

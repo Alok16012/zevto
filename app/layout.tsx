@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins } from "next/font/google";
+import { Bebas_Neue, Poppins, Roboto } from "next/font/google";
 import "./globals.css";
 import "./mobile-theme.css";
 import RecoveryRedirect from "./components/RecoveryRedirect";
@@ -11,6 +11,9 @@ const poppins = Poppins({
   display: "swap",
   variable: "--font-poppins",
 });
+// Website (storefront) type: condensed display headings over a plain body face.
+const display = Bebas_Neue({ subsets: ["latin"], weight: "400", display: "swap", variable: "--font-display" });
+const body = Roboto({ subsets: ["latin"], weight: ["400", "500", "700"], display: "swap", variable: "--font-body" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://zavtoo.in"),
@@ -28,7 +31,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={poppins.variable}>
+    <html lang="en" className={`${poppins.variable} ${display.variable} ${body.variable}`}>
       <body style={{ margin: 0, padding: 0, minHeight: "100vh", fontFamily: "var(--font-poppins)" }}>
         <RecoveryRedirect />
         {children}

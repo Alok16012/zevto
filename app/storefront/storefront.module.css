@@ -3415,3 +3415,53 @@
     border-bottom:0!important
   }
 }
+
+/* ───────── Clean retail look for inner pages (matches neo.module.css) ───────── */
+.site .pageHeading h1,.site .detailCopy h1,.site .empty h1,.site .empty h2,.site .summary h2,.site .checkoutForm h2 {
+  font-family:var(--font-display),sans-serif;
+  font-weight:400;
+  text-transform:uppercase;
+  letter-spacing:.01em;
+  line-height:1.02;
+  color:#1c1c1e
+}
+.site .pageHeading h1,.site .detailCopy h1 {
+  font-size:clamp(38px,4.4vw,58px)
+}
+.site .summary h2,.site .checkoutForm h2 {
+  font-size:30px
+}
+.site .sectionHeading h2 {
+  font-family:var(--font-display),sans-serif;
+  font-weight:400;
+  text-transform:uppercase;
+  letter-spacing:.01em
+}
+.site .primary {
+  background:#ffc629;
+  color:#1c1c1e;
+  border-radius:12px;
+  font-weight:500
+}
+.site .primary:hover {
+  background:#f5b800
+}
+.site .secondary {
+  border-radius:12px;
+  border-color:#1c1c1e;
+  color:#1c1c1e
+}
+.site .tabs button {
+  border-radius:999px
+}
+.site .tabs button.selected {
+  background:#1c1c1e;
+  border-color:#1c1c1e;
+  color:#fff
+}
+.site .detailArt,.site .summary,.site .cartItem {
+  border-radius:16px
+}
+.site .detailArt {
+  background:#f1efeb
+}
