@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { COUPONS, PRODUCTS, SERVICE_CATALOG, TECHNICIANS, initialsOf, type Coupon, type Product, type ServiceOffering, type ServiceType, type Technician } from "./data";
+import { COUPONS, PRODUCTS, SERVICE_CATALOG, SITE_IMAGES, TECHNICIANS, initialsOf, type Coupon, type Product, type ServiceOffering, type ServiceType, type SiteSlot, type Technician } from "./data";
 import { PARTS, type Part } from "./techData";
 import { supabaseFor, type AppKind } from "./supabase";
 
@@ -25,12 +25,13 @@ export const toTechnician = (t: DbTechnician): Technician => ({
 const swap = <T,>(list: T[], rows: T[]) => { list.splice(0, list.length, ...rows); };
 
 async function loadCatalog(sb: SupabaseClient) {
-  const [products, services, coupons, parts, techs] = await Promise.all([
+  const [products, services, coupons, parts, techs, site] = await Promise.all([
     sb.from("products").select("*").order("sort"),
     sb.from("service_catalog").select("*").order("sort"),
     sb.from("coupons").select("*").order("created_at"),
     sb.from("parts").select("*").order("price"),
     sb.from("technicians").select("*").order("rating", { ascending: false }),
+    sb.from("site_images").select("slot, images, captions"),
   ]);
   const err = products.error ?? services.error ?? coupons.error;
   if (err) throw err;
@@ -51,6 +52,10 @@ async function loadCatalog(sb: SupabaseClient) {
   })));
   // Parts and technicians need a login; logged-out visitors just don't get them.
   if (!parts.error) swap<Part>(PARTS, (parts.data ?? []).map((p) => ({ id: p.id, name: p.name, price: p.price })));
+  // Website photos (hero, tiles, showcase); skipped until the site_images migration has run.
+  if (!site.error) for (const r of site.data ?? []) {
+    if (r.slot in SITE_IMAGES) SITE_IMAGES[r.slot as SiteSlot] = { images: r.images ?? [], captions: r.captions ?? [] };
+  }
   if (!techs.error) swap<Technician>(TECHNICIANS, ((techs.data ?? []) as DbTechnician[]).map(toTechnician));
 }
 
@@ -82,7 +87,7 @@ export function useCatalog(app: AppKind, userId: string | null | undefined) {
     run();
     const later = () => { clearTimeout(timer); timer = setTimeout(run, 300); };
     const ch = sb.channel(`catalog:${app}:${Math.random().toString(36).slice(2, 8)}`);
-    ["products", "service_catalog", "coupons", "technicians"].forEach((table) =>
+    ["products", "service_catalog", "coupons", "technicians", "site_images"].forEach((table) =>
       ch.on("postgres_changes", { event: "*", schema: "public", table }, later));
     ch.subscribe();
     return () => { alive = false; clearTimeout(timer); sb.removeChannel(ch); };

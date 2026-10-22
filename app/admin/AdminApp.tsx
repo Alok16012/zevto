@@ -19,10 +19,11 @@ import { removeProductImages } from "../lib/photos";
 import { SupportSection, useSupportUnread } from "./Support";
 import { SparePartsSection } from "./SpareParts";
 import { TechShopSection } from "./TechShop";
+import { SiteImagesSection } from "./SiteImages";
 import type { DbTechPurchase } from "../lib/techShop";
 import type { DbGalleryPart } from "../lib/partsGallery";
 
-export type Section = "dashboard" | "support" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "spareparts" | "techshop" | "coupons" | "reviews" | "broadcast";
+export type Section = "dashboard" | "support" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "spareparts" | "techshop" | "coupons" | "reviews" | "broadcast" | "siteimages";
 
 type NavIcon = (p: { s?: number; c?: string; w?: number }) => React.ReactElement;
 
@@ -31,14 +32,14 @@ const NAV: { group: string; items: { id: Section; label: string; Icon: NavIcon }
   { group: "Operations", items: [{ id: "orders", label: "Orders", Icon: BagIcon }, { id: "services", label: "Service Jobs", Icon: WrenchIcon }, { id: "support", label: "Support Chat", Icon: InboxIcon }] },
   { group: "People", items: [{ id: "customers", label: "Customers", Icon: UsersIcon }, { id: "technicians", label: "Technicians", Icon: TechnicianIcon }, { id: "dealers", label: "Dealers", Icon: StoreIcon }] },
   { group: "Catalogue & growth", items: [
-    { id: "products", label: "Products & Stock", Icon: BoxIcon }, { id: "spareparts", label: "Technician Parts", Icon: WrenchIcon }, { id: "techshop", label: "Technician Shop", Icon: StoreIcon }, { id: "coupons", label: "Offers & Coupons", Icon: TagIcon },
+    { id: "products", label: "Products & Stock", Icon: BoxIcon }, { id: "spareparts", label: "Technician Parts", Icon: WrenchIcon }, { id: "techshop", label: "Technician Shop", Icon: StoreIcon }, { id: "siteimages", label: "Website Images", Icon: GridIcon }, { id: "coupons", label: "Offers & Coupons", Icon: TagIcon },
     { id: "reviews", label: "Reviews", Icon: StarLineIcon }, { id: "broadcast", label: "Notifications", Icon: MegaphoneIcon },
   ] },
 ];
 
 const TITLES: Record<Section, string> = {
   dashboard: "Dashboard", support: "Support Chat", orders: "Orders", services: "Service Jobs & Dispatch", customers: "Customers", technicians: "Technicians", dealers: "Dealers",
-  products: "Products & Stock", spareparts: "Technician Spare Parts", techshop: "Technician Shop", coupons: "Offers & Coupons", reviews: "Reviews", broadcast: "Broadcast Notifications",
+  products: "Products & Stock", spareparts: "Technician Spare Parts", techshop: "Technician Shop", coupons: "Offers & Coupons", reviews: "Reviews", broadcast: "Broadcast Notifications", siteimages: "Website Images",
 };
 
 const sb = () => supabaseFor("admin");
@@ -48,7 +49,7 @@ export default function AdminApp() {
   const role = roleOf(session ?? null);
   const staff = role === "admin" || role === "super_admin";
   const uid = staff ? session!.user.id : null;
-  useCatalog("admin", session === undefined ? undefined : uid);
+  const catalog = useCatalog("admin", session === undefined ? undefined : uid);
   const live = useLive("admin", uid, loadAdminData, ADMIN_WATCH);
   const supportUnread = useSupportUnread(!!uid);
   const data = live.data;
@@ -281,6 +282,7 @@ export default function AdminApp() {
             {section === "products" && <ProductsSection products={products} onUpdate={updateProduct} onCreate={createProduct} onDelete={deleteProduct} />}
             {section === "spareparts" && <SparePartsSection parts={galleryParts} techs={techs} onReview={reviewGalleryPart} />}
             {section === "techshop" && <TechShopSection purchases={techPurchases} listings={techListings} techs={techs} onDecide={decideTechPurchase} />}
+            {section === "siteimages" && <SiteImagesSection key={catalog.version} notify={notify} />}
             {section === "coupons" && <CouponsSection coupons={coupons} onUpdate={updateCoupon} onCreate={createCoupon} />}
             {section === "reviews" && <ReviewsSection reviews={reviews} onStatus={setReviewStatus} onDelete={deleteReview} />}
             {section === "broadcast" && <BroadcastSection history={broadcasts} onSend={sendBroadcast} />}

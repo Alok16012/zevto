@@ -57,30 +57,35 @@ export const PRODUCTS: Product[] = [
     price: 12999, mrp: 15999, category: "domestic", art: "classic",
     rating: 4.5, reviews: 124, stages: "7 Stage", warranty: "1 Year",
     description: "Best for home use. Removes 99.9% bacteria, viruses and harmful impurities. Elegant design with smart indicators for filter life and tank level.",
+    images: ["/products/featured/zavtoo-pro.png"],
   },
   {
     id: "pro", name: "AquaPure RO Pro", spec: "8 Stage + UV",
     price: 18999, mrp: 22499, category: "domestic", art: "pro",
     rating: 4.6, reviews: 86, stages: "8 Stage", warranty: "2 Years",
     description: "RO + UV + UF with a mineral cartridge that puts back calcium and magnesium. 10 L storage tank for families of 4–6.",
+    images: ["/products/featured/zavtoo-pro.png"],
   },
   {
     id: "premium", name: "AquaPure RO Premium", spec: "Smart Display | WiFi",
     price: 24999, mrp: 29999, category: "domestic", art: "premium",
     rating: 4.7, reviews: 52, stages: "9 Stage", warranty: "3 Years",
     description: "Touch display shows live TDS, filter health and daily usage. WiFi alerts on your phone when a filter change is due.",
+    images: ["/products/featured/zavtoo-premium.png"],
   },
   {
     id: "commercial-50", name: "Zavtoo Commercial 50 LPH", spec: "For offices & shops",
     price: 42999, mrp: 49999, category: "commercial", art: "commercial",
     rating: 4.4, reviews: 31, stages: "6 Stage", warranty: "1 Year",
     description: "Stainless-steel frame, 50 litres per hour output. Built for offices, clinics and small restaurants.",
+    images: ["/products/featured/zavtoo-commercial-50.png"],
   },
   {
     id: "commercial-100", name: "Zavtoo Commercial 100 LPH", spec: "Schools & factories",
     price: 68999, mrp: 79999, category: "commercial", art: "commercial",
     rating: 4.5, reviews: 18, stages: "6 Stage", warranty: "1 Year",
     description: "Heavy-duty 100 LPH plant with auto-flush and dual pressure pumps for continuous use.",
+    images: ["/products/featured/zavtoo-commercial-50.png"],
   },
   {
     id: "spares", name: "Spare Parts Kit", spec: "Sediment + Carbon + Membrane",
@@ -150,6 +155,30 @@ export const PRODUCTS: Product[] = [
     description: "Complete set of ball valves, check valves, elbow & straight connectors for RO system installation.",
   },
 ];
+
+/* Website photos that aren't product photos — managed in Admin → Website images
+ * (site_images table). These match the database seed; live rows replace them. */
+export type SiteSlot = "hero" | "tile-domestic" | "tile-commercial" | "tile-spare" | "tile-service" | "showcase";
+export interface SiteImages { images: string[]; captions: string[] }
+export const SITE_SLOTS: { slot: SiteSlot; label: string; hint: string; max: number; captions?: boolean }[] = [
+  { slot: "hero", label: "Homepage hero", hint: "Big photo at the top of the homepage · landscape, about 16:10", max: 1 },
+  { slot: "tile-domestic", label: "Category tile · Home RO", hint: "Shown in “Find what you need” · square or portrait", max: 1 },
+  { slot: "tile-commercial", label: "Category tile · Commercial", hint: "Shown in “Find what you need” · square or portrait", max: 1 },
+  { slot: "tile-spare", label: "Category tile · Spare parts", hint: "Shown in “Find what you need” · square or portrait", max: 1 },
+  { slot: "tile-service", label: "Category tile · Service & AMC", hint: "Shown in “Find what you need” · square or portrait", max: 1 },
+  { slot: "showcase", label: "Purifier showcase gallery", hint: "“Good water. Beautifully designed.” · portrait, about 4:5 · first photo is shown large", max: 8, captions: true },
+];
+export const SITE_IMAGES: Record<SiteSlot, SiteImages> = {
+  hero: { images: ["/hero-kitchen-branded.jpg"], captions: ["Zavtoo RO water purifier in a bright kitchen"] },
+  "tile-domestic": { images: ["/products/featured/zavtoo-pro.png"], captions: [] },
+  "tile-commercial": { images: ["/products/featured/zavtoo-commercial-50.png"], captions: [] },
+  "tile-spare": { images: ["/products/parts/osmo-housing-1.jpg"], captions: [] },
+  "tile-service": { images: ["/products/parts/membrane-housing-2.jpg"], captions: [] },
+  showcase: {
+    images: ["/purifier-showcase/zavtoo-seaglass-v2.png", "/purifier-showcase/zavtoo-graphite-v2.png", "/purifier-showcase/zavtoo-pearl-v2.png", "/purifier-showcase/zavtoo-titanium-v2.png", "/purifier-showcase/zavtoo-aqua-v2.png"],
+    captions: ["Sea-glass blue. Fresh and understated.", "Graphite. A little more character.", "Pearl white. Clean, contemporary lines.", "Titanium grey. Quiet sophistication.", "White and aqua. A natural pairing."],
+  },
+};
 
 export const productById = (id: string) => PRODUCTS.find((p) => p.id === id);
 

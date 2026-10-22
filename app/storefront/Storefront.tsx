@@ -2,12 +2,11 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import PurifierArt from "../components/PurifierArt";
 import ProductImage, { ProductGallery } from "../components/ProductImage";
 import { BrandMark, Wordmark } from "../components/Brand";
 import { BagIcon, BoxIcon, CartIcon, CheckIcon, ChevronDown, ChevronRight, CloseIcon, DropIcon, HeartIcon, MinusIcon, PhoneIcon, PinIcon, PlusIcon, SearchIcon, ShieldIcon, StarIcon, StoreIcon, TechnicianIcon, WrenchIcon } from "../components/icons";
-import { PRODUCTS, PIN_AREAS, SERVICE_CATALOG, couponByCode, couponDiscount, couponError, inr, type Product, type ServiceOffering } from "../lib/data";
+import { PRODUCTS, PIN_AREAS, SERVICE_CATALOG, SITE_IMAGES, couponByCode, couponDiscount, couponError, inr, type Product, type ServiceOffering } from "../lib/data";
 import { useCatalog } from "../lib/catalog";
 import { Advantages, AboutPage, Brands, ContactPage, HomeServices, HowItWorks, PartsShowcase, PolicyPage, ServicesPage, StartToday, Testimonials, WhatsAppFab } from "./InfoPages";
 import { COMPANY, HELPLINES } from "./content";
@@ -38,12 +37,6 @@ function readSaved(): Saved {
     return { cart: validLines(v.cart), wish: Array.isArray(v.wish) ? v.wish.filter((id: unknown) => PRODUCTS.some(p => p.id === id)) : [], coupon: typeof v.coupon === "string" ? v.coupon : "", orders: Array.isArray(v.orders) ? v.orders.filter((o: Receipt) => o && typeof o.id === "string" && typeof o.date === "string" && Number.isFinite(o.total) && Array.isArray(o.lines)).map((o: Receipt) => ({ ...o, lines: validLines(o.lines) })) : [] };
   } catch { return empty; }
 }
-const FEATURED_IMAGES: Record<string, string> = {
-  pro: "/products/featured/zavtoo-pro.png",
-  premium: "/products/featured/zavtoo-premium.png",
-  "commercial-50": "/products/featured/zavtoo-commercial-50.png",
-};
-
 const BADGES: Record<string, string> = {
   pro: "Best Seller", "membrane-75": "Best Seller", "sediment-5": "New Arrival", "cto-carbon": "Top Rated", "service-kit-7": "Combo Deal", "valve-kit": "Hot Deal",
 };
@@ -171,15 +164,11 @@ export default function Storefront({ view, product: initialProduct, filters, ser
   }
   function renderProductCard({ p }: { p: Product }) {
     const saved_ = saved.wish.includes(p.id);
-    // Purifiers without an uploaded photo use the generated product shots.
-    const photo = !p.images?.length
-      ? FEATURED_IMAGES[p.id] ?? (p.category === "commercial" ? FEATURED_IMAGES["commercial-50"] : p.art === "premium" ? FEATURED_IMAGES.premium : p.category === "domestic" ? FEATURED_IMAGES.pro : undefined)
-      : undefined;
     return <article className={n.card} key={p.id} role="listitem">
       <div className={n.media}>
         {BADGES[p.id] ? <span className={n.badge}>{BADGES[p.id]}</span> : sale(p) > 0 && <span className={`${n.badge} ${n.badgeSoft}`}>{sale(p)}% off</span>}
         <button className={n.heart} aria-label={`${saved_ ? "Unsave" : "Save"} ${p.name}`} aria-pressed={saved_} onClick={() => wish(p.id)} disabled={!ready}><HeartIcon filled={saved_} s={18} /></button>
-        <Link href={`/products/${p.id}`} aria-label={`View ${p.name}`}>{photo ? <Image src={photo} alt={`Zavtoo ${p.category === "commercial" ? "commercial RO system" : p.art === "premium" ? "premium smart water purifier" : "home water purifier"}`} width={1254} height={1254} sizes="(max-width: 700px) 72vw, (max-width: 1200px) 25vw, 20vw" /> : <ProductImage product={p} size={220} />}</Link>
+        <Link href={`/products/${p.id}`} aria-label={`View ${p.name}`}><ProductImage product={p} size={220} /></Link>
       </div>
       <div className={n.body}>
         <Link href={`/products/${p.id}`} className={n.name}>{p.name}</Link>
@@ -261,9 +250,9 @@ export default function Storefront({ view, product: initialProduct, filters, ser
               <Link href="/services"><small>{COMPANY.offer.code} · 30% off</small>Service</Link>
             </nav>
             <div className={n.heroGrid}>
-              <Link href="/products/pro" className={n.heroPhoto} aria-label="View AquaPure RO Pro">
+              <Link href="/shop?category=domestic" className={n.heroPhoto} aria-label="Shop water purifiers">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/hero-kitchen-branded.jpg" alt="Zavtoo RO water purifier in a bright kitchen" fetchPriority="high" />
+                {SITE_IMAGES.hero.images[0] && <img src={SITE_IMAGES.hero.images[0]} alt={SITE_IMAGES.hero.captions[0] || "Zavtoo water purifier"} fetchPriority="high" />}
                 <span><DropIcon s={16} /> RO + UV + UF purification</span>
               </Link>
               <i className={n.heroRule} aria-hidden="true" />
@@ -299,15 +288,16 @@ export default function Storefront({ view, product: initialProduct, filters, ser
             <div className={n.head}><h2 id="cat-title" className={n.display}>Find what you need</h2><p>Purifiers, parts and service for every brand.</p></div>
             <div className={n.tiles}>
               {[
-                { href: "/shop?category=domestic", title: "Home RO", price: from("domestic"), art: <PurifierArt kind="classic" size={150} /> },
-                { href: "/shop?category=commercial", title: "Commercial", price: from("commercial"), art: <PurifierArt kind="commercial" size={150} /> },
-                { href: "/shop?category=spare", title: "Spare parts", price: from("spare"), art: <img src="/products/parts/osmo-housing-1.jpg" alt="" loading="lazy" /> },
-                { href: "/services", title: "Service & AMC", price: serviceFrom, art: <img src="/products/parts/membrane-housing-2.jpg" alt="" loading="lazy" /> },
+                { href: "/shop?category=domestic", title: "Home RO", price: from("domestic"), photo: SITE_IMAGES["tile-domestic"].images[0], art: "classic" as const },
+                { href: "/shop?category=commercial", title: "Commercial", price: from("commercial"), photo: SITE_IMAGES["tile-commercial"].images[0], art: "commercial" as const },
+                { href: "/shop?category=spare", title: "Spare parts", price: from("spare"), photo: SITE_IMAGES["tile-spare"].images[0], art: "cartridge" as const },
+                { href: "/services", title: "Service & AMC", price: serviceFrom, photo: SITE_IMAGES["tile-service"].images[0], art: "spare" as const },
               ].map(t => <Link key={t.href} href={t.href} className={n.tile}>
                 <h3 className={n.display}>{t.title}</h3>
                 {Number.isFinite(t.price) && <p>Starting at {inr(t.price)}</p>}
                 <i aria-hidden="true"><ChevronRight s={18} /></i>
-                <div className={n.tileArt}>{t.art}</div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <div className={n.tileArt}>{t.photo ? <img src={t.photo} alt="" loading="lazy" /> : <PurifierArt kind={t.art} size={150} />}</div>
               </Link>)}
             </div>
           </div>
