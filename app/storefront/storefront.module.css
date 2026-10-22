@@ -3465,3 +3465,27 @@
 .site .detailArt {
   background:#f1efeb
 }
+/* Product photo area: keep the picture (or placeholder) centred with room around it. */
+.site .detailArt {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:28px 20px
+}
+.site .detailArt {
+  min-width:0;
+  overflow:hidden
+}
+.site .detailArt>div {
+  margin:auto;
+  max-width:100%
+}
+/* The "photo coming soon" placeholder is a fixed 410px square; let it shrink on phones. */
+.site .detailArt>div:not([style*="flex-direction"]) {
+  width:min(410px,100%)!important;
+  height:auto!important;
+  aspect-ratio:1/1
+}
+.site .productDetail>* {
+  min-width:0
+}

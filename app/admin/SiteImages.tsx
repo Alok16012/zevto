@@ -25,7 +25,7 @@ export function SiteImagesSection({ notify }: { notify: (msg: string, bad?: bool
   );
 }
 
-function SlotPanel({ slot, label, hint, max, captions: withCaptions, notify }: (typeof SITE_SLOTS)[number] & { notify: (msg: string, bad?: boolean) => void }) {
+function SlotPanel({ slot, label, hint, size, max, captions: withCaptions, notify }: (typeof SITE_SLOTS)[number] & { notify: (msg: string, bad?: boolean) => void }) {
   const addRef = useRef<HTMLInputElement>(null);
   const replaceRef = useRef<HTMLInputElement>(null);
   const replacing = useRef<number | null>(null);
@@ -100,7 +100,8 @@ function SlotPanel({ slot, label, hint, max, captions: withCaptions, notify }: (
 
   return (
     <Panel title={<span style={{ display: "flex", alignItems: "center", gap: 8 }}>{label}<Badge tone={images.length ? "blue" : "amber"}>{images.length}/{max}</Badge></span>}>
-      <p style={{ ...muted, margin: "0 0 12px" }}>{hint}</p>
+      <p style={{ ...muted, margin: "0 0 4px" }}>{hint}</p>
+      <PhotoSize size={size} />
       <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${slot === "hero" ? 260 : 150}px, 1fr))`, gap: 10 }}>
         {images.map((src, i) => (
           <div key={`${i}-${src}`} style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", background: "var(--surface)" }}>
@@ -143,6 +144,11 @@ function SlotPanel({ slot, label, hint, max, captions: withCaptions, notify }: (
       {view && <PhotoViewer src={view} onClose={() => setView(null)} />}
     </Panel>
   );
+}
+
+/** "Upload size: 1600 × 1000 px" line shown above each set of photos. */
+export function PhotoSize({ size }: { size: string }) {
+  return <p style={{ margin: "0 0 12px", fontSize: 12.5, fontWeight: 700, color: "var(--blue)" }}>Upload size: {size} · JPG, PNG or WebP</p>;
 }
 
 /* ───────────────────────── Spare parts showcase ─────────────────────────
@@ -297,7 +303,7 @@ function PartEditor({ part, first, last, onSave, onDelete, onMove }: {
       </div>
       <input ref={addRef} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={(e) => void add(e.target.files)} />
       <p style={{ ...muted, margin: "8px 0 0", color: err ? "var(--error-text)" : undefined, fontWeight: err ? 600 : 400 }}>
-        {err ?? `${part.photos.length}/${MAX_PART_PHOTOS} photos · first photo is the cover`}
+        {err ?? `${part.photos.length}/${MAX_PART_PHOTOS} photos · first photo is the cover · upload size 1000 × 1000 px (square)`}
       </p>
       {view && <PhotoViewer src={view} onClose={() => setView(null)} />}
     </div>

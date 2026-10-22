@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Toggle } from "../components/ui";
 import { fmtDay } from "../lib/catalog";
-import { PRODUCTS, inr } from "../lib/data";
+import { PRODUCTS, inr, type Product } from "../lib/data";
 import { friendly, supabaseFor, useLive } from "../lib/supabase";
 import { printBill } from "./printBill";
 import { Badge, Btn, Filter, Modal, Panel, SearchBox, Stat, Table, fieldLabel, input, muted, type Tone } from "./kit";
@@ -281,7 +281,10 @@ function LedgerModal({ party, bills, payments, onClose, onBill, onPay, onView }:
 function BillModal({ kind, partyId, parties, onClose, onSaved, notify }: {
   kind: Bill["kind"]; partyId?: string; parties: Party[]; onClose: () => void; onSaved: (m: string) => void; notify: (m: string, bad?: boolean) => void;
 }) {
-  const products = PRODUCTS.filter((p) => !p.dealerId && !p.techId).sort((a, b) => Number(b.category === "spare") - Number(a.category === "spare") || a.name.localeCompare(b.name));
+  // Parts added from this bill show up before the live catalogue refreshes.
+  const [added, setAdded] = useState<Product[]>([]);
+  const [creating, setCreating] = useState<number | null>(null);
+  const products = [...added.filter((a) => !PRODUCTS.some((p) => p.id === a.id)), ...PRODUCTS].filter((p) => !p.dealerId && !p.techId).sort((a, b) => Number(b.category === "spare") - Number(a.category === "spare") || a.name.localeCompare(b.name));
   const preferred: PartyType[] = kind === "Sale" ? ["Dealer"] : ["Supplier", "Vendor"];
   const choices = parties.filter((p) => p.active).sort((a, b) => Number(preferred.includes(b.type)) - Number(preferred.includes(a.type)) || a.name.localeCompare(b.name));
   const [party, setParty] = useState(partyId ?? "");
@@ -352,8 +355,9 @@ function BillModal({ kind, partyId, parties, onClose, onSaved, notify }: {
           return (
             <div key={i} style={{ display: "grid", gridTemplateColumns: "minmax(0,3fr) 80px 110px 100px 32px", gap: 8, alignItems: "center" }}>
               <span>
-                <select value={l.product} onChange={(e) => setLine(i, { product: e.target.value })} style={input} aria-label={`Item ${i + 1}`}>
+                <select value={l.product} onChange={(e) => { if (e.target.value === "__new") setCreating(i); else setLine(i, { product: e.target.value }); }} style={input} aria-label={`Item ${i + 1}`}>
                   <option value="">Choose a product…</option>
+                  <option value="__new">＋ Add new spare part / product…</option>
                   {products.map((x) => <option key={x.id} value={x.id}>{x.name}{x.stock != null ? ` (stock ${x.stock})` : ""}</option>)}
                 </select>
                 {p && <small style={muted}>{p.category === "spare" ? "Spare part" : p.category === "commercial" ? "Commercial RO" : "Purifier"} · shop price {inr(p.price)}</small>}
@@ -368,6 +372,8 @@ function BillModal({ kind, partyId, parties, onClose, onSaved, notify }: {
         })}
         <div><Btn small kind="ghost" onClick={() => setLines([...lines, { product: "", qty: "1", rate: "" }])}>＋ Add item</Btn></div>
       </div>
+      {creating !== null && <NewPartForm kind={kind} onCancel={() => setCreating(null)} notify={notify} taken={products.map((p) => p.id)}
+        onCreated={(p, rate) => { setAdded([...added, p]); setLine(creating, { product: p.id, rate: rate ? String(rate) : lines[creating]?.rate ?? "" }); setCreating(null); }} />}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginTop: 14 }}>
         <label><span style={fieldLabel}>Tax / GST amount (₹)</span><input value={tax} onChange={(e) => setTax(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" style={input} /></label>
@@ -377,6 +383,62 @@ function BillModal({ kind, partyId, parties, onClose, onSaved, notify }: {
       <p style={{ ...muted, margin: "6px 0 0", textAlign: "right" }}>{kind === "Sale" ? "Saving takes these units off stock and adds the total to the party's balance." : "Saving adds these units to stock and adds the total to what we owe the party."}</p>
       {err && <p role="alert" style={{ margin: "10px 0 0", color: "var(--error-text)", fontWeight: 600, fontSize: 13 }}>{err}</p>}
     </Modal>
+  );
+}
+
+/* ─────── New part straight from a bill ─────── */
+
+function NewPartForm({ kind, taken, onCreated, onCancel, notify }: {
+  kind: Bill["kind"]; taken: string[]; onCreated: (p: Product, rate: number) => void; onCancel: () => void; notify: (m: string, bad?: boolean) => void;
+}) {
+  const [f, setF] = useState({ name: "", category: "spare" as Product["category"], spec: "", price: "", mrp: "", cost: "", live: false });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const num = (v: string) => Math.round(Number(v || 0));
+
+  const save = async () => {
+    const price = num(f.price), mrp = num(f.mrp) || price;
+    if (f.name.trim().length < 3) return setErr("Enter the part name.");
+    if (!(price > 0)) return setErr("Enter the selling price for the shop.");
+    if (price > mrp) return setErr("Selling price can't be higher than MRP.");
+    const base = f.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "part";
+    let id = base;
+    for (let n = 2; taken.includes(id); n++) id = `${base}-${n}`;
+    const row = {
+      id, name: f.name.trim(), category: f.category, spec: f.spec.trim(), price, mrp, stock: 0, active: f.live,
+      art: f.category === "spare" ? "cartridge" : f.category === "commercial" ? "commercial" : "classic", sort: 500,
+    };
+    setBusy(true);
+    const { error } = await supabaseFor("admin").from("products").insert(row);
+    setBusy(false);
+    if (error) { const m = friendly(error); setErr(m); notify(m, true); return; }
+    notify(`${row.name} added to Products & Stock${f.live ? " and the shop" : " (hidden in the shop until you list it)"}`);
+    onCreated({ ...row, art: row.art as Product["art"], rating: 0, reviews: 0, stages: "", warranty: "", description: "", images: [] }, kind === "Sale" ? price : num(f.cost));
+  };
+
+  const set = (k: keyof typeof f, digits = false) => (e: { target: { value: string } }) => { setErr(null); setF({ ...f, [k]: digits ? e.target.value.replace(/\D/g, "").slice(0, 7) : e.target.value }); };
+  return (
+    <div style={{ marginTop: 12, padding: 14, border: "1.5px solid var(--blue)", borderRadius: 12, background: "var(--blue-tint)" }}>
+      <strong style={{ fontSize: 14 }}>New spare part / product</strong>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginTop: 10 }}>
+        <label style={{ gridColumn: "1 / -1" }}><span style={fieldLabel}>Name</span><input value={f.name} onChange={set("name")} maxLength={80} placeholder="e.g. 10 inch Sediment Housing" style={input} autoFocus /></label>
+        <label><span style={fieldLabel}>Category</span>
+          <select value={f.category} onChange={set("category")} style={input}><option value="spare">Spare part / filter</option><option value="domestic">Home purifier</option><option value="commercial">Commercial RO</option></select>
+        </label>
+        <label><span style={fieldLabel}>Short spec (optional)</span><input value={f.spec} onChange={set("spec")} maxLength={60} placeholder="Universal fit · 10 inch" style={input} /></label>
+        {kind === "Purchase" && <label><span style={fieldLabel}>Purchase rate (₹)</span><input value={f.cost} onChange={set("cost", true)} inputMode="numeric" style={input} /></label>}
+        <label><span style={fieldLabel}>Shop selling price (₹)</span><input value={f.price} onChange={set("price", true)} inputMode="numeric" style={input} /></label>
+        <label><span style={fieldLabel}>MRP (₹)</span><input value={f.mrp} onChange={set("mrp", true)} inputMode="numeric" placeholder="same as price" style={input} /></label>
+      </div>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 13 }}>
+        <input type="checkbox" checked={f.live} onChange={(e) => setF({ ...f, live: e.target.checked })} /> Show in the website shop now (otherwise add photos &amp; description in Products &amp; Stock first)
+      </label>
+      {err && <p role="alert" style={{ margin: "8px 0 0", color: "var(--error-text)", fontWeight: 600, fontSize: 13 }}>{err}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <Btn small disabled={busy} onClick={() => void save()}>{busy ? "Adding…" : "Add part & use on this bill"}</Btn>
+        <Btn small kind="ghost" onClick={onCancel}>Cancel</Btn>
+      </div>
+    </div>
   );
 }
 

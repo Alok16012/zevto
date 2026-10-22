@@ -1,6 +1,6 @@
 # Zavtoo
 
-Website, customer app, technician (partner) app, dealer app and admin console for **Zavtoo Pani Filter Pvt Ltd**, running on **Supabase** (Postgres, Auth, Realtime, Storage) with Next.js 16. There is no demo data and there are no demo logins.
+Website, customer app, technician (partner) app, dealer app and admin console for **Zavtoo Paani Filter Pvt Ltd**, running on **Supabase** (Postgres, Auth, Realtime, Storage) with Next.js 16. There is no demo data and there are no demo logins.
 
 | Route | Who | Login |
 |---|---|---|

@@ -17,7 +17,7 @@ export function Wordmark({ size = 20, tagSpacing = "0.14em" }: { size?: number; 
         background: "linear-gradient(90deg,#7ee21f 0%,#1fd6c9 55%,#1b8cff 100%)",
         WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
       }}>ZAVTOO</p>
-      <p style={{ margin: `${Math.round(size * 0.2)}px 0 0`, fontSize: Math.round(size * 0.45), fontWeight: 600, letterSpacing: tagSpacing, color: "var(--ink-soft)" }}>PANI FILTER PVT LTD</p>
+      <p style={{ margin: `${Math.round(size * 0.2)}px 0 0`, fontSize: Math.round(size * 0.45), fontWeight: 600, letterSpacing: tagSpacing, color: "var(--ink-soft)" }}>PAANI FILTER PVT LTD</p>
     </div>
   );
 }

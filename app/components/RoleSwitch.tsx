@@ -44,7 +44,7 @@ export function RoleChooser({ onPick }: { onPick: (r: LoginRole) => void }) {
   return (
     <main className={`zavtoo-app ${styles.page}`}>
       <header className={styles.hero}>
-        <Image className={styles.heroImage} src="/zavtoo-login-reference.png" alt="Zavtoo Pani Filter Pvt Ltd. The Zavtoo App. Pure water. Simpler living." width={941} height={1672} sizes="(max-width: 430px) 100vw, 430px" preload />
+        <Image className={styles.heroImage} src="/zavtoo-login-reference.png" alt="Zavtoo Paani Filter Pvt Ltd. The Zavtoo App. Pure water. Simpler living." width={941} height={1672} sizes="(max-width: 430px) 100vw, 430px" preload />
       </header>
       <section className={styles.chooser} aria-labelledby="role-title">
           <div className={styles.welcome}><h1 id="role-title">Welcome to Zavtoo</h1><p>Choose how you use Zavtoo.</p></div>

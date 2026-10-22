@@ -5,6 +5,7 @@ import { Toggle } from "../components/ui";
 import ProductImage from "../components/ProductImage";
 import { PhotoViewer, compressImage } from "../components/PhotoPicker";
 import { removeProductImages, uploadProductImage } from "../lib/photos";
+import { MIN_SPIN_FRAMES, SpinViewer } from "../storefront/ProductExtras";
 import { friendly } from "../lib/supabase";
 import { inr, productById, techById, type Coupon } from "../lib/data";
 import { AUDIENCES, type AdminCoupon, type AdminProduct, type AdminReview, type Broadcast } from "../lib/adminData";
@@ -13,7 +14,7 @@ import { Badge, Btn, Filter, Modal, Panel, Table, fieldLabel, input, muted } fro
 
 /* ───────────────────────── Products & stock ───────────────────────── */
 
-export type ProductDraft = Pick<AdminProduct, "name" | "category" | "spec" | "price" | "mrp" | "stock" | "stages" | "warranty" | "description" | "art">;
+export type ProductDraft = Pick<AdminProduct, "name" | "category" | "spec" | "price" | "mrp" | "stock" | "stages" | "warranty" | "description" | "art" | "specs" | "warranty_terms" | "amazon_url" | "flipkart_url">;
 
 export function ProductsSection({ products, onUpdate, onCreate, onDelete }: {
   products: AdminProduct[]; onUpdate: (p: AdminProduct, patch: Partial<AdminProduct>) => Promise<boolean>;
@@ -21,7 +22,9 @@ export function ProductsSection({ products, onUpdate, onCreate, onDelete }: {
 }) {
   const [edit, setEdit] = useState<AdminProduct | "new" | null>(null);
   const [photosFor, setPhotosFor] = useState<string | null>(null);
+  const [spinFor, setSpinFor] = useState<string | null>(null);
   const photoProduct = products.find((p) => p.id === photosFor);
+  const spinProduct = products.find((p) => p.id === spinFor);
   return (
     <Panel title={`Products & stock (${products.length})`} pad={false} actions={<Btn onClick={() => setEdit("new")}>+ Add product</Btn>}>
       <Table rows={products} rowKey={(p) => p.id} empty="No products yet. Add your first product." cols={[
@@ -43,6 +46,7 @@ export function ProductsSection({ products, onUpdate, onCreate, onDelete }: {
         { key: "x", head: "", align: "right", render: (p) => (
           <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
             <Btn small kind="ghost" onClick={() => setPhotosFor(p.id)}>Photos</Btn>
+            <Btn small kind="ghost" onClick={() => setSpinFor(p.id)}>{p.spin_images.length >= MIN_SPIN_FRAMES ? "360° ✓" : "360°"}</Btn>
             <Btn small kind="ghost" onClick={() => setEdit(p)}>Edit</Btn>
             <Btn small kind="danger" onClick={() => {
               if (confirm(`Delete "${p.name}" permanently?\n\nIts photos and customer reviews are deleted too. Past orders keep their details.\nTip: switch "Listed" off instead to hide it from the shop.`)) void onDelete(p);
@@ -57,6 +61,7 @@ export function ProductsSection({ products, onUpdate, onCreate, onDelete }: {
             if (id) { setEdit(null); setPhotosFor(id); } // straight on to adding photos
           } else if (await onUpdate(edit, d)) setEdit(null);
         }} />}
+      {spinProduct && <SpinFramesModal p={spinProduct} onClose={() => setSpinFor(null)} onSave={(spin_images) => onUpdate(spinProduct, { spin_images })} />}
       {photoProduct && <ProductPhotosModal p={photoProduct} onClose={() => setPhotosFor(null)} onSave={(images) => onUpdate(photoProduct, { images })} />}
     </Panel>
   );
@@ -71,13 +76,18 @@ function ProductForm({ p, onClose, onSave }: { p: AdminProduct | null; onClose: 
     name: p?.name ?? "", category: p?.category ?? "spare", spec: p?.spec ?? "", price: p ? String(p.price) : "", mrp: p ? String(p.mrp) : "",
     stock: p?.stock == null ? "" : String(p.stock), stages: p?.stages ?? "", warranty: p?.warranty ?? "", description: p?.description ?? "",
     art: p?.art ?? "cartridge",
+    warranty_terms: p?.warranty_terms ?? "", amazon_url: p?.amazon_url ?? "", flipkart_url: p?.flipkart_url ?? "",
   });
+  const [specs, setSpecs] = useState<{ label: string; value: string }[]>(() => p?.specs?.length ? p.specs : [{ label: "", value: "" }]);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f, digits = false) => (e: { target: { value: string } }) => setF({ ...f, [k]: digits ? e.target.value.replace(/\D/g, "").slice(0, 7) : e.target.value });
   const pr = Number(f.price), m = Number(f.mrp), st = f.stock === "" ? null : Number(f.stock);
   const err = f.name.trim().length < 3 ? "Enter the product name"
     : !pr ? "Enter the selling price" : !m ? "Enter the MRP" : pr > m ? "Selling price can't be higher than MRP"
-    : f.description.trim().length < 10 ? "Add a short description (at least 10 characters)" : null;
+    : f.description.trim().length < 10 ? "Add a short description (at least 10 characters)"
+    : f.amazon_url.trim() && !/^https:\/\/([a-z0-9-]+\.)*(amazon\.in|amazon\.com|amzn\.to|amzn\.in)(\/|$)/i.test(f.amazon_url.trim()) ? "Amazon link should start with https://www.amazon.in/… or https://amzn.to/…"
+    : f.flipkart_url.trim() && !/^https:\/\/([a-z0-9-]+\.)*(flipkart\.com|fkrt\.it|fkrt\.cc)(\/|$)/i.test(f.flipkart_url.trim()) ? "Flipkart link should start with https://www.flipkart.com/…"
+    : null;
 
   const save = async () => {
     if (err) return;
@@ -85,6 +95,8 @@ function ProductForm({ p, onClose, onSave }: { p: AdminProduct | null; onClose: 
     await onSave({
       name: f.name.trim(), category: f.category, spec: f.spec.trim(), price: pr, mrp: m, stock: st,
       stages: f.stages.trim(), warranty: f.warranty.trim(), description: f.description.trim(), art: f.art,
+      specs: specs.map((r) => ({ label: r.label.trim(), value: r.value.trim() })).filter((r) => r.label && r.value),
+      warranty_terms: f.warranty_terms.trim(), amazon_url: f.amazon_url.trim(), flipkart_url: f.flipkart_url.trim(),
     });
     setBusy(false);
   };
@@ -107,6 +119,35 @@ function ProductForm({ p, onClose, onSave }: { p: AdminProduct | null; onClose: 
         {field("Picture until photos are added", <select value={f.art} onChange={set("art")} style={input}>{ARTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>)}
         {field("Description", <textarea value={f.description} onChange={set("description")} rows={4} maxLength={600} placeholder="What it does, what it fits, what's included…" style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />, true)}
       </div>
+
+      <h4 style={{ margin: "18px 0 4px", fontSize: 14 }}>Specifications</h4>
+      <p style={{ ...muted, margin: "0 0 8px" }}>Shown in the Specifications box on the product page. Category, model, stages and warranty are added automatically.</p>
+      <div style={{ display: "grid", gap: 6 }}>
+        {specs.map((r, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr 32px", gap: 6 }}>
+            <input value={r.label} maxLength={40} placeholder={["Technology", "Storage tank", "Purification capacity", "Input TDS", "Power", "Dimensions (W×D×H)", "Weight", "Installation"][i % 8]} aria-label={`Specification ${i + 1} name`}
+              onChange={(e) => setSpecs(specs.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} style={input} />
+            <input value={r.value} maxLength={120} placeholder={["RO + UV + UF + Mineral", "10 L", "15 L/hour", "Up to 2000 ppm", "36 W · 230 V", "28 × 30 × 45 cm", "8.5 kg", "Wall mount / Countertop"][i % 8]} aria-label={`Specification ${i + 1} value`}
+              onChange={(e) => setSpecs(specs.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} style={input} />
+            <button type="button" aria-label={`Remove specification ${i + 1}`} onClick={() => setSpecs(specs.length > 1 ? specs.filter((_, j) => j !== i) : [{ label: "", value: "" }])}
+              style={{ border: 0, background: "none", color: "var(--error-text)", fontSize: 18, cursor: "pointer" }}>×</button>
+          </div>
+        ))}
+        {specs.length < 40 && <div><Btn small kind="ghost" onClick={() => setSpecs([...specs, { label: "", value: "" }])}>+ Add specification</Btn></div>}
+      </div>
+
+      <h4 style={{ margin: "18px 0 4px", fontSize: 14 }}>Warranty terms</h4>
+      <textarea value={f.warranty_terms} onChange={set("warranty_terms")} rows={4} maxLength={2000} aria-label="Warranty terms"
+        placeholder={"One point per line, e.g.\n1 year warranty on the machine from installation date\nMembrane & filters: 6 months\nNot covered: physical damage, very high TDS"}
+        style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />
+      <p style={{ ...muted, margin: "4px 0 0" }}>Leave empty to show the general Zavtoo warranty terms.</p>
+
+      <h4 style={{ margin: "18px 0 4px", fontSize: 14 }}>Also available on (optional)</h4>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {field("Amazon link", <input value={f.amazon_url} onChange={set("amazon_url")} maxLength={500} placeholder="https://www.amazon.in/…" style={input} />)}
+        {field("Flipkart link", <input value={f.flipkart_url} onChange={set("flipkart_url")} maxLength={500} placeholder="https://www.flipkart.com/…" style={input} />)}
+      </div>
+      <p style={{ ...muted, margin: "4px 0 0" }}>The &quot;Also available on Amazon &amp; Flipkart&quot; box shows on the product page only when a link is added.</p>
       {err && (f.name || f.price || f.mrp) ? <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>
         : pr && m && pr <= m ? <p style={{ ...muted, margin: "10px 0 0" }}>Customers will see {Math.round((1 - pr / m) * 100)}% off.{!p && " Next you can add photos."}</p> : null}
     </Modal>
@@ -176,8 +217,9 @@ function ProductPhotosModal({ p, onClose, onSave }: { p: AdminProduct; onClose: 
   return (
     <Modal title={`Photos · ${p.name}`} onClose={onClose} footer={<Btn onClick={onClose}>Done</Btn>}>
       <p style={{ ...muted, margin: "0 0 12px", lineHeight: 1.5 }}>
-        The first photo is the cover customers see in the shop and the app. Changes save immediately. Without photos, the product shows its illustration.
+        Add up to {MAX_PRODUCT_PHOTOS} photos (front, side, inside, fittings, box). The first photo is the cover customers see in the shop and the app; the rest show as thumbnails on the product page. Changes save immediately.
       </p>
+      <p style={{ margin: "0 0 12px", fontSize: 12.5, fontWeight: 700, color: "var(--blue)" }}>Upload size: 1000 × 1000 px (square, white or light background) · JPG, PNG or WebP</p>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10 }}>
         {images.map((src, i) => (
           <div key={src} style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", background: "var(--surface)" }}>
@@ -201,7 +243,7 @@ function ProductPhotosModal({ p, onClose, onSave }: { p: AdminProduct; onClose: 
             cursor: busy ? "wait" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, fontWeight: 700, fontSize: 13,
           }}>
             <span style={{ fontSize: 24, lineHeight: 1 }}>{busy ? "⏳" : "＋"}</span>
-            {busy ?? (images.length ? "Add more photos" : "Upload photos")}
+            {busy ?? (images.length ? `Add more photos (${left} left)` : `Upload photos (up to ${MAX_PRODUCT_PHOTOS})`)}
           </button>
         )}
       </div>
@@ -211,6 +253,79 @@ function ProductPhotosModal({ p, onClose, onSave }: { p: AdminProduct; onClose: 
         {err ?? (busy && images.length >= MAX_PRODUCT_PHOTOS ? busy : `${images.length}/${MAX_PRODUCT_PHOTOS} photos · JPG, PNG or WebP · large photos are resized automatically`)}
       </p>
       {view && <PhotoViewer src={view} onClose={() => setView(null)} />}
+    </Modal>
+  );
+}
+
+/* ───────────────────────── 360° view frames ───────────────────────── */
+
+const MAX_SPIN_FRAMES = 72;
+
+/** Upload the photos taken all the way round a product; they play in file-name order. */
+function SpinFramesModal({ p, onClose, onSave }: { p: AdminProduct; onClose: () => void; onSave: (frames: string[]) => Promise<boolean> }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [frames, setFrames] = useState(p.spin_images);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [preview, setPreview] = useState(false);
+
+  const upload = async (list: FileList | null) => {
+    const files = Array.from(list ?? []).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    if (ref.current) ref.current.value = "";
+    if (!files.length) return;
+    if (files.length < MIN_SPIN_FRAMES) { setErr(`Pick at least ${MIN_SPIN_FRAMES} photos — 24 to 36 gives a smooth turn.`); return; }
+    const pick = files.slice(0, MAX_SPIN_FRAMES);
+    setErr(null);
+    try {
+      const urls: string[] = [];
+      for (const [i, f] of pick.entries()) {
+        setBusy(`Uploading ${i + 1} of ${pick.length}…`);
+        urls.push(await uploadProductImage(`${p.id}-360`, await compressImage(f, 1000, 0.82)));
+      }
+      setBusy("Saving…");
+      if (await onSave(urls)) { await removeProductImages(frames).catch(() => undefined); setFrames(urls); }
+      else await removeProductImages(urls).catch(() => undefined);
+      if (files.length > MAX_SPIN_FRAMES) setErr(`Only the first ${MAX_SPIN_FRAMES} photos were used.`);
+    } catch (e) { setErr(friendly(e)); }
+    setBusy(null);
+  };
+  const clear = async () => {
+    if (!confirm(`Remove the 360° view of ${p.name}?`)) return;
+    setBusy("Removing…");
+    if (await onSave([])) { await removeProductImages(frames).catch(() => undefined); setFrames([]); }
+    setBusy(null);
+  };
+
+  return (
+    <Modal title={`360° view · ${p.name}`} onClose={onClose} footer={<Btn onClick={onClose}>Done</Btn>}>
+      <ol style={{ margin: "0 0 12px", paddingLeft: 18, fontSize: 13, lineHeight: 1.6 }}>
+        <li>Put the purifier on a turntable (or turn it by hand) against a plain white wall, camera fixed at one spot.</li>
+        <li>Take <b>24 to 36 photos</b>, turning it a little (10–15°) each time, until it has gone all the way round.</li>
+        <li>Name them in order (photo-01, photo-02 …) and select them all together below.</li>
+      </ol>
+      <p style={{ margin: "0 0 12px", fontSize: 12.5, fontWeight: 700, color: "var(--blue)" }}>Upload size: 1000 × 1000 px (square, same framing in every photo) · {MIN_SPIN_FRAMES}–{MAX_SPIN_FRAMES} photos</p>
+      {frames.length >= MIN_SPIN_FRAMES ? (
+        <>
+          <div className="no-scroll" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {frames.map((src, i) => <img key={src} src={src} alt={`Angle ${i + 1}`} style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 8, background: "var(--bg-secondary)", flexShrink: 0 }} />)}
+          </div>
+          <p style={{ ...muted, margin: "6px 0 12px" }}>{frames.length} photos · the 360° view button shows on the product page.</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <Btn onClick={() => setPreview(true)} disabled={!!busy}>Preview 360°</Btn>
+            <Btn kind="ghost" onClick={() => ref.current?.click()} disabled={!!busy}>Replace all photos</Btn>
+            <Btn kind="danger" onClick={() => void clear()} disabled={!!busy}>Remove 360° view</Btn>
+          </div>
+        </>
+      ) : (
+        <button onClick={() => ref.current?.click()} disabled={!!busy} style={{
+          width: "100%", minHeight: 120, borderRadius: 12, border: "1.5px dashed var(--blue)", background: "var(--blue-tint)", color: "var(--blue)",
+          cursor: busy ? "wait" : "pointer", fontWeight: 700, fontSize: 14,
+        }}>{busy ?? "＋ Select all 360° photos"}</button>
+      )}
+      <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={(e) => void upload(e.target.files)} />
+      {(busy || err) && <p style={{ ...muted, margin: "10px 0 0", color: err ? "var(--error-text)" : undefined, fontWeight: 600 }}>{err ?? busy}</p>}
+      {preview && <SpinViewer frames={frames} name={p.name} onClose={() => setPreview(false)} />}
     </Modal>
   );
 }

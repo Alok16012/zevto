@@ -48,7 +48,7 @@ export default function RoleLoginForm({ role, email, password, onEmail, onPasswo
   return (
     <div className={`${styles.page} no-scroll`}>
       <header className={styles.hero}>
-        <Image className={styles.heroImage} src="/zavtoo-customer-login-reference.png" alt="Zavtoo Pani Filter Pvt Ltd. Pure water. Peace of mind." width={941} height={1672} sizes="(max-width: 430px) 100vw, 430px" preload />
+        <Image className={styles.heroImage} src="/zavtoo-customer-login-reference.png" alt="Zavtoo Paani Filter Pvt Ltd. Pure water. Peace of mind." width={941} height={1672} sizes="(max-width: 430px) 100vw, 430px" preload />
       </header>
       {forgot ? (
         <form onSubmit={sendReset} className={styles.form}>

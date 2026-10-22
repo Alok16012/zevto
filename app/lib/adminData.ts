@@ -6,7 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fmtDay, toTechnician, type DbTechnician } from "./catalog";
 import { fmtDateOnly, type DbOrder, type DbRequest, type DbReview } from "./db";
-import type { Coupon, Review, ServiceType, Technician } from "./data";
+import type { Coupon, ProductSpec, Review, ServiceType, Technician } from "./data";
 import type { DbGalleryPart } from "./partsGallery";
 import type { DbTechListing, DbTechPurchase } from "./techShop";
 
@@ -100,6 +100,12 @@ export interface AdminProduct {
   warranty: string;
   description: string;
   sort: number;
+  /** Product-page extras (columns from supabase/product-details-migration.sql). */
+  specs: ProductSpec[];
+  warranty_terms: string;
+  spin_images: string[];
+  amazon_url: string;
+  flipkart_url: string;
 }
 
 export interface AdminCoupon extends Coupon {
@@ -198,7 +204,8 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     all<DbTechnician>(sb.from("technicians").select("*").order("created_at")),
     // "*" so the console still loads before the images column exists.
     all<{ id: string; name: string; category: string; price: number; mrp: number; stock: number | null; active: boolean; images?: string[] | null;
-      spec: string; art: string; stages: string; warranty: string; description: string; sort: number; dealer_id?: string | null; tech_id?: string | null }>(sb.from("products").select("*").order("sort")),
+      spec: string; art: string; stages: string; warranty: string; description: string; sort: number; dealer_id?: string | null; tech_id?: string | null;
+      specs?: ProductSpec[] | null; warranty_terms?: string | null; spin_images?: string[] | null; amazon_url?: string | null; flipkart_url?: string | null }>(sb.from("products").select("*").order("sort")),
     all<{ code: string; title: string; descr: string; kind: "flat" | "percent"; value: number; max_off: number | null; min_order: number; applies_to: "product" | "service" | "all"; expires: string; active: boolean; used: number }>(
       sb.from("coupons").select("*").order("created_at", { ascending: false })),
     all<DbReview>(sb.from("reviews").select("*").order("created_at", { ascending: false }).limit(1000)),
@@ -268,6 +275,8 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     products: products.map((p) => ({
       id: p.id, name: p.name, category: p.category, price: p.price, mrp: p.mrp, stock: p.stock, active: p.active, images: p.images ?? [],
       spec: p.spec ?? "", art: p.art ?? "classic", stages: p.stages ?? "", warranty: p.warranty ?? "", description: p.description ?? "", sort: p.sort ?? 0,
+      specs: Array.isArray(p.specs) ? p.specs : [], warranty_terms: p.warranty_terms ?? "", spin_images: p.spin_images ?? [],
+      amazon_url: p.amazon_url ?? "", flipkart_url: p.flipkart_url ?? "",
     })),
     coupons: coupons.map((c) => ({
       code: c.code, title: c.title, desc: c.descr, kind: c.kind, value: c.value, maxOff: c.max_off ?? undefined, minOrder: c.min_order,

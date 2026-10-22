@@ -49,7 +49,16 @@ export interface Product {
   techId?: string;
   /** "Shop name, City" of that dealer, or "Name · Zavtoo technician". */
   soldBy?: string;
+  /** Specification rows for the product page, e.g. { label: "Storage tank", value: "10 L" }. */
+  specs?: ProductSpec[];
+  /** Warranty terms, one point per line; empty = the general terms. */
+  warrantyTerms?: string;
+  /** Photos all the way round the product, in order; 8+ turn on the 360° view. */
+  spinImages?: string[];
+  amazonUrl?: string;
+  flipkartUrl?: string;
 }
+export interface ProductSpec { label: string; value: string }
 
 export const PRODUCTS: Product[] = [
   {
@@ -160,13 +169,14 @@ export const PRODUCTS: Product[] = [
  * (site_images table). These match the database seed; live rows replace them. */
 export type SiteSlot = "hero" | "tile-domestic" | "tile-commercial" | "tile-spare" | "tile-service" | "showcase";
 export interface SiteImages { images: string[]; captions: string[] }
-export const SITE_SLOTS: { slot: SiteSlot; label: string; hint: string; max: number; captions?: boolean }[] = [
-  { slot: "hero", label: "Homepage hero", hint: "Big photo at the top of the homepage · landscape, about 16:10", max: 1 },
-  { slot: "tile-domestic", label: "Category tile · Home RO", hint: "Shown in “Find what you need” · square or portrait", max: 1 },
-  { slot: "tile-commercial", label: "Category tile · Commercial", hint: "Shown in “Find what you need” · square or portrait", max: 1 },
-  { slot: "tile-spare", label: "Category tile · Spare parts", hint: "Shown in “Find what you need” · square or portrait", max: 1 },
-  { slot: "tile-service", label: "Category tile · Service & AMC", hint: "Shown in “Find what you need” · square or portrait", max: 1 },
-  { slot: "showcase", label: "Purifier showcase gallery", hint: "“Good water. Beautifully designed.” · portrait, about 4:5 · first photo is shown large", max: 8, captions: true },
+/** `size` = the photo size to upload, shown under each box in the admin panel. */
+export const SITE_SLOTS: { slot: SiteSlot; label: string; hint: string; size: string; max: number; captions?: boolean }[] = [
+  { slot: "hero", label: "Homepage hero", hint: "Big photo at the top of the homepage", size: "1600 × 1000 px (landscape, 16:10)", max: 1 },
+  { slot: "tile-domestic", label: "Category tile · Home RO", hint: "Shown in “Find what you need”", size: "800 × 800 px (square)", max: 1 },
+  { slot: "tile-commercial", label: "Category tile · Commercial", hint: "Shown in “Find what you need”", size: "800 × 800 px (square)", max: 1 },
+  { slot: "tile-spare", label: "Category tile · Spare parts", hint: "Shown in “Find what you need”", size: "800 × 800 px (square)", max: 1 },
+  { slot: "tile-service", label: "Category tile · Service & AMC", hint: "Shown in “Find what you need”", size: "800 × 800 px (square)", max: 1 },
+  { slot: "showcase", label: "Purifier showcase gallery", hint: "“Good water. Beautifully designed.” · first photo is shown large", size: "1080 × 1350 px (portrait, 4:5)", max: 8, captions: true },
 ];
 export const SITE_IMAGES: Record<SiteSlot, SiteImages> = {
   hero: { images: ["/hero-kitchen-branded.jpg"], captions: ["Zavtoo RO water purifier in a bright kitchen"] },
