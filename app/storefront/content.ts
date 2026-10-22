@@ -14,6 +14,8 @@ export const COMPANY = {
   website: "zavtoo.in",
   websiteHref: "https://zavtoo.in",
   address: "K-15, Raja Puri, Dwarka Road, New Delhi – 110059",
+  // Printed on purchase / sale bills when filled in (Admin → Parties & Ledger).
+  gstin: "",
   mapHref: "https://maps.google.com/?q=Raja+Puri+Dwarka+Road+New+Delhi+110059",
   hours: "Mon – Sun: 8:00 AM – 8:00 PM",
   about: "India's most trusted water purifier sales, service & spare parts company with 20+ years of pure water expertise.",

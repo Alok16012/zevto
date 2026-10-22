@@ -6,6 +6,7 @@ import { Toggle } from "../components/ui";
 import { fmtDay } from "../lib/catalog";
 import { PRODUCTS, inr } from "../lib/data";
 import { friendly, supabaseFor, useLive } from "../lib/supabase";
+import { printBill } from "./printBill";
 import { Badge, Btn, Filter, Modal, Panel, SearchBox, Stat, Table, fieldLabel, input, muted, type Tone } from "./kit";
 
 /* ───────────────────────── Parties & ledger ─────────────────────────
@@ -135,6 +136,7 @@ export function PartiesSection({ notify }: { notify: (msg: string, bad?: boolean
             { key: "items", head: "Items", render: (b) => `${b.items.length} · ${b.items.reduce((n, l) => n + l.qty, 0)} pcs` },
             { key: "total", head: "Total", align: "right", render: (b) => <strong style={{ textDecoration: b.status === "Cancelled" ? "line-through" : undefined }}>{inr(b.total)}</strong> },
             { key: "status", head: "Status", render: (b) => <Badge tone={b.status === "Posted" ? "green" : "grey"}>{b.status}</Badge> },
+            { key: "print", head: "", align: "right", render: (b) => <Btn small kind="ghost" onClick={() => printBill(b, byId.get(b.party_id))}>🖨 Print</Btn> },
           ]} />}
 
         {tab === "Payments" && <Table<Payment> rows={payRows} rowKey={(x) => x.id} empty="No payments yet."
@@ -393,7 +395,7 @@ function BillView({ bill, party, onClose, onCancelled, notify }: { bill: Bill; p
   };
   return (
     <Modal title={`${bill.kind} ${bill.ref}`} onClose={onClose}
-      footer={<>{bill.status === "Posted" && <Btn kind="danger" disabled={busy} onClick={() => void cancel()}>{busy ? "Cancelling…" : "Cancel bill"}</Btn>}<Btn onClick={onClose}>Done</Btn></>}>
+      footer={<>{bill.status === "Posted" && <Btn kind="danger" disabled={busy} onClick={() => void cancel()}>{busy ? "Cancelling…" : "Cancel bill"}</Btn>}<Btn kind="ghost" onClick={() => printBill(bill, party)}>🖨 Print / PDF</Btn><Btn onClick={onClose}>Done</Btn></>}>
       <p style={{ margin: "0 0 12px", fontSize: 13.5, lineHeight: 1.6 }}>
         <strong>{party?.name ?? "—"}</strong> {party && <Badge tone={TYPE_TONE[party.type]}>{party.type}</Badge>}<br />
         {fmtDay(bill.bill_date)}{bill.bill_no && ` · Bill no. ${bill.bill_no}`} · <Badge tone={bill.status === "Posted" ? "green" : "grey"}>{bill.status}</Badge>
