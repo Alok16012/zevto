@@ -2,10 +2,10 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { inr, type ServiceOffering } from "../lib/data";
+import { SHOWCASE_PARTS, inr, type ServiceOffering, type ShowcasePart } from "../lib/data";
 import { CheckIcon, PlusIcon } from "../components/icons";
 import { HELPLINES,
-  ABOUT, ADVANTAGES, AMC, BOOKING_SERVICES, BRANDS, COMPANY, CONTACT, HOME_SERVICES, PARTS_SHOWCASE, REVIEW_STATS, SERVICE_BADGES, SERVICE_TITLES,
+  ABOUT, ADVANTAGES, AMC, BOOKING_SERVICES, BRANDS, COMPANY, CONTACT, HOME_SERVICES, REVIEW_STATS, SERVICE_BADGES, SERVICE_TITLES,
   STEPS, TESTIMONIALS, VALUE_PROPS, whatsappWith,
 } from "./content";
 import type { Block, Policy } from "./policies";
@@ -167,7 +167,7 @@ export function StartToday() {
 
 /* ───────────── Spare parts showcase ───────────── */
 
-function PartCard({ part }: { part: (typeof PARTS_SHOWCASE)[number] }) {
+function PartCard({ part }: { part: ShowcasePart }) {
   const [active, setActive] = useState(0);
   return (
     <article className={`${s.card} ${s.partCard}`}>
@@ -185,7 +185,7 @@ function PartCard({ part }: { part: (typeof PARTS_SHOWCASE)[number] }) {
       <p>{part.text}</p>
       <ul className={s.partTags}>{part.tags.map((t) => <li key={t}>{t}</li>)}</ul>
       <div className={s.partActions}>
-        {"productId" in part && part.productId
+        {part.productId
           ? <Link className={s.btnPrimary} href={`/products/${part.productId}`}>View &amp; buy</Link>
           : <a className={s.btnPrimary} href={whatsappWith(`Hi Paani Filter, please share the price and availability of: ${part.name}`)} target="_blank" rel="noopener noreferrer">Get price on WhatsApp</a>}
         <a className={s.btnOutline} href={COMPANY.phoneHref}>Call</a>
@@ -195,12 +195,15 @@ function PartCard({ part }: { part: (typeof PARTS_SHOWCASE)[number] }) {
 }
 
 export function PartsShowcase() {
+  // Cards and photos come from Admin → Website images; staff also load hidden cards, so filter them here.
+  const parts = SHOWCASE_PARTS.filter((p) => p.active !== false && p.photos.length);
+  if (!parts.length) return null;
   return (
     <section id="spare-parts" className={s.section}>
       <SectionHead kicker="GENUINE SPARE PARTS" title="Spare parts we supply"
         text="Real photos of parts from our store. Housings, cartridges and filters for all major RO brands — ask us for the price and we'll confirm availability right away."
         action={<Link className={s.textLink} href="/shop?category=spare">Shop all spare parts →</Link>} />
-      <div className={s.grid3}>{PARTS_SHOWCASE.map((p) => <PartCard key={p.id} part={p} />)}</div>
+      <div className={s.grid3}>{parts.map((p) => <PartCard key={`${p.id}-${p.photos.join()}`} part={p} />)}</div>
     </section>
   );
 }

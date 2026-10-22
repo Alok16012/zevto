@@ -226,28 +226,3 @@ export const CONTACT = {
     ["Is there a helpline number for emergencies?", "For after-hours emergencies, please WhatsApp us at 89-294-546-47. While phone calls may not be answered after 8 PM, WhatsApp messages are monitored and we will assist you as quickly as possible."],
   ],
 };
-
-/* ───────────── Spare parts showcase (photographed stock, price on request) ───────────── */
-
-const partPhotos = (name: string) => [1, 2, 3].map((n) => `/products/parts/${name}-${n}.jpg`);
-
-export const PARTS_SHOWCASE = [
-  { id: "blue-cap-cartridge", name: "Inline Filter Cartridge — Blue Twist Cap",
-    text: "White inline cartridge with a blue twist-lock cap. Opens fully: blue inner core sealed with a red O-ring, so it can be cleaned and refilled.",
-    tags: ["Twist-lock cap", "O-ring sealed", "Refillable"], photos: partPhotos("blue-cap-cartridge") },
-  { id: "grey-cap-cartridge", name: "Inline Filter Cartridge — Grey Twist Cap",
-    text: "White inline cartridge with a grey twist-lock cap and dark inner core with red sealing ring. Unscrews for cleaning and media change.",
-    tags: ["Twist-lock cap", "Sealed inner core", "Refillable"], photos: partPhotos("grey-cap-cartridge") },
-  { id: "black-inline-cartridge", name: "Black Inline Filter Cartridge",
-    text: "Glossy black inline cartridge with push-fit inlet and outlet ports and a screw-fixed end cap for a secure, leak-free fit.",
-    tags: ["Push-fit ports", "Screw-fixed cap", "Compact"], photos: partPhotos("black-inline-cartridge") },
-  { id: "osmo-housing", name: "OSMO Filter Housing with Wall Clamp",
-    text: "White OSMO housing with a clear bowl, black screw cap with red sealing ring, side push-fit ports and a wall-mounting clamp.",
-    tags: ["Clear bowl", "Wall clamp included", "Push-fit ports"], photos: partPhotos("osmo-housing") },
-  { id: "membrane-housing", name: "RO Membrane Housing (White)",
-    text: "White RO membrane housing with a threaded screw cap, red O-ring seal and push-fit end ports for domestic RO purifiers.",
-    tags: ["Threaded cap", "O-ring seal", "Push-fit ports"], photos: partPhotos("membrane-housing") },
-  { id: "sediment-spun-filter", name: "PP Spun Sediment Filter",
-    text: "Melt-blown polypropylene spun cartridge that traps dirt, sand and rust before they reach the membrane.",
-    tags: ["Spun PP", "Pre-filter", "All brands"], photos: partPhotos("sediment-spun-filter"), productId: "sediment-5" },
-];

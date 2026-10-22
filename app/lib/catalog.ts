@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { COUPONS, PRODUCTS, SERVICE_CATALOG, SITE_IMAGES, TECHNICIANS, initialsOf, type Coupon, type Product, type ServiceOffering, type ServiceType, type SiteSlot, type Technician } from "./data";
+import { COUPONS, PRODUCTS, SERVICE_CATALOG, SHOWCASE_PARTS, SITE_IMAGES, TECHNICIANS, initialsOf, type Coupon, type Product, type ServiceOffering, type ServiceType, type ShowcasePart, type SiteSlot, type Technician } from "./data";
 import { PARTS, type Part } from "./techData";
 import { supabaseFor, type AppKind } from "./supabase";
 
@@ -25,13 +25,14 @@ export const toTechnician = (t: DbTechnician): Technician => ({
 const swap = <T,>(list: T[], rows: T[]) => { list.splice(0, list.length, ...rows); };
 
 async function loadCatalog(sb: SupabaseClient) {
-  const [products, services, coupons, parts, techs, site] = await Promise.all([
+  const [products, services, coupons, parts, techs, site, showcase] = await Promise.all([
     sb.from("products").select("*").order("sort"),
     sb.from("service_catalog").select("*").order("sort"),
     sb.from("coupons").select("*").order("created_at"),
     sb.from("parts").select("*").order("price"),
     sb.from("technicians").select("*").order("rating", { ascending: false }),
     sb.from("site_images").select("slot, images, captions"),
+    sb.from("showcase_parts").select("*").order("sort"),
   ]);
   const err = products.error ?? services.error ?? coupons.error;
   if (err) throw err;
@@ -56,6 +57,9 @@ async function loadCatalog(sb: SupabaseClient) {
   if (!site.error) for (const r of site.data ?? []) {
     if (r.slot in SITE_IMAGES) SITE_IMAGES[r.slot as SiteSlot] = { images: r.images ?? [], captions: r.captions ?? [] };
   }
+  if (!showcase.error) swap<ShowcasePart>(SHOWCASE_PARTS, (showcase.data ?? []).map((r) => ({
+    id: r.id, name: r.name, text: r.text ?? "", tags: r.tags ?? [], photos: r.photos ?? [], productId: r.product_id ?? undefined, active: r.active,
+  })));
   if (!techs.error) swap<Technician>(TECHNICIANS, ((techs.data ?? []) as DbTechnician[]).map(toTechnician));
 }
 
@@ -87,7 +91,7 @@ export function useCatalog(app: AppKind, userId: string | null | undefined) {
     run();
     const later = () => { clearTimeout(timer); timer = setTimeout(run, 300); };
     const ch = sb.channel(`catalog:${app}:${Math.random().toString(36).slice(2, 8)}`);
-    ["products", "service_catalog", "coupons", "technicians", "site_images"].forEach((table) =>
+    ["products", "service_catalog", "coupons", "technicians", "site_images", "showcase_parts"].forEach((table) =>
       ch.on("postgres_changes", { event: "*", schema: "public", table }, later));
     ch.subscribe();
     return () => { alive = false; clearTimeout(timer); sb.removeChannel(ch); };
