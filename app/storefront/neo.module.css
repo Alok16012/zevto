@@ -258,22 +258,17 @@
 
 /* ───────── Hero ───────── */
 .hero {
-  margin-top:20px;
-  margin-inline:auto;
-  border-radius:22px;
-  background:radial-gradient(120% 140% at 85% 10%,#1b74c4 0%,var(--brand) 45%,var(--brand-deep) 100%);
-  color:#fff;
-  padding:18px 40px 32px;
-  overflow:hidden
+  margin-top:16px
 }
 .segments {
   display:flex;
   gap:12px;
   width:max-content;
   max-width:100%;
-  margin:0 auto 22px;
+  margin:0 auto 16px;
   padding:8px;
   background:#fff;
+  border:1px solid var(--line);
   border-radius:16px
 }
 .segments a {
@@ -281,7 +276,7 @@
   display:grid;
   place-items:center;
   min-width:128px;
-  min-height:46px;
+  min-height:44px;
   padding:0 20px;
   border:1px solid #cfcfcf;
   border-radius:10px;
@@ -311,99 +306,109 @@
   padding:3px 8px;
   border-radius:5px
 }
-.heroGrid {
-  max-width:1600px;
-  margin-inline:auto;
-  display:grid;
-  grid-template-columns:1.1fr 1px 1fr;
-  gap:44px;
-  align-items:center
-}
-.heroPhoto {
-  position:relative;
-  display:block;
-  border-radius:18px;
+
+.srOnly {
+  position:absolute!important;
+  width:1px;
+  height:1px;
+  margin:-1px;
+  padding:0;
   overflow:hidden;
-  aspect-ratio:16/10;
-  max-height:min(560px,50vh);
-  width:100%;
-  background:#0a3e6f
+  clip:rect(0 0 0 0);
+  white-space:nowrap;
+  border:0
 }
-.heroPhoto img {
+
+/* Banner slider: full-width wide banners (1600 × 711) with the message in the artwork. */
+.slider {
+  position:relative;
+  border-radius:22px;
+  overflow:hidden;
+  background:#0d1b33;
+  aspect-ratio:1600/711;
+  max-height:calc(100vh - 210px);
+  min-height:150px;
+  width:100%
+}
+.slides {
+  display:flex;
+  height:100%;
+  transition:transform .6s cubic-bezier(.4,0,.2,1);
+  touch-action:pan-y
+}
+.slides>a {
+  flex:0 0 100%;
+  height:100%
+}
+.slides img {
   width:100%;
   height:100%;
   object-fit:cover;
-  display:block
+  object-position:left center;
+  display:block;
+  user-select:none;
+  -webkit-user-drag:none
 }
-.heroPhoto span {
+.slideArrow {
   position:absolute;
-  left:16px;
-  bottom:16px;
-  display:flex;
-  align-items:center;
-  gap:6px;
-  background:rgba(255,255,255,.94);
-  color:var(--ink);
-  font-size:13px;
-  font-weight:500;
-  padding:7px 12px;
-  border-radius:999px
-}
-.heroRule {
-  align-self:stretch;
-  background:rgba(255,255,255,.35);
-  margin-block:40px
-}
-.heroCopy {
-  display:flex;
-  flex-direction:column;
-  gap:18px
-}
-.live {
-  display:flex;
-  align-items:center;
-  gap:8px;
-  color:var(--cta);
-  font-size:14px;
-  font-weight:500
-}
-.live::before {
-  content:"";
-  width:8px;
-  height:8px;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:2;
+  width:46px;
+  height:46px;
   border-radius:50%;
-  background:var(--cta);
-  box-shadow:0 0 0 4px rgba(255,198,41,.25)
-}
-.site .heroCopy h1 {
-  font-size:clamp(42px,min(4.8vw,7.5vh),80px);
-  color:#fff
-}
-.offerBox {
-  display:flex;
-  align-items:baseline;
-  justify-content:center;
-  gap:12px;
-  background:rgba(0,0,0,.22);
-  border-radius:16px;
-  padding:12px 24px
-}
-.offerBox span {
-  font-size:clamp(28px,3vw,44px)
-}
-.offerBox strong {
-  font-size:clamp(52px,min(5.2vw,9vh),88px);
-  font-weight:400
-}
-.heroButtons {
+  border:0;
+  background:rgba(255,255,255,.88);
+  color:var(--ink);
   display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:14px
+  place-items:center;
+  cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,0,0,.2);
+  opacity:0;
+  transition:opacity .2s
 }
-.site .heroCopy>p {
-  color:rgba(255,255,255,.82);
-  font-size:15px;
-  line-height:1.6
+.slider:hover .slideArrow,.slideArrow:focus-visible {
+  opacity:1
+}
+.slideArrow:hover {
+  background:#fff
+}
+.slidePrev {
+  left:16px
+}
+.slideNext {
+  right:16px
+}
+.dots {
+  position:absolute;
+  left:50%;
+  bottom:14px;
+  transform:translateX(-50%);
+  z-index:2;
+  display:flex;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  background:rgba(0,0,0,.28)
+}
+.dots button {
+  width:9px;
+  height:9px;
+  padding:0;
+  border:0;
+  border-radius:999px;
+  background:rgba(255,255,255,.55);
+  cursor:pointer;
+  transition:width .25s,background .25s
+}
+.dots button[aria-current=true] {
+  width:26px;
+  background:#fff
+}
+@media(prefers-reduced-motion:reduce) {
+  .slides {
+    transition:none
+  }
 }
 
 /* ───────── Trust strip ───────── */
@@ -990,16 +995,6 @@
   .drawer>nav>a[aria-current=page] {
     color:var(--brand)
   }
-  .heroGrid {
-    grid-template-columns:1fr;
-    gap:24px
-  }
-  .heroRule {
-    display:none
-  }
-  .hero {
-    padding:20px 22px 28px
-  }
   .tiles {
     grid-template-columns:repeat(2,minmax(0,1fr))
   }
@@ -1055,15 +1050,32 @@
     padding:10px 0
   }
   .hero {
-    margin-top:12px;
-    border-radius:18px;
-    padding:16px 14px 22px
+    margin-top:12px
   }
   .segments {
     gap:6px;
     padding:6px;
-    margin-bottom:22px;
+    margin-bottom:12px;
     width:100%
+  }
+  .slider {
+    border-radius:14px;
+    min-height:0
+  }
+  .slideArrow {
+    display:none
+  }
+  .dots {
+    bottom:8px;
+    gap:6px;
+    padding:4px 8px
+  }
+  .dots button {
+    width:7px;
+    height:7px
+  }
+  .dots button[aria-current=true] {
+    width:18px
   }
   .segments a {
     flex:1;
@@ -1076,20 +1088,6 @@
   .segments a>small {
     font-size:9.5px;
     top:-11px
-  }
-  .heroCopy {
-    gap:16px;
-    text-align:center;
-    align-items:stretch
-  }
-  .live {
-    justify-content:center
-  }
-  .offerBox {
-    padding:14px
-  }
-  .heroButtons {
-    grid-template-columns:1fr
   }
   .trust {
     grid-template-columns:1fr 1fr;

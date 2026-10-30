@@ -68,6 +68,49 @@ function Rail({ children, label }: { children: React.ReactNode; label: string })
   </div>;
 }
 
+const BANNER_ALT: Record<string, string> = {
+  "/shop?category=domestic": "Zavtoo home water purifiers",
+  "/shop?category=commercial": "Zavtoo commercial RO for offices and businesses",
+  "/shop?category=spare": "Zavtoo filters and spare parts",
+  "/services": "Zavtoo purifier service and AMC",
+};
+
+/** Homepage banner slider. Banners and the page each one opens come from Admin → Website images. */
+function HeroSlider() {
+  const banners = SITE_IMAGES.hero.images.map((src, i) => ({ src, href: SITE_IMAGES.hero.captions[i]?.startsWith("/") ? SITE_IMAGES.hero.captions[i] : "/shop" }));
+  const count = banners.length;
+  const [at, setAt] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const touch = useRef<number | null>(null);
+  const go = (i: number) => setAt(((i % count) + count) % count);
+  useEffect(() => {
+    if (paused || count < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setTimeout(() => setAt((i) => (i + 1) % count), 5000);
+    return () => clearTimeout(t);
+  }, [at, paused, count]);
+  if (!count) return null;
+  return (
+    <div className={n.slider} role="region" aria-roledescription="carousel" aria-label="Zavtoo highlights"
+      onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
+      <div className={n.slides} style={{ transform: `translateX(-${at * 100}%)` }}
+        onTouchStart={(e) => { touch.current = e.touches[0].clientX; setPaused(true); }}
+        onTouchEnd={(e) => { const x = touch.current; touch.current = null; setPaused(false); if (x == null) return; const dx = e.changedTouches[0].clientX - x; if (Math.abs(dx) > 40) go(at + (dx < 0 ? 1 : -1)); }}>
+        {banners.map((b, i) => (
+          <Link key={`${i}-${b.src}`} href={b.href} aria-hidden={i !== at} tabIndex={i === at ? 0 : -1} aria-label={`${BANNER_ALT[b.href] ?? "Zavtoo"} — slide ${i + 1} of ${count}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={b.src} alt={BANNER_ALT[b.href] ?? "Zavtoo"} width={1600} height={711} draggable={false} {...(i === 0 ? { fetchPriority: "high" as const } : { loading: "lazy" as const })} />
+          </Link>
+        ))}
+      </div>
+      {count > 1 && <>
+        <button type="button" className={`${n.slideArrow} ${n.slidePrev}`} aria-label="Previous banner" onClick={() => go(at - 1)}><span style={{ display: "grid", transform: "rotate(180deg)" }}><ChevronRight s={22} /></span></button>
+        <button type="button" className={`${n.slideArrow} ${n.slideNext}`} aria-label="Next banner" onClick={() => go(at + 1)}><ChevronRight s={22} /></button>
+        <div className={n.dots}>{banners.map((_, i) => <button key={i} type="button" aria-label={`Show banner ${i + 1}`} aria-current={i === at} onClick={() => go(i)} />)}</div>
+      </>}
+    </div>
+  );
+}
+
 export default function Storefront({ view, product: initialProduct, filters, service }: { view: View; product?: Product; service?: ServiceOffering; filters?: { category?: string; q?: string; saved?: string } }) {
   const [saved, setSaved] = useState<Saved>(empty);
   const [ready, setReady] = useState(false);
@@ -186,7 +229,6 @@ export default function Storefront({ view, product: initialProduct, filters, ser
   // Homepage rails: purifiers first, then the spares people reorder most.
   const bestSellers = [...PRODUCTS.filter(p => p.category !== "spare"), ...PRODUCTS.filter(p => BADGES[p.id] && p.category === "spare")];
   const spares = PRODUCTS.filter(p => p.category === "spare");
-  const bestDeal = Math.max(0, ...PRODUCTS.map(sale));
   const from = (cat: Product["category"]) => Math.min(...PRODUCTS.filter(p => p.category === cat).map(p => p.price));
   const serviceFrom = Math.min(...SERVICE_CATALOG.map(sv => sv.price).filter(v => v > 0));
   function renderSummary({ checkout = false }: { checkout?: boolean }) {
@@ -246,28 +288,13 @@ export default function Storefront({ view, product: initialProduct, filters, ser
       {view === "home" ? <>
         <div className={n.wide}>
           <section className={n.hero} aria-labelledby="hero-title">
+            <h1 id="hero-title" className={n.srOnly}>Zavtoo Paani Filter — RO water purifiers, commercial RO, spare parts and service</h1>
             <nav className={n.segments} aria-label="Shop by">
               <Link href="/shop?category=domestic" className={n.segOn}>Purifiers</Link>
               <Link href="/shop?category=spare">Spare parts</Link>
               <Link href="/services"><small>{COMPANY.offer.code} · 30% off</small>Service</Link>
             </nav>
-            <div className={n.heroGrid}>
-              <Link href="/shop?category=domestic" className={n.heroPhoto} aria-label="Shop water purifiers">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {SITE_IMAGES.hero.images[0] && <img src={SITE_IMAGES.hero.images[0]} alt={SITE_IMAGES.hero.captions[0] || "Zavtoo water purifier"} fetchPriority="high" />}
-                <span><DropIcon s={16} /> RO + UV + UF purification</span>
-              </Link>
-              <i className={n.heroRule} aria-hidden="true" />
-              <div className={n.heroCopy}>
-                <span className={n.live}>Pure water. Better living.</span>
-                <h1 id="hero-title" className={n.display}>Pure water,<br />a better everyday</h1>
-                {bestDeal > 0 && <div className={`${n.offerBox} ${n.display}`}><span>Up to</span><strong>{bestDeal}%</strong><span>off</span></div>}
-                <div className={n.heroButtons}>
-                  <Link className={n.btnCta} href="/shop">Shop all products <ChevronRight s={18} /></Link>
-                  <Link className={n.btnDark} href="/services"><WrenchIcon s={18} /> Book a service</Link>
-                </div>
-              </div>
-            </div>
+            <HeroSlider />
           </section>
           <section className={n.trust} aria-label="Why families choose Zavtoo">
             <h2 className={n.display}>Loved by <em>50,000+</em> families</h2>

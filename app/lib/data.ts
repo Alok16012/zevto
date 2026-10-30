@@ -170,8 +170,9 @@ export const PRODUCTS: Product[] = [
 export type SiteSlot = "hero" | "tile-domestic" | "tile-commercial" | "tile-spare" | "tile-service" | "showcase";
 export interface SiteImages { images: string[]; captions: string[] }
 /** `size` = the photo size to upload, shown under each box in the admin panel. */
-export const SITE_SLOTS: { slot: SiteSlot; label: string; hint: string; size: string; max: number; captions?: boolean }[] = [
-  { slot: "hero", label: "Homepage hero", hint: "Big photo at the top of the homepage", size: "1600 × 1000 px (landscape, 16:10)", max: 1 },
+/** `captions` = a text box under each photo; `captionLabel` says what it holds (for the hero, the banner's link). */
+export const SITE_SLOTS: { slot: SiteSlot; label: string; hint: string; size: string; max: number; captions?: boolean; captionLabel?: string }[] = [
+  { slot: "hero", label: "Homepage banners (slider)", hint: "Wide banners that slide at the top of the homepage · keep the text on the left half · the box under each banner is the page it opens", size: "1600 × 711 px (wide banner, 2.25:1)", max: 6, captions: true, captionLabel: "Opens page, e.g. /shop?category=spare" },
   { slot: "tile-domestic", label: "Category tile · Home RO", hint: "Shown in “Find what you need”", size: "800 × 800 px (square)", max: 1 },
   { slot: "tile-commercial", label: "Category tile · Commercial", hint: "Shown in “Find what you need”", size: "800 × 800 px (square)", max: 1 },
   { slot: "tile-spare", label: "Category tile · Spare parts", hint: "Shown in “Find what you need”", size: "800 × 800 px (square)", max: 1 },
@@ -179,7 +180,11 @@ export const SITE_SLOTS: { slot: SiteSlot; label: string; hint: string; size: st
   { slot: "showcase", label: "Purifier showcase gallery", hint: "“Good water. Beautifully designed.” · first photo is shown large", size: "1080 × 1350 px (portrait, 4:5)", max: 8, captions: true },
 ];
 export const SITE_IMAGES: Record<SiteSlot, SiteImages> = {
-  hero: { images: ["/hero-kitchen-branded.jpg"], captions: ["Zavtoo RO water purifier in a bright kitchen"] },
+  // Hero captions are the page each banner opens.
+  hero: {
+    images: ["/hero/home-purifier.jpg", "/hero/family.jpg", "/hero/commercial-ro.jpg", "/hero/filters-spares.jpg", "/hero/service-amc.jpg"],
+    captions: ["/shop?category=domestic", "/shop?category=domestic", "/shop?category=commercial", "/shop?category=spare", "/services"],
+  },
   "tile-domestic": { images: ["/products/featured/zavtoo-pro.png"], captions: [] },
   "tile-commercial": { images: ["/products/featured/zavtoo-commercial-50.png"], captions: [] },
   "tile-spare": { images: ["/products/parts/osmo-housing-1.jpg"], captions: [] },

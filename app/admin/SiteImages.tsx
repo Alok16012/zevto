@@ -25,7 +25,7 @@ export function SiteImagesSection({ notify }: { notify: (msg: string, bad?: bool
   );
 }
 
-function SlotPanel({ slot, label, hint, size, max, captions: withCaptions, notify }: (typeof SITE_SLOTS)[number] & { notify: (msg: string, bad?: boolean) => void }) {
+function SlotPanel({ slot, label, hint, size, max, captions: withCaptions, captionLabel, notify }: (typeof SITE_SLOTS)[number] & { notify: (msg: string, bad?: boolean) => void }) {
   const addRef = useRef<HTMLInputElement>(null);
   const replaceRef = useRef<HTMLInputElement>(null);
   const replacing = useRef<number | null>(null);
@@ -105,14 +105,14 @@ function SlotPanel({ slot, label, hint, size, max, captions: withCaptions, notif
       <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, minmax(${slot === "hero" ? 260 : 150}px, 1fr))`, gap: 10 }}>
         {images.map((src, i) => (
           <div key={`${i}-${src}`} style={{ border: "1px solid var(--line)", borderRadius: 12, overflow: "hidden", background: "var(--surface)" }}>
-            <button onClick={() => setView(src)} aria-label={`View photo ${i + 1}`} style={{ position: "relative", width: "100%", aspectRatio: slot === "hero" ? "16 / 10" : "1 / 1", padding: 0, border: "none", background: "var(--bg-secondary)", cursor: "zoom-in", display: "block" }}>
+            <button onClick={() => setView(src)} aria-label={`View photo ${i + 1}`} style={{ position: "relative", width: "100%", aspectRatio: slot === "hero" ? "1600 / 711" : "1 / 1", padding: 0, border: "none", background: "var(--bg-secondary)", cursor: "zoom-in", display: "block" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={src} alt={`${label} photo ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: slot === "hero" ? "cover" : "contain", display: "block" }} />
-              {withCaptions && i === 0 && <span style={{ position: "absolute", top: 6, left: 6 }}><Badge tone="blue">Large</Badge></span>}
+              {withCaptions && i === 0 && <span style={{ position: "absolute", top: 6, left: 6 }}><Badge tone="blue">{slot === "hero" ? "First" : "Large"}</Badge></span>}
             </button>
             {withCaptions && (
               <div style={{ padding: "6px 6px 0" }}>
-                <input aria-label={`Caption for photo ${i + 1}`} placeholder="Caption, e.g. Pearl white. Clean lines." value={drafts[i] ?? ""} maxLength={80} disabled={!!busy}
+                <input aria-label={`${captionLabel ?? "Caption"} for photo ${i + 1}`} placeholder={captionLabel ?? "Caption, e.g. Pearl white. Clean lines."} value={drafts[i] ?? ""} maxLength={80} disabled={!!busy}
                   onChange={(e) => setDrafts(pad(drafts, images.length).map((c, j) => (j === i ? e.target.value : c)))}
                   onBlur={() => saveCaption(i)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                   style={{ ...input, fontSize: 12.5, padding: "7px 9px" }} />
