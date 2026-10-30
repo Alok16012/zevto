@@ -182,8 +182,8 @@ export const SITE_SLOTS: { slot: SiteSlot; label: string; hint: string; size: st
 export const SITE_IMAGES: Record<SiteSlot, SiteImages> = {
   // Hero captions are the page each banner opens.
   hero: {
-    images: ["/hero/home-purifier.jpg", "/hero/family.jpg", "/hero/commercial-ro.jpg", "/hero/filters-spares.jpg", "/hero/service-amc.jpg"],
-    captions: ["/shop?category=domestic", "/shop?category=domestic", "/shop?category=commercial", "/shop?category=spare", "/services"],
+    images: ["/hero/service-amc.jpg", "/hero/home-purifier.jpg", "/hero/family.jpg", "/hero/commercial-ro.jpg", "/hero/filters-spares.jpg"],
+    captions: ["/services", "/shop?category=domestic", "/shop?category=domestic", "/shop?category=commercial", "/shop?category=spare"],
   },
   "tile-domestic": { images: ["/products/featured/zavtoo-pro.png"], captions: [] },
   "tile-commercial": { images: ["/products/featured/zavtoo-commercial-50.png"], captions: [] },
