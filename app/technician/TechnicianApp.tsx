@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BrandMark, Wordmark } from "../components/Brand";
+import { BrandMark, Logo } from "../components/Brand";
 import { EmailPopup, PasswordInput, ResetOffer, signupEmailProblem } from "../components/Auth";
 import RoleLoginForm from "../components/RoleLoginForm";
 import { AuthFooter, ROLE_NAME } from "../components/RoleSwitch";
@@ -492,8 +492,7 @@ function LoginScreen({ roleSwitch }: { roleSwitch?: React.ReactNode }) {
     <form onSubmit={submit} className="fade-up no-scroll app-registration" style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column", padding: "0 20px" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingTop: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <BrandMark size={48} />
-          <Wordmark />
+          <Logo height={48} />
         </div>
         {!signup && roleSwitch}
         <span style={{ display: !signup && roleSwitch ? "none" : undefined, alignSelf: "flex-start", marginTop: 18, background: "var(--gold)", color: "var(--blue-dark)", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 8, letterSpacing: "0.05em" }}>PARTNER APP{signup ? " · STEP 1 OF 2" : ""}</span>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import { BrandMark, Wordmark } from "../../components/Brand";
+import { BrandMark, Logo } from "../../components/Brand";
 import { inr } from "../../lib/data";
 import PartPhotos from "./PartPhotos";
 
@@ -38,8 +38,7 @@ export default async function SharedPartPage({ params }: { params: Promise<{ id:
     <div style={{ minHeight: "100vh", background: "var(--app-bg)", display: "flex", justifyContent: "center" }}>
       <main style={{ width: "100%", maxWidth: 520, padding: "16px 16px 32px" }}>
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", marginBottom: 16 }}>
-          <BrandMark size={36} />
-          <Wordmark />
+          <Logo height={40} />
         </Link>
 
         <PartPhotos photos={part.photos} name={part.name} />

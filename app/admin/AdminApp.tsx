@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { BrandMark, Wordmark } from "../components/Brand";
+import { BrandMark, Logo } from "../components/Brand";
 import { BagIcon, InboxIcon, BoxIcon, GridIcon, MegaphoneIcon, StarLineIcon, StoreIcon, TagIcon, TechnicianIcon, UsersIcon, WalletIcon, WrenchIcon } from "../components/icons";
 import { friendly, roleOf, sendPasswordReset, supabaseFor, useLive, useSession } from "../lib/supabase";
 import { useCatalog } from "../lib/catalog";
@@ -354,7 +354,7 @@ function AdminLogin() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "linear-gradient(150deg,var(--blue-dark),var(--blue))" }}>
       <form onSubmit={submit} className="fade-up" style={{ width: "100%", maxWidth: 380, background: "var(--surface)", borderRadius: 20, padding: 26, boxShadow: "0 20px 50px rgba(4,36,107,0.35)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><BrandMark size={40} /><Wordmark /></div>
+        <Logo height={44} />
         <h1 style={{ margin: "20px 0 2px", fontSize: 22, fontWeight: 800 }}>{forgot ? "Reset your password" : "Admin console"}</h1>
         <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--ink-soft)" }}>
           {!forgot ? "Sign in to manage orders, service jobs and customers."

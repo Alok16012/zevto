@@ -23,9 +23,7 @@ export function SplashScreen({ onStart }: { onStart: () => void }) {
 
       <div className="fade-up" style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative", zIndex: 1 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/zavtoo-mark.png" alt="" style={{ width: 150, maxWidth: "45%", height: "auto", display: "block" }} />
-        <p style={{ margin: "14px 0 0", fontSize: 44, fontWeight: 800, letterSpacing: "0.04em", lineHeight: 1, background: "linear-gradient(90deg,#7ee21f 0%,#1fd6c9 55%,#1b8cff 100%)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>ZAVTOO</p>
-        <p style={{ margin: "10px 0 0", fontSize: 13, fontWeight: 600, letterSpacing: "0.32em", color: "rgba(255,255,255,0.8)" }}>PAANI FILTER PVT LTD</p>
+        <img src="/brand/zavtoo-logo-white.png" alt="Zavtoo Paani Filter Pvt Ltd" style={{ width: 300, maxWidth: "80%", height: "auto", display: "block" }} />
         <p style={{ margin: "18px 0 0", fontSize: 15, color: "rgba(255,255,255,0.75)" }}>Pure Water. Better Life.</p>
       </div>
 

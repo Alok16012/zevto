@@ -47,10 +47,7 @@ export function printBill(bill: PrintBill, party: PrintParty | undefined) {
   body { font: 13px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1c1c1e; margin: 0; padding: 24px; }
   .sheet { max-width: 800px; margin: 0 auto; position: relative; }
   header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; border-bottom: 2px solid #0b5394; padding-bottom: 14px; }
-  .brand { display: flex; align-items: center; gap: 10px; }
-  .brand img { height: 44px; }
-  .brand b { display: block; font-size: 24px; letter-spacing: .04em; color: #0b5394; line-height: 1; }
-  .brand small { display: block; margin-top: 4px; font-size: 9.5px; letter-spacing: .24em; color: #6b6f76; }
+  .brand { display: block; height: 52px; width: auto; }
   h1 { margin: 0; font-size: 22px; letter-spacing: .04em; text-transform: uppercase; color: #0b5394; text-align: right; }
   .meta { text-align: right; margin-top: 6px; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 18px 0; }
@@ -75,7 +72,7 @@ export function printBill(bill: PrintBill, party: PrintParty | undefined) {
 <div class="sheet">
   ${bill.status === "Cancelled" ? `<div class="stamp">CANCELLED</div>` : ""}
   <header>
-    <div><div class="brand"><img src="${location.origin}/zavtoo-mark.png" alt=""><div><b>ZAVTOO</b><small>PAANI FILTER PVT LTD</small></div></div><div style="margin-top:8px">${us}</div></div>
+    <div><img class="brand" src="${location.origin}/brand/zavtoo-logo.png" alt="Zavtoo Paani Filter Pvt Ltd"><div style="margin-top:8px">${us}</div></div>
     <div><h1>${sale ? "Sale Invoice" : "Purchase Bill"}</h1>
       <div class="meta"><strong>${esc(bill.ref)}</strong><br>Date: ${esc(fmtDay(bill.bill_date))}${bill.bill_no ? `<br>${sale ? "Invoice" : "Supplier bill"} no.: ${esc(bill.bill_no)}` : ""}</div></div>
   </header>

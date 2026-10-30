@@ -3,7 +3,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BrandMark, Wordmark } from "../components/Brand";
+import { BrandMark, Logo } from "../components/Brand";
 import { PrimaryButton, field, label } from "../components/ui";
 import { friendly, roleOf } from "../lib/supabase";
 
@@ -81,7 +81,7 @@ export default function ResetPassword() {
   return (
     <main className="zavtoo-app" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, background: "var(--app-bg)" }}>
       <form onSubmit={submit} className="fade-up" style={{ width: "100%", maxWidth: 400, background: "var(--surface)", borderRadius: 20, padding: 26, boxShadow: "var(--shadow-card)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}><BrandMark size={40} /><Wordmark /></div>
+        <Logo height={44} />
 
         {stage === "checking" && <p style={{ margin: "22px 0 0", fontSize: 14, color: "var(--ink-soft)" }}>Checking your reset link…</p>}
 

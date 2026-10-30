@@ -13,7 +13,7 @@ export default function PurifierArt({ kind, size = 88 }: { kind: ArtKind; size?:
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: size * 0.04,
     }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/zavtoo-mark.png" alt="" width={size * 0.36} height={size * 0.31} style={{ opacity: 0.5, display: "block" }} />
+      <img src="/brand/zavtoo-icon.png" alt="" width={size * 0.36} height={size * 0.36} style={{ opacity: 0.55, display: "block" }} />
       {size >= 110 && <span style={{ fontSize: Math.min(13, size * 0.07), fontWeight: 600, color: "#7a8d97", textAlign: "center", lineHeight: 1.3 }}>Photo coming soon</span>}
     </div>
   );

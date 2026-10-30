@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BellIcon, CartIcon, SearchIcon, ArrowRight, ShieldIcon, GiftIcon } from "./icons";
-import { BrandMark, Wordmark } from "./Brand";
+import { BrandMark, Logo } from "./Brand";
 import PurifierArt from "./PurifierArt";
 import WaterBanner from "./WaterBanner";
 import ProductImage from "./ProductImage";
@@ -83,8 +83,7 @@ export default function HomeScreen(p: HomeProps) {
       {/* ── Top bar: brand + bell + cart ── */}
       <div className="app-dashboard-top" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 18px 10px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <BrandMark size={38} />
-          <Wordmark />
+          <Logo height={40} white />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <button aria-label={`Notifications${p.unreadNotifs ? `, ${p.unreadNotifs} unread` : ""}`} onClick={p.onOpenNotifications} className="press" style={iconBtn}>

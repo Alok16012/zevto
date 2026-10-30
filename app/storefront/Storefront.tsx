@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import PurifierArt from "../components/PurifierArt";
 import ProductImage, { ProductGallery } from "../components/ProductImage";
-import { BrandMark, Wordmark } from "../components/Brand";
+import { BrandMark, Logo } from "../components/Brand";
 import { BagIcon, BoxIcon, CartIcon, CheckIcon, ChevronDown, ChevronRight, CloseIcon, DropIcon, HeartIcon, MinusIcon, PhoneIcon, PinIcon, PlusIcon, SearchIcon, ShieldIcon, StarIcon, StoreIcon, TechnicianIcon, WrenchIcon } from "../components/icons";
 import { PRODUCTS, PIN_AREAS, SERVICE_CATALOG, SITE_IMAGES, couponByCode, couponDiscount, couponError, inr, type Product, type ServiceOffering } from "../lib/data";
 import { useCatalog } from "../lib/catalog";
@@ -262,7 +262,7 @@ export default function Storefront({ view, product: initialProduct, filters, ser
     </div></div>
     <header className={n.header}><div className={`${n.wide} ${n.headerRow}`}>
       <button className={n.burger} aria-expanded={menu} aria-controls="store-drawer" aria-label="Open menu" onClick={() => setMenu(true)}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h16" /></svg></button>
-      <Link className={n.logo} href="/" aria-label="Zavtoo home"><BrandMark size={42} /><Wordmark size={19} tagSpacing="0.22em" /></Link>
+      <Link className={n.logo} href="/" aria-label="Zavtoo home"><Logo height={46} /></Link>
       <nav className={n.menu} aria-label="Main navigation">{nav.map(l => <Link key={l.href} href={l.href} aria-current={l.on ? "page" : undefined}>{l.label}</Link>)}<Link href="/services#amc" className={n.hot}>AMC offers</Link></nav>
       <form className={n.search} action="/shop" role="search"><SearchIcon s={18} /><input name="q" type="search" enterKeyHint="search" aria-label="Search products" placeholder="Search products" defaultValue={query} key={query} /></form>
       <div className={n.actions}>
@@ -273,7 +273,7 @@ export default function Storefront({ view, product: initialProduct, filters, ser
     </div></header>
     <div id="store-drawer" className={n.drawer} hidden={!menu} onClick={e => { if (e.target === e.currentTarget) setMenu(false); }}>
       <nav aria-label="Menu">
-        <div><Link href="/" className={n.logo} onClick={() => setMenu(false)}><BrandMark size={36} /><Wordmark size={17} /></Link><button aria-label="Close menu" onClick={() => setMenu(false)}><CloseIcon s={22} /></button></div>
+        <div><Link href="/" className={n.logo} onClick={() => setMenu(false)}><Logo height={38} /></Link><button aria-label="Close menu" onClick={() => setMenu(false)}><CloseIcon s={22} /></button></div>
         <Link href="/" aria-current={view === "home" ? "page" : undefined} onClick={() => setMenu(false)}>Home</Link>
         {nav.map(l => <Link key={l.href} href={l.href} aria-current={l.on ? "page" : undefined} onClick={() => setMenu(false)}>{l.label}</Link>)}
         <Link href="/orders" onClick={() => setMenu(false)}>Track order</Link>
@@ -289,11 +289,6 @@ export default function Storefront({ view, product: initialProduct, filters, ser
         <div className={n.wide}>
           <section className={n.hero} aria-labelledby="hero-title">
             <h1 id="hero-title" className={n.srOnly}>Zavtoo Paani Filter — RO water purifiers, commercial RO, spare parts and service</h1>
-            <nav className={n.segments} aria-label="Shop by">
-              <Link href="/shop?category=domestic" className={n.segOn}>Purifiers</Link>
-              <Link href="/shop?category=spare">Spare parts</Link>
-              <Link href="/services"><small>{COMPANY.offer.code} · 30% off</small>Service</Link>
-            </nav>
             <HeroSlider />
           </section>
           <section className={n.trust} aria-label="Why families choose Zavtoo">
@@ -369,7 +364,7 @@ export default function Storefront({ view, product: initialProduct, filters, ser
     </main>
     <footer className={n.footer}>
       <div className={`${n.wrap} ${n.footTop}`}>
-        <div><Link href="/" className={n.footBrand} aria-label="Zavtoo home"><BrandMark size={34} /><Wordmark size={16} /></Link><p>{COMPANY.about}</p><span>{COMPANY.address}</span><span>{COMPANY.hours}</span></div>
+        <div><Link href="/" className={n.footBrand} aria-label="Zavtoo home"><Logo height={48} white /></Link><p>{COMPANY.about}</p><span>{COMPANY.address}</span><span>{COMPANY.hours}</span></div>
         <div><h3 className={n.display}>Shop</h3><Link href="/shop?category=domestic">Water purifiers</Link><Link href="/shop?category=commercial">Commercial RO</Link><Link href="/shop?category=spare">Filters & spares</Link><Link href="/shop?saved=1">Wishlist</Link><Link href="/orders">Track order</Link><Link href="/app">Login / Register</Link></div>
         <div><h3 className={n.display}>Services</h3><Link href="/services/repair">RO repair</Link><Link href="/services/installation">Installation</Link><Link href="/services/filter-change">Filter replacement</Link><Link href="/services#amc">AMC plans</Link><Link href="/services/deep-cleaning">Deep cleaning</Link><Link href="/services/water-test">Water testing</Link></div>
         <div><h3 className={n.display}>Get in touch</h3>{HELPLINES.map(h => <a key={h.label} href={h.href}>{h.label}: {h.number}</a>)}<a href={COMPANY.whatsappHref} target="_blank" rel="noopener noreferrer">WhatsApp: {COMPANY.whatsapp}</a><a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></div>
