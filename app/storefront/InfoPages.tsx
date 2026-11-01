@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { supabaseFor } from "../lib/supabase";
 import Link from "next/link";
 import { SHOWCASE_PARTS, inr, type ServiceOffering, type ShowcasePart } from "../lib/data";
 import { CheckIcon, PlusIcon } from "../components/icons";
@@ -257,13 +258,28 @@ export function ServicesPage({ catalog }: { catalog: ServiceOffering[] }) {
   );
 }
 
+type Plan = { name: string; icon: string; price: number; best?: boolean; features: string[] };
+
+/** AMC plans as edited in Admin → Services & AMC; the built-in list until they load (or if the table isn't there yet). */
+function useAmcPlans() {
+  const [plans, setPlans] = useState<Plan[]>(AMC.plans);
+  useEffect(() => {
+    let alive = true;
+    supabaseFor("store").from("amc_plans").select("name, icon, price, best, features").eq("active", true).order("sort")
+      .then(({ data, error }) => { if (alive && !error && data?.length) setPlans(data as Plan[]); });
+    return () => { alive = false; };
+  }, []);
+  return plans;
+}
+
 export function AmcPlans() {
+  const plans = useAmcPlans();
   return (
     <section id="amc" className={s.section}>
       <SectionHead kicker="MOST POPULAR SERVICE" title="Annual Maintenance Contract (AMC) plans" text={AMC.intro} />
       <Ticks items={AMC.benefits} />
       <div className={s.plans}>
-        {AMC.plans.map((p) => (
+        {plans.map((p) => (
           <article key={p.name} className={`${s.card} ${p.best ? s.planBest : ""}`}>
             {p.best && <span className={s.badge}>BEST VALUE</span>}
             <h3><span aria-hidden="true">{p.icon}</span> {p.name}</h3>

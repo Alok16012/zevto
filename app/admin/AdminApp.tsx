@@ -3,28 +3,28 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandMark, Logo } from "../components/Brand";
-import { BagIcon, InboxIcon, BoxIcon, GridIcon, MegaphoneIcon, StarLineIcon, StoreIcon, TagIcon, TechnicianIcon, UsersIcon, WalletIcon, WrenchIcon } from "../components/icons";
+import { BagIcon, InboxIcon, BoxIcon, GridIcon, MegaphoneIcon, ShieldIcon, StarLineIcon, StoreIcon, TagIcon, TechnicianIcon, UsersIcon, WalletIcon, WrenchIcon } from "../components/icons";
 import { friendly, roleOf, sendPasswordReset, supabaseFor, useLive, useSession } from "../lib/supabase";
 import { useCatalog } from "../lib/catalog";
 import {
   ADMIN_WATCH, loadAdminData,
-  type AdminCoupon, type AdminCustomer, type AdminJob, type AdminOrder, type AdminOrderStatus, type AdminProduct, type AdminReview, type AdminTech, type Dealer,
+  type AdminCoupon, type AdminCustomer, type AdminJob, type AdminOrder, type AdminOrderStatus, type AdminProduct, type AdminReview, type AdminTech, type AmcPlan, type Dealer, type StockRequest,
 } from "../lib/adminData";
 import { Btn, fieldLabel, input } from "./kit";
 import { Dashboard } from "./Dashboard";
-import { OrdersSection, ServicesSection } from "./Operations";
+import { OrdersSection, ServicesSection, type NewAdminTask } from "./Operations";
 import { CustomersSection, DealersSection, TechniciansSection, type NewDealer, type NewTechnician } from "./People";
 import { BroadcastSection, CouponsSection, ProductsSection, ReviewsSection, type ProductDraft } from "./Catalog";
 import { removeProductImages } from "../lib/photos";
 import { SupportSection, useSupportUnread } from "./Support";
-import { SparePartsSection } from "./SpareParts";
-import { TechShopSection } from "./TechShop";
+import { PartnerShopSection } from "./TechShop";
+import { ServicesAmcSection, type AmcDraft, type ServiceEdit } from "./ServicesAmc";
 import { SiteImagesSection } from "./SiteImages";
 import { PartiesSection } from "./Parties";
-import type { DbTechPurchase } from "../lib/techShop";
+import type { DbDealerPurchase, DbTechPurchase } from "../lib/techShop";
 import type { DbGalleryPart } from "../lib/partsGallery";
 
-export type Section = "dashboard" | "support" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "spareparts" | "techshop" | "coupons" | "reviews" | "broadcast" | "siteimages" | "parties";
+export type Section = "dashboard" | "support" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "plans" | "techshop" | "coupons" | "reviews" | "broadcast" | "siteimages" | "parties";
 
 type NavIcon = (p: { s?: number; c?: string; w?: number }) => React.ReactElement;
 
@@ -34,14 +34,15 @@ const NAV: { group: string; items: { id: Section; label: string; Icon: NavIcon }
   { group: "People", items: [{ id: "customers", label: "Customers", Icon: UsersIcon }, { id: "technicians", label: "Technicians", Icon: TechnicianIcon }, { id: "dealers", label: "Dealers", Icon: StoreIcon }] },
   { group: "Accounts", items: [{ id: "parties", label: "Parties & Ledger", Icon: WalletIcon }] },
   { group: "Catalogue & growth", items: [
-    { id: "products", label: "Products & Stock", Icon: BoxIcon }, { id: "spareparts", label: "Technician Parts", Icon: WrenchIcon }, { id: "techshop", label: "Technician Shop", Icon: StoreIcon }, { id: "siteimages", label: "Website Images", Icon: GridIcon }, { id: "coupons", label: "Offers & Coupons", Icon: TagIcon },
+    { id: "products", label: "Product & Spare", Icon: BoxIcon }, { id: "plans", label: "Services & AMC", Icon: ShieldIcon },
+    { id: "techshop", label: "Tech & Dealer Shop", Icon: StoreIcon }, { id: "siteimages", label: "Website Images", Icon: GridIcon }, { id: "coupons", label: "Offers & Coupons", Icon: TagIcon },
     { id: "reviews", label: "Reviews", Icon: StarLineIcon }, { id: "broadcast", label: "Notifications", Icon: MegaphoneIcon },
   ] },
 ];
 
 const TITLES: Record<Section, string> = {
   dashboard: "Dashboard", support: "Support Chat", orders: "Orders", services: "Service Jobs & Dispatch", customers: "Customers", technicians: "Technicians", dealers: "Dealers",
-  products: "Products & Stock", spareparts: "Technician Spare Parts", techshop: "Technician Shop", coupons: "Offers & Coupons", reviews: "Reviews", broadcast: "Broadcast Notifications", siteimages: "Website Images", parties: "Parties, Purchases & Sales",
+  products: "Product & Spare", plans: "Services & AMC Plans", techshop: "Technician & Dealer Shop", coupons: "Offers & Coupons", reviews: "Reviews", broadcast: "Broadcast Notifications", siteimages: "Website Images", parties: "Parties, Purchases & Sales",
 };
 
 const sb = () => supabaseFor("admin");
@@ -145,7 +146,7 @@ export default function AdminApp() {
     return { code: row.code as string };
   };
   const updateProduct = (p: AdminProduct, patch: Partial<AdminProduct>) =>
-    act(() => sb().from("products").update(patch).eq("id", p.id), patch.images ? `${p.name} photos saved` : patch.active === false ? `${p.name} hidden from the app` : patch.active ? `${p.name} is live` : `${p.name} updated`);
+    act(() => sb().from("products").update(productRow(patch)).eq("id", p.id), patch.images ? `${p.name} photos saved` : patch.active === false ? `${p.name} hidden from the app` : patch.active ? `${p.name} is live` : `${p.name} updated`);
   /** New products get a readable id from their name ("ro-membrane-housing") and go to the end of the list. */
   const createProduct = async (d: ProductDraft) => {
     const base = d.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "product";
@@ -153,7 +154,8 @@ export default function AdminApp() {
     let id = base;
     for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
     const sort = Math.max(0, ...(data?.products ?? []).map((p) => p.sort)) + 1;
-    const ok = await act(() => sb().from("products").insert({ id, ...d, sort, active: true }), `${d.name} added — it's live in the shop. Add photos next.`);
+    const ok = await act(() => sb().from("products").insert({ id, ...productRow(d), sort, active: true }),
+      d.shopOnly ? `${d.name} added to the partner shop. Add photos next.` : `${d.name} added — it's live in the shop. Add photos next.`);
     return ok ? id : null;
   };
   const deleteProduct = async (p: AdminProduct) => {
@@ -178,6 +180,27 @@ export default function AdminApp() {
   const decideTechPurchase = (p: DbTechPurchase, status: "Delivered" | "Rejected", note?: string) =>
     act(() => sb().rpc("admin_tech_purchase", { p_id: p.id, p_status: status, p_note: note ?? null }),
       status === "Delivered" ? `#${p.ref} delivered — the units are in the technician's shop` : `#${p.ref} rejected`);
+  const decideStockRequest = (r: StockRequest, approve: boolean) =>
+    act(() => sb().rpc("admin_approve_stock", { p_request: r.id, p_approve: approve }), approve ? "Approved — the parts are in the technician's van stock" : "Request rejected");
+  const decideDealerPurchase = (p: DbDealerPurchase, status: "Delivered" | "Rejected", note?: string) =>
+    act(() => sb().rpc("admin_dealer_purchase", { p_id: p.id, p_status: status, p_note: note ?? null }),
+      status === "Delivered" ? `#${p.ref} delivered — spares are in the dealer's listings` : `#${p.ref} rejected`);
+  const createTask = async (t: NewAdminTask) => {
+    const { data: row, error } = await sb().rpc("admin_create_task", {
+      p_customer: t.customerId, p_name: t.name, p_phone: t.phone, p_address: t.address, p_pincode: t.pincode, p_type: t.type,
+      p_product: t.product, p_date: t.isoDate, p_slot: t.slot, p_issue: t.issue, p_tech: t.techId,
+    });
+    if (error) { notify(friendly(error), true); return false; }
+    const tech = data?.techs.find((x) => x.id === t.techId);
+    notify(`#${(row as { ref: string }).ref} created${tech ? ` and assigned to ${tech.name}` : " — assign a technician when ready"}`);
+    live.reload();
+    return true;
+  };
+  const saveService = (type: string, patch: Partial<ServiceEdit>) =>
+    act(() => sb().from("service_catalog").update(patch).eq("type", type), patch.active === false ? `${type} hidden from booking` : `${type} saved`);
+  const savePlan = (d: AmcDraft, id?: string) =>
+    act(() => id ? sb().from("amc_plans").update(d).eq("id", id) : sb().from("amc_plans").insert(d), id ? `${d.name} saved` : `${d.name} added`);
+  const deletePlan = (p: AmcPlan) => act(() => sb().from("amc_plans").delete().eq("id", p.id), `${p.name} deleted`);
   const sendBroadcast = async (b: { title: string; body: string; audience: string }) => {
     const { data: row, error } = await sb().from("broadcasts").insert({ ...b, channels: ["In-app"] }).select("id").single();
     if (error) { notify(friendly(error), true); return null; }
@@ -189,7 +212,7 @@ export default function AdminApp() {
   if (session === undefined) return <Splash text="Loading…" />;
   if (!staff) return <AdminLogin />;
   if (!data) return <Splash text={live.error ?? "Loading console…"} error={!!live.error} onRetry={live.reload} />;
-  const { orders, jobs, customers, techs, products, coupons, reviews, dealers, broadcasts, galleryParts, techPurchases, techListings } = data;
+  const { orders, jobs, customers, techs, products, coupons, reviews, dealers, broadcasts, galleryParts, techPurchases, techListings, dealerListings, dealerPurchases, amcPlans, stockRequests } = data;
   const me = session!.user;
 
   // Sidebar counters for work waiting on someone.
@@ -200,8 +223,8 @@ export default function AdminApp() {
     technicians: techs.filter((t) => t.kyc === "Pending").length,
     reviews: reviews.filter((r) => r.status === "Flagged").length,
     products: products.filter((p) => p.active && p.stock != null && p.stock <= 5).length,
-    spareparts: galleryParts.filter((p) => p.status === "Pending").length,
-    techshop: techPurchases.filter((p) => p.status === "Pending").length,
+    techshop: techPurchases.filter((p) => p.status === "Pending").length + dealerPurchases.filter((p) => p.status === "Pending").length
+      + galleryParts.filter((p) => p.status === "Pending").length + stockRequests.filter((r) => r.status === "Pending").length,
   };
 
 
@@ -268,7 +291,7 @@ export default function AdminApp() {
             {section === "dashboard" && <Dashboard orders={orders} jobs={jobs} customers={customers} techs={techs} products={products} reviews={reviews} go={go} />}
             {section === "support" && <SupportSection customers={customers} notify={notify} />}
             {section === "orders" && <OrdersSection orders={orders} customers={customers} onStatus={setOrderStatus} />}
-            {section === "services" && <ServicesSection jobs={jobs} customers={customers} techs={techs} onAssign={assignJob} onCancel={cancelJob} />}
+            {section === "services" && <ServicesSection jobs={jobs} customers={customers} techs={techs} dealers={dealers} onAssign={assignJob} onCancel={cancelJob} onCreateTask={createTask} />}
             {section === "customers" && (
               <CustomersSection customers={customers} orders={orders} jobs={jobs} onBlock={blockCustomer} onCredit={creditCustomer}
                 onResetPassword={async (id, password) => {
@@ -277,13 +300,17 @@ export default function AdminApp() {
                   return Boolean(out);
                 }} />
             )}
-            {section === "dealers" && <DealersSection dealers={dealers} techs={techs} onToggle={toggleDealer} onVerify={verifyDealer} onCreate={createDealer} />}
+            {section === "dealers" && <DealersSection dealers={dealers} techs={techs} jobs={jobs} listings={dealerListings} purchases={dealerPurchases} onToggle={toggleDealer} onVerify={verifyDealer} onCreate={createDealer} />}
             {section === "technicians" && (
               <TechniciansSection techs={techs} jobs={jobs} dealers={dealers} onUpdate={updateTech} onCreate={createTech} onResetPassword={resetTechPassword} />
             )}
             {section === "products" && <ProductsSection products={products} onUpdate={updateProduct} onCreate={createProduct} onDelete={deleteProduct} />}
-            {section === "spareparts" && <SparePartsSection parts={galleryParts} techs={techs} onReview={reviewGalleryPart} />}
-            {section === "techshop" && <TechShopSection purchases={techPurchases} listings={techListings} techs={techs} onDecide={decideTechPurchase} />}
+            {section === "plans" && <ServicesAmcSection plans={amcPlans} onSaveService={saveService} onSavePlan={savePlan} onDeletePlan={deletePlan} />}
+            {section === "techshop" && (
+              <PartnerShopSection products={products} purchases={techPurchases} dealerPurchases={dealerPurchases} listings={techListings} parts={galleryParts} stockRequests={stockRequests} onStockRequest={decideStockRequest}
+                techs={techs} dealers={dealers} onUpdate={updateProduct} onCreate={createProduct} onDelete={deleteProduct}
+                onDecide={decideTechPurchase} onDecideDealer={decideDealerPurchase} onReviewPart={reviewGalleryPart} />
+            )}
             {section === "parties" && <PartiesSection notify={notify} />}
             {section === "siteimages" && <SiteImagesSection key={catalog.version} notify={notify} />}
             {section === "coupons" && <CouponsSection coupons={coupons} onUpdate={updateCoupon} onCreate={createCoupon} />}
@@ -303,6 +330,17 @@ export default function AdminApp() {
       )}
     </div>
   );
+}
+
+/** Admin product fields → products table columns. */
+function productRow(p: Partial<AdminProduct>) {
+  const { shopOnly, pop, forTech, forDealer, tradePrice, ...rest } = p;
+  return {
+    ...rest,
+    ...(shopOnly !== undefined && { shop_only: shopOnly }), ...(pop !== undefined && { pop }),
+    ...(forTech !== undefined && { for_tech: forTech }), ...(forDealer !== undefined && { for_dealer: forDealer }),
+    ...(tradePrice !== undefined && { trade_price: tradePrice }),
+  };
 }
 
 const sideLink: React.CSSProperties = { color: "rgba(255,255,255,0.7)", fontSize: 12.5, fontWeight: 600, textDecoration: "none", padding: "6px 10px" };

@@ -10,9 +10,12 @@ import { PhotoStrip } from "../components/PhotoPicker";
 import { inr } from "../lib/data";
 import { useSignedUrls } from "../lib/photos";
 import {
-  CHECKLIST, JOB_FLOW, PARTS, customerBill, jobPayout, partById, partsTotal, todayIso,
-  type Job, type JobStatus,
+  CHECKLIST, JOB_FLOW, PARTS, customerBill, jobPayout, partKey, partName, partPrice, partsTotal, todayIso,
+  type Job, type JobPart, type JobStatus,
 } from "../lib/techData";
+
+/** A product in the technician's own shop stock, usable on a job. */
+export interface StockItem { id: string; name: string; price: number; stock: number }
 
 const whenLabel = (j: Job) => (j.isoDate === todayIso() ? "Today" : j.date);
 
@@ -183,12 +186,15 @@ function IncomingRequest({ job, onRespond }: { job: Job; onRespond: (accept: boo
 
 /* ───────────────────────── Job detail ───────────────────────── */
 
-export function JobDetailPage({ job, stock, onBack, onUpdate, onStartJob, onComplete, onReschedule, sharing }: {
-  job: Job; stock: Record<string, number>; onBack: () => void;
+export function JobDetailPage({ job, stock, shopStock, onBack, onUpdate, onStartJob, onComplete, onReschedule, onEmailBill, sharing }: {
+  job: Job; stock: Record<string, number>; shopStock: StockItem[]; onBack: () => void;
   onUpdate: (patch: Partial<Job> | ((j: Job) => Partial<Job>)) => void;
   /** Server checks the start code; resolves to an error message or null. */
   onStartJob: (code: string) => Promise<string | null>;
-  onComplete: (payment: NonNullable<Job["payment"]>) => void; onReschedule: (reason: string) => void;
+  /** Server checks the close code; resolves to an error message or null. */
+  onComplete: (payment: NonNullable<Job["payment"]>, code: string) => Promise<string | null>; onReschedule: (reason: string) => void;
+  /** Emails the bill; resolves to an error message or null. */
+  onEmailBill: (email: string) => Promise<string | null>;
   /** Location-sharing status while on the way. */
   sharing?: string | null;
 }) {
@@ -333,14 +339,12 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onStartJob, onComp
               {!done && <button onClick={() => setSheet("parts")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--blue)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, marginTop: 10 }}><PlusIcon s={14} c="var(--blue)" /> Add parts</button>}
             </div>
             <div style={{ ...card, padding: "4px 14px" }}>
-              {job.parts.map((p, i) => {
-                const part = partById(p.id)!;
-                return (
-                  <div key={p.id} style={{ display: "flex", justifyContent: "space-between", padding: "11px 0", borderTop: i ? "1px solid var(--line)" : "none", fontSize: 13.5 }}>
-                    <span>{part.name} × {p.qty}</span><span style={{ fontWeight: 600 }}>{job.amc ? "Included" : inr(part.price * p.qty)}</span>
-                  </div>
-                );
-              })}
+              {job.parts.map((p, i) => (
+                <div key={partKey(p)} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "11px 0", borderTop: i ? "1px solid var(--line)" : "none", fontSize: 13.5 }}>
+                  <span>{partName(p)} × {p.qty}{(p.own || p.src === "own") && <span style={{ color: "var(--ink-mute)", fontSize: 11.5 }}> · bought by you</span>}</span>
+                  <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{job.amc ? "Included" : inr(partPrice(p) * p.qty)}</span>
+                </div>
+              ))}
               {job.parts.length === 0 && <p style={{ margin: 0, padding: "14px 0", fontSize: 13, color: "var(--ink-mute)", textAlign: "center" }}>No parts added</p>}
             </div>
 
@@ -349,6 +353,8 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onStartJob, onComp
               placeholder="What you found and what you fixed" style={{ ...field, resize: "none" }} />
           </>
         )}
+
+        {done && <SendBill job={job} onEmail={onEmailBill} />}
 
         {/* Completed summary */}
         {done && (
@@ -388,8 +394,12 @@ export function JobDetailPage({ job, stock, onBack, onUpdate, onStartJob, onComp
         </Footer>
       )}
 
-      {sheet === "parts" && <PartsSheet job={job} stock={stock} onClose={() => setSheet(null)} onChange={(parts) => onUpdate({ parts })} />}
-      {sheet === "bill" && <BillSheet job={job} onClose={() => setSheet(null)} onConfirm={(p) => { setSheet(null); onComplete(p); }} />}
+      {sheet === "parts" && <PartsSheet job={job} stock={stock} shopStock={shopStock} onClose={() => setSheet(null)} onChange={(parts) => onUpdate({ parts })} />}
+      {sheet === "bill" && <BillSheet job={job} onClose={() => setSheet(null)} onConfirm={async (p, code) => {
+        const err = await onComplete(p, code);
+        if (!err) setSheet(null);
+        return err;
+      }} />}
       {sheet === "reschedule" && <RescheduleSheet onClose={() => setSheet(null)} onConfirm={(r) => { setSheet(null); onReschedule(r); }} />}
     </div>
   );
@@ -400,41 +410,90 @@ const actionLink = (bg: string, fg: string): React.CSSProperties => ({
   background: bg, color: fg, fontSize: 13, fontWeight: 600, textDecoration: "none",
 });
 
-function PartsSheet({ job, stock, onClose, onChange }: { job: Job; stock: Record<string, number>; onClose: () => void; onChange: (p: Job["parts"]) => void }) {
-  const qtyOf = (id: string) => job.parts.find((p) => p.id === id)?.qty ?? 0;
-  const setQty = (id: string, qty: number) => {
-    const rest = job.parts.filter((p) => p.id !== id);
-    onChange(qty > 0 ? [...rest, { id, qty }] : rest);
+type PartSource = "van" | "stock" | "own";
+
+/** Add parts to the job from the van, from your shop stock, or one you bought on the spot. */
+function PartsSheet({ job, stock, shopStock, onClose, onChange }: {
+  job: Job; stock: Record<string, number>; shopStock: StockItem[]; onClose: () => void; onChange: (p: Job["parts"]) => void;
+}) {
+  const vanParts = PARTS.filter((p) => (stock[p.id] ?? 0) > 0 || job.parts.some((x) => x.id === p.id && !x.listing && !x.own));
+  const [src, setSrc] = useState<PartSource>(shopStock.length ? "stock" : vanParts.length ? "van" : "own");
+  const [ownName, setOwnName] = useState("");
+  const [ownPrice, setOwnPrice] = useState("");
+  const [ownQty, setOwnQty] = useState("1");
+
+  const qtyOf = (match: (p: JobPart) => boolean) => job.parts.find(match)?.qty ?? 0;
+  const setLine = (match: (p: JobPart) => boolean, line: JobPart) => {
+    const rest = job.parts.filter((p) => !match(p));
+    onChange(line.qty > 0 ? [...rest, line] : rest);
+  };
+  const addOwn = () => {
+    const name = ownName.trim(), price = Number(ownPrice), qty = Number(ownQty);
+    if (name.length < 2 || !(qty >= 1)) return;
+    const match = (p: JobPart) => !!p.own && p.name === name;
+    setLine(match, { own: true, name, price, qty: qtyOf(match) + qty });
+    setOwnName(""); setOwnPrice(""); setOwnQty("1");
   };
   const stepBtn: React.CSSProperties = { width: 30, height: 30, border: "none", borderRadius: 9, background: "var(--blue-tint)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
+  const row = (key: string, name: string, sub: React.ReactNode, q: number, max: number, set: (n: number) => void, i: number) => (
+    <div key={key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 0", borderTop: i ? "1px solid var(--line)" : "none" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{name}</p>
+        <p style={{ margin: 0, fontSize: 11.5, color: max ? "var(--ink-soft)" : "var(--error-text)" }}>{sub}</p>
+      </div>
+      <button aria-label={`Remove ${name}`} disabled={!q} onClick={() => set(q - 1)} style={{ ...stepBtn, opacity: q ? 1 : 0.4 }}><MinusIcon s={14} c="var(--blue)" /></button>
+      <span style={{ minWidth: 16, textAlign: "center", fontSize: 14, fontWeight: 700 }}>{q}</span>
+      <button aria-label={`Add ${name}`} disabled={q >= max} onClick={() => set(q + 1)} style={{ ...stepBtn, opacity: q < max ? 1 : 0.4 }}><PlusIcon s={14} c="var(--blue)" /></button>
+    </div>
+  );
+  const own = job.parts.filter((p) => p.own);
 
   return (
-    <BottomSheet title="Parts from your van" onClose={onClose}>
-      <div style={{ ...card, padding: "2px 14px" }}>
-        {PARTS.map((p, i) => {
-          const q = qtyOf(p.id);
+    <BottomSheet title="Add spare parts" onClose={onClose}>
+      <Tabs<PartSource> value={src} onChange={setSrc} tabs={[{ id: "stock", label: "My shop stock" }, { id: "van", label: "Van stock" }, { id: "own", label: "Bought myself" }]} />
+      <div style={{ ...card, padding: "2px 14px", marginTop: 12 }}>
+        {src === "stock" && (shopStock.length ? shopStock.map((it, i) => {
+          const match = (p: JobPart) => p.listing === it.id;
+          const q = qtyOf(match);
+          return row(it.id, it.name, `${inr(it.price)} · ${it.stock ? `${it.stock} in stock` : "Out of stock"}`, q, it.stock,
+            (n) => setLine(match, { listing: it.id, name: it.name, price: it.price, qty: n }), i);
+        }) : <p style={{ margin: 0, padding: "16px 0", fontSize: 13, color: "var(--ink-soft)", textAlign: "center", lineHeight: 1.5 }}>Nothing in your shop yet. Buy spares from Zavtoo or add ones you bought yourself in <b>Shop → + Buy stock</b>.</p>)}
+        {src === "van" && (vanParts.length ? vanParts.map((p, i) => {
+          const match = (x: JobPart) => x.id === p.id && !x.listing && !x.own;
           const avail = stock[p.id] ?? 0;
-          return (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 0", borderTop: i ? "1px solid var(--line)" : "none" }}>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{p.name}</p>
-                <p style={{ margin: 0, fontSize: 11.5, color: avail ? "var(--ink-soft)" : "var(--error-text)" }}>{inr(p.price)} · {avail ? `${avail} in van` : "Out of stock"}</p>
-              </div>
-              <button aria-label={`Remove ${p.name}`} disabled={!q} onClick={() => setQty(p.id, q - 1)} style={{ ...stepBtn, opacity: q ? 1 : 0.4 }}><MinusIcon s={14} c="var(--blue)" /></button>
-              <span style={{ minWidth: 16, textAlign: "center", fontSize: 14, fontWeight: 700 }}>{q}</span>
-              <button aria-label={`Add ${p.name}`} disabled={q >= avail} onClick={() => setQty(p.id, q + 1)} style={{ ...stepBtn, opacity: q < avail ? 1 : 0.4 }}><PlusIcon s={14} c="var(--blue)" /></button>
+          return row(p.id, p.name, `${inr(p.price)} · ${avail ? `${avail} in van` : "Out of stock"}`, qtyOf(match), avail,
+            (n) => setLine(match, { id: p.id, name: p.name, price: p.price, qty: n }), i);
+        }) : <p style={{ margin: 0, padding: "16px 0", fontSize: 13, color: "var(--ink-soft)", textAlign: "center" }}>No van stock. Request parts from the Inventory tab.</p>)}
+        {src === "own" && (
+          <div style={{ padding: "12px 0" }}>
+            <p style={{ ...small, margin: "0 0 10px" }}>Bought a part from the market for this job? Add it with the price the customer pays.</p>
+            <input value={ownName} onChange={(e) => setOwnName(e.target.value)} maxLength={80} placeholder="Part name, e.g. Float valve" aria-label="Part name" style={field} />
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <input value={ownPrice} onChange={(e) => setOwnPrice(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" placeholder="Price ₹" aria-label="Price per unit" style={{ ...field, flex: 2 }} />
+              <input value={ownQty} onChange={(e) => setOwnQty(e.target.value.replace(/\D/g, "").slice(0, 2))} inputMode="numeric" placeholder="Qty" aria-label="Quantity" style={{ ...field, flex: 1 }} />
+              <button onClick={addOwn} disabled={ownName.trim().length < 2 || ownPrice === ""} className="press" style={{ flex: 1, border: "none", borderRadius: 12, background: "var(--blue)", color: "white", fontWeight: 700, fontSize: 13, cursor: "pointer", opacity: ownName.trim().length < 2 || ownPrice === "" ? 0.5 : 1 }}>Add</button>
             </div>
-          );
-        })}
+            {own.map((p) => row(partKey(p), partName(p), `${inr(partPrice(p))} each · bought by you`, p.qty, 99,
+              (n) => setLine((x) => partKey(x) === partKey(p), { ...p, qty: n }), 1))}
+          </div>
+        )}
       </div>
-      <PrimaryButton onClick={onClose} style={{ marginTop: 14 }}>Done · {job.amc ? "included in AMC" : inr(partsTotal(job))}</PrimaryButton>
+      <PrimaryButton onClick={onClose} style={{ marginTop: 14 }}>Done · {job.parts.length} part{job.parts.length === 1 ? "" : "s"} · {job.amc ? "included in AMC" : inr(partsTotal(job))}</PrimaryButton>
     </BottomSheet>
   );
 }
 
-function BillSheet({ job, onClose, onConfirm }: { job: Job; onClose: () => void; onConfirm: (p: NonNullable<Job["payment"]>) => void }) {
+function BillSheet({ job, onClose, onConfirm }: { job: Job; onClose: () => void; onConfirm: (p: NonNullable<Job["payment"]>, code: string) => Promise<string | null> }) {
   const total = customerBill(job);
   const [pay, setPay] = useState<NonNullable<Job["payment"]>>(total === 0 ? "AMC covered" : "UPI");
+  const [code, setCode] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const confirm = async () => {
+    setBusy(true); setErr(null);
+    setErr(await onConfirm(pay, code));
+    setBusy(false);
+  };
   const rows: [string, string][] = [
     ["Visit charge", job.visitCharge ? inr(job.visitCharge) : "FREE"],
     ["Parts", job.amc ? "Included in AMC" : inr(partsTotal(job))],
@@ -466,7 +525,16 @@ function BillSheet({ job, onClose, onConfirm }: { job: Job; onClose: () => void;
         {total === 0 ? "Nothing to collect — this visit is covered." : pay === "UPI" ? "Show the customer the Zavtoo QR on your ID card. Confirm only after the payment succeeds." : "Cash is settled against your next weekly payout."}
         {" "}You earn <b style={{ color: "var(--success-text)" }}>{inr(jobPayout(job))}</b> for this job.
       </p>
-      <PrimaryButton tone="gold" onClick={() => onConfirm(pay)}>{total === 0 ? "Close Job" : `Payment received · ${inr(total)}`}</PrimaryButton>
+      {job.needsCode && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ ...label, fontSize: 13 }} htmlFor="close-code">Customer&apos;s close code</label>
+          <input id="close-code" value={code} onChange={(e) => { setCode(e.target.value.replace(/\D/g, "").slice(0, 4)); setErr(null); }} inputMode="numeric" placeholder="• • • •"
+            style={{ ...field, textAlign: "center", fontSize: 22, fontWeight: 800, letterSpacing: "0.5em", ...(err ? { border: "1.5px solid var(--error-text)" } : {}) }} />
+          <p style={{ ...small, fontSize: 11.5 }}>The customer sees it in their Zavtoo app. If they can&apos;t find it, Zavtoo ops can read it out.</p>
+        </div>
+      )}
+      {err && <p role="alert" style={{ margin: "0 0 10px", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>}
+      <PrimaryButton tone="gold" disabled={busy || (job.needsCode && code.length !== 4)} onClick={() => void confirm()}>{busy ? "Closing…" : total === 0 ? "Close Job" : `Payment received · ${inr(total)}`}</PrimaryButton>
     </BottomSheet>
   );
 }
@@ -488,5 +556,53 @@ function RescheduleSheet({ onClose, onConfirm }: { onClose: () => void; onConfir
       <p style={{ ...small, fontSize: 12, margin: "12px 4px" }}>Ops will call the customer and give the job a new slot.</p>
       <PrimaryButton disabled={!reason} onClick={() => onConfirm(reason)}>Confirm Reschedule</PrimaryButton>
     </BottomSheet>
+  );
+}
+
+/* ───────────────────────── Customer bill ───────────────────────── */
+
+export const billLink = (job: Job) => job.billToken ? `${window.location.origin}/bill/${job.id}?t=${job.billToken}` : null;
+
+/** After closing: send the customer their bill on WhatsApp or email. */
+function SendBill({ job, onEmail }: { job: Job; onEmail: (email: string) => Promise<string | null> }) {
+  const [email, setEmail] = useState("");
+  const [askEmail, setAskEmail] = useState(!job.needsCode);
+  const [state, setState] = useState<{ msg: string; bad?: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const link = billLink(job);
+  if (!link) return null;
+  const phone = job.customer.phone.replace(/\D/g, "").slice(-10);
+  const text = `Hi ${job.customer.name}, thank you for choosing Zavtoo. Your ${job.type} service #${job.ref} is complete — total ${inr(customerBill(job))}. Your bill: ${link}`;
+  const wa = `https://wa.me/${phone.length === 10 ? `91${phone}` : ""}?text=${encodeURIComponent(text)}`;
+
+  const sendEmail = async () => {
+    setBusy(true); setState(null);
+    const err = await onEmail(email.trim());
+    setBusy(false);
+    if (!err) { setState({ msg: "Bill emailed to the customer" }); return; }
+    if (/Enter the customer's email/.test(err)) { setAskEmail(true); setState({ msg: "We don't have their email — enter it", bad: true }); return; }
+    if (/isn't set up/.test(err)) {
+      // No email service configured: open the technician's own email app with the bill.
+      window.location.href = `mailto:${encodeURIComponent(email.trim())}?subject=${encodeURIComponent(`Your Zavtoo service bill #${job.ref}`)}&body=${encodeURIComponent(text)}`;
+      return;
+    }
+    setState({ msg: err, bad: true });
+  };
+
+  return (
+    <div style={{ ...card, padding: 14, marginTop: 12 }}>
+      <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Send the bill</p>
+      <p style={small}>The customer gets a link to their bill with every part and price.</p>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <a href={wa} target="_blank" rel="noreferrer" className="press" style={{ ...actionLink("var(--success)", "var(--success-text)"), flex: 1 }}>WhatsApp</a>
+        <button onClick={() => (askEmail && !email ? setState({ msg: "Enter the customer's email", bad: true }) : void sendEmail())} disabled={busy} className="press"
+          style={{ ...actionLink("var(--blue-tint)", "var(--blue)"), flex: 1, border: "none", cursor: "pointer" }}>{busy ? "Sending…" : "Email"}</button>
+      </div>
+      {askEmail && (
+        <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setState(null); }} placeholder="customer@email.com" aria-label="Customer email" style={{ ...field, marginTop: 10 }} />
+      )}
+      {state && <p role={state.bad ? "alert" : "status"} style={{ margin: "8px 0 0", fontSize: 12.5, fontWeight: 600, color: state.bad ? "var(--error-text)" : "var(--success-text)" }}>{state.msg}</p>}
+      <button onClick={() => void navigator.clipboard?.writeText(link).then(() => setState({ msg: "Bill link copied" }))} style={{ marginTop: 8, background: "none", border: "none", padding: 0, color: "var(--blue)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Copy bill link</button>
+    </div>
   );
 }

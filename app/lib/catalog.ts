@@ -44,6 +44,7 @@ async function loadCatalog(sb: SupabaseClient) {
     dealerId: p.dealer_id ?? undefined, techId: p.tech_id ?? undefined, soldBy: p.sold_by ?? undefined,
     specs: Array.isArray(p.specs) ? p.specs : [], warrantyTerms: p.warranty_terms ?? "", spinImages: p.spin_images ?? [],
     amazonUrl: p.amazon_url ?? "", flipkartUrl: p.flipkart_url ?? "",
+    shopOnly: p.shop_only ?? false, pop: p.pop ?? false, forTech: p.for_tech ?? true, forDealer: p.for_dealer ?? true, tradePrice: p.trade_price ?? null,
   })));
   swap<ServiceOffering>(SERVICE_CATALOG, (services.data ?? []).map((s) => ({
     type: s.type as ServiceType, tagline: s.tagline, price: s.price, priceNote: s.price_note, duration: s.duration,

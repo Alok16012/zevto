@@ -124,10 +124,8 @@ export default function HomeScreen(p: HomeProps) {
         </label>
       </form>
 
-      <HeroCarousel onShop={() => p.onOpenProducts()} onAmc={p.onRenewAmc} />
-
-      {/* ── Quick actions ── */}
-      <div style={{ padding: "22px 14px 0", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
+      {/* ── Quick actions, right under search ── */}
+      <div style={{ padding: "4px 14px 20px", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
         {actions.map(({ Art, label, onClick }) => (
           <button key={label} onClick={onClick} className="press" style={{
             background: "none", border: "none", padding: 0, cursor: "pointer",
@@ -142,6 +140,8 @@ export default function HomeScreen(p: HomeProps) {
           </button>
         ))}
       </div>
+
+      <HeroCarousel onShop={() => p.onOpenProducts()} onAmc={p.onRenewAmc} />
 
       {/* ── Offers ── */}
       <SectionHead kicker="Save more" title="Offers for you" onAll={p.onOpenOffers} />

@@ -49,7 +49,7 @@ export function ServicesHubScreen({ services, onOpen, onTrack, onOpenTech }: {
           <div style={{ position: "absolute", right: -40, top: -60, width: 180, height: 180, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,166,35,0.3), transparent 70%)" }} />
           <p style={{ margin: 0, fontSize: 20, fontWeight: 800, lineHeight: 1.25, position: "relative" }}>Expert RO service<br /><span style={{ color: "var(--gold)" }}>at your doorstep</span></p>
           <div style={{ display: "flex", gap: 14, marginTop: 12, position: "relative" }}>
-            {[["4.8★", "Avg rating"], ["30k+", "Visits"], ["30 day", "Warranty"]].map(([v, l]) => (
+            {[["4.8★", "Avg rating"], ["30k+", "Visits"], ["10 day", "Warranty"]].map(([v, l]) => (
               <div key={l}><p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "var(--gold)" }}>{v}</p><p style={{ margin: 0, fontSize: 10.5, color: "rgba(255,255,255,0.75)" }}>{l}</p></div>
             ))}
           </div>
@@ -174,7 +174,7 @@ export function ServiceDetailPage({ type, reviews, onBack, onBook }: {
 
         <div style={{ ...card, padding: 14, marginTop: 12, display: "flex", gap: 12, alignItems: "center", background: "var(--gold-tint)", boxShadow: "none" }}>
           <ShieldIcon s={24} c="var(--gold-dark)" />
-          <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.5 }}><b>Zavtoo promise:</b> verified technicians, genuine parts and a 30-day re-visit guarantee.</p>
+          <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.5 }}><b>Zavtoo promise:</b> verified technicians, genuine parts and a 10-day re-visit guarantee.</p>
         </div>
 
         {quotes.length > 0 && (

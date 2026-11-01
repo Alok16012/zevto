@@ -57,6 +57,15 @@ export interface Product {
   spinImages?: string[];
   amazonUrl?: string;
   flipkartUrl?: string;
+  /** Partner shop: only technicians and dealers see it. */
+  shopOnly?: boolean;
+  /** POP material (banner, standee…) — for the partner's shop, not for resale. */
+  pop?: boolean;
+  /** Technicians / dealers can buy it from Zavtoo. */
+  forTech?: boolean;
+  forDealer?: boolean;
+  /** What partners pay; falls back to price. */
+  tradePrice?: number | null;
 }
 export interface ProductSpec { label: string; value: string }
 
@@ -120,7 +129,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "sediment-5", name: "Sediment Filter 5 Micron (Pack of 3)", spec: "Multi brand · 5 micron",
     price: 299, mrp: 450, category: "spare", art: "cartridge",
-    rating: 0, reviews: 0, stages: "3 filters", warranty: "30 Days",
+    rating: 0, reviews: 0, stages: "3 filters", warranty: "10 Days",
     description: "Removes dirt, sand & rust. Compatible with standard 10-inch filter housings.",
     images: ["/products/parts/sediment-spun-filter-1.jpg", "/products/parts/sediment-spun-filter-2.jpg", "/products/parts/sediment-spun-filter-3.jpg"],
   },
@@ -133,7 +142,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "cto-carbon", name: "Carbon Block Filter CTO (4 Stage)", spec: "Premium · carbon block",
     price: 549, mrp: 750, category: "spare", art: "cartridge",
-    rating: 0, reviews: 0, stages: "Carbon block", warranty: "30 Days",
+    rating: 0, reviews: 0, stages: "Carbon block", warranty: "10 Days",
     description: "Removes chlorine, bad taste & odour. Activated carbon block technology for pure water.",
     images: ["/products/parts/black-inline-cartridge-1.jpg", "/products/parts/black-inline-cartridge-2.jpg", "/products/parts/black-inline-cartridge-3.jpg"],
   },
@@ -146,21 +155,21 @@ export const PRODUCTS: Product[] = [
   {
     id: "service-kit-7", name: "Complete RO Service Kit (7 Pcs)", spec: "Combo pack · 7 pieces",
     price: 1999, mrp: 3200, category: "spare", art: "spare",
-    rating: 0, reviews: 0, stages: "7 pieces", warranty: "30 Days",
+    rating: 0, reviews: 0, stages: "7 pieces", warranty: "10 Days",
     description: "All-in-one kit: Sediment + Carbon + UF + Membrane + SMPS + Connectors + Spanner.",
     images: ["/products/parts/sediment-spun-filter-1.jpg", "/products/parts/black-inline-cartridge-1.jpg", "/products/parts/blue-cap-cartridge-1.jpg", "/products/parts/membrane-housing-1.jpg"],
   },
   {
     id: "uf-membrane", name: "UF Hollow Fiber Ultra Membrane", spec: "Multi brand · UF",
     price: 699, mrp: 999, category: "spare", art: "cartridge",
-    rating: 0, reviews: 0, stages: "UF", warranty: "30 Days",
+    rating: 0, reviews: 0, stages: "UF", warranty: "10 Days",
     description: "Ultra-filtration membrane for bacteria removal without electricity. 0.01 micron filtration.",
     images: ["/products/parts/blue-cap-cartridge-1.jpg", "/products/parts/blue-cap-cartridge-2.jpg", "/products/parts/blue-cap-cartridge-3.jpg"],
   },
   {
     id: "valve-kit", name: "Ball Valve & Connector Kit Set", spec: "Universal · fittings",
     price: 149, mrp: 250, category: "spare", art: "spare",
-    rating: 0, reviews: 0, stages: "Kit", warranty: "30 Days",
+    rating: 0, reviews: 0, stages: "Kit", warranty: "10 Days",
     description: "Complete set of ball valves, check valves, elbow & straight connectors for RO system installation.",
   },
 ];

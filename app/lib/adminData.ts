@@ -7,8 +7,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fmtDay, toTechnician, type DbTechnician } from "./catalog";
 import { fmtDateOnly, type DbOrder, type DbRequest, type DbReview } from "./db";
 import type { Coupon, ProductSpec, Review, ServiceType, Technician } from "./data";
+import type { JobPart } from "./techData";
 import type { DbGalleryPart } from "./partsGallery";
-import type { DbTechListing, DbTechPurchase } from "./techShop";
+import type { DbDealerPurchase, DbTechListing, DbTechPurchase } from "./techShop";
 
 /* ───────────── Shapes ───────────── */
 
@@ -73,7 +74,18 @@ export interface AdminJob {
   customerPhone?: string;
   raisedBy?: string;
   completedDay?: string | null;
+  /** Who booked it: the customer app, a technician, ops or a dealer. */
+  source: "customer" | "technician" | "admin" | "dealer";
+  /** Dealer who raised it, for dealer tasks. */
+  raisedDealer: string | null;
+  /** Parts used on the visit (names and prices are saved when the job closes). */
+  parts: JobPart[];
+  /** Start / close codes the customer reads out (only for app customers). */
+  startCode: string | null;
+  closeCode: string | null;
 }
+
+
 
 export interface AdminTech extends Technician {
   status: "Online" | "Offline" | "On job";
@@ -106,7 +118,22 @@ export interface AdminProduct {
   spin_images: string[];
   amazon_url: string;
   flipkart_url: string;
+  /** Partner shop: never shown to customers. */
+  shopOnly: boolean;
+  /** POP material (banners, standees) — handed over, not resold. */
+  pop: boolean;
+  forTech: boolean;
+  forDealer: boolean;
+  /** What technicians and dealers pay; null = the selling price. */
+  tradePrice: number | null;
 }
+
+/** A dealer's own listing (a product row with dealer_id). */
+export interface DealerListing { id: string; dealerId: string; name: string; price: number; mrp: number; stock: number | null; active: boolean; fromProduct: string | null }
+
+export interface AmcPlan { id: string; name: string; icon: string; price: number; best: boolean; features: string[]; active: boolean; sort: number }
+
+export type { DbDealerPurchase };
 
 export interface AdminCoupon extends Coupon {
   active: boolean;
@@ -176,6 +203,9 @@ export interface AdminData {
   galleryParts: DbGalleryPart[];
   techPurchases: DbTechPurchase[];
   techListings: DbTechListing[];
+  dealerListings: DealerListing[];
+  dealerPurchases: DbDealerPurchase[];
+  amcPlans: AmcPlan[];
 }
 
 /* ───────────── Loader ───────────── */
@@ -196,7 +226,7 @@ async function all<T>(q: PromiseLike<{ data: T[] | null; error: unknown }>): Pro
 }
 
 export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
-  const [orders, requests, profiles, techs, allProducts, coupons, reviews, dealers, broadcasts, wallet, stock, galleryParts, dealerOrders, techPurchases, techListings] = await Promise.all([
+  const [orders, requests, profiles, techs, allProducts, coupons, reviews, dealers, broadcasts, wallet, stock, galleryParts, dealerOrders, techPurchases, techListings, dealerPurchases, amcPlans, otps] = await Promise.all([
     all<DbOrder>(sb.from("orders").select("*").order("created_at", { ascending: false }).limit(2000)),
     all<DbRequest>(sb.from("service_requests").select("*").order("created_at", { ascending: false }).limit(2000)),
     all<{ id: string; code: string; full_name: string; email: string | null; phone: string | null; blocked: boolean; created_at: string; role: string }>(
@@ -205,7 +235,8 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     // "*" so the console still loads before the images column exists.
     all<{ id: string; name: string; category: string; price: number; mrp: number; stock: number | null; active: boolean; images?: string[] | null;
       spec: string; art: string; stages: string; warranty: string; description: string; sort: number; dealer_id?: string | null; tech_id?: string | null;
-      specs?: ProductSpec[] | null; warranty_terms?: string | null; spin_images?: string[] | null; amazon_url?: string | null; flipkart_url?: string | null }>(sb.from("products").select("*").order("sort")),
+      specs?: ProductSpec[] | null; warranty_terms?: string | null; spin_images?: string[] | null; amazon_url?: string | null; flipkart_url?: string | null;
+      shop_only?: boolean; pop?: boolean; for_tech?: boolean; for_dealer?: boolean; trade_price?: number | null; from_product?: string | null }>(sb.from("products").select("*").order("sort")),
     all<{ code: string; title: string; descr: string; kind: "flat" | "percent"; value: number; max_off: number | null; min_order: number; applies_to: "product" | "service" | "all"; expires: string; active: boolean; used: number }>(
       sb.from("coupons").select("*").order("created_at", { ascending: false })),
     all<DbReview>(sb.from("reviews").select("*").order("created_at", { ascending: false }).limit(1000)),
@@ -221,7 +252,12 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     // Optional until supabase/technician-shop-migration.sql has been run.
     all<DbTechPurchase>(sb.from("tech_purchases").select("*").order("created_at", { ascending: false }).limit(1000)).catch(() => [] as DbTechPurchase[]),
     all<DbTechListing>(sb.from("tech_listings").select("*").limit(5000)).catch(() => [] as DbTechListing[]),
+    // Optional until supabase/partner-upgrade-migration.sql has been run.
+    all<DbDealerPurchase>(sb.from("dealer_purchases").select("*").order("created_at", { ascending: false }).limit(1000)).catch(() => [] as DbDealerPurchase[]),
+    all<AmcPlan>(sb.from("amc_plans").select("*").order("sort")).catch(() => [] as AmcPlan[]),
+    all<{ request_id: string; otp: string; close_otp?: string | null }>(sb.from("service_otps").select("*").limit(5000)).catch(() => [] as { request_id: string; otp: string; close_otp?: string | null }[]),
   ]);
+  const codes = new Map(otps.map((o) => [o.request_id, o]));
   // Dealer and technician listings are managed by them; the catalogue screens show Zavtoo's own products.
   const products = allProducts.filter((p) => !p.dealer_id && !p.tech_id);
   const dealerListings = allProducts.filter((p) => p.dealer_id);
@@ -255,6 +291,8 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
       customerLabel: r.customer_name, customerPhone: r.customer_phone,
       raisedBy: r.source === "technician" && r.raised_by ? techById.get(r.raised_by)?.name : undefined,
       completedDay: r.completed_at?.slice(0, 10) ?? null,
+      source: r.source ?? "customer", raisedDealer: r.raised_dealer ?? null, parts: r.parts ?? [],
+      startCode: codes.get(r.id)?.otp ?? null, closeCode: codes.get(r.id)?.close_otp ?? null,
     })),
     customers: profiles.map((p) => {
       const mine = orders.filter((o) => o.customer_id === p.id && o.status !== "Cancelled");
@@ -277,6 +315,7 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
       spec: p.spec ?? "", art: p.art ?? "classic", stages: p.stages ?? "", warranty: p.warranty ?? "", description: p.description ?? "", sort: p.sort ?? 0,
       specs: Array.isArray(p.specs) ? p.specs : [], warranty_terms: p.warranty_terms ?? "", spin_images: p.spin_images ?? [],
       amazon_url: p.amazon_url ?? "", flipkart_url: p.flipkart_url ?? "",
+      shopOnly: p.shop_only ?? false, pop: p.pop ?? false, forTech: p.for_tech ?? true, forDealer: p.for_dealer ?? true, tradePrice: p.trade_price ?? null,
     })),
     coupons: coupons.map((c) => ({
       code: c.code, title: c.title, desc: c.descr, kind: c.kind, value: c.value, maxOff: c.max_off ?? undefined, minOrder: c.min_order,
@@ -304,10 +343,16 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     galleryParts,
     techPurchases,
     techListings,
+    dealerListings: dealerListings.map((p) => ({
+      id: p.id, dealerId: p.dealer_id!, name: p.name, price: p.price, mrp: p.mrp, stock: p.stock, active: p.active, fromProduct: p.from_product ?? null,
+    })),
+    dealerPurchases,
+    amcPlans,
   };
 }
 
 /** Tables whose changes should refresh the console. */
 export const ADMIN_WATCH = [
   "orders", "service_requests", "profiles", "technicians", "products", "coupons", "reviews", "dealers", "broadcasts", "stock_requests", "tech_parts", "dealer_orders", "tech_purchases", "tech_listings",
+  "dealer_purchases", "amc_plans", "service_otps",
 ].map((table) => ({ table }));

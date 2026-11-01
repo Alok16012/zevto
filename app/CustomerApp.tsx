@@ -14,7 +14,7 @@ import { ServiceDetailPage, ServicesHubScreen } from "./components/ServicesHub";
 import { CustomerAuth } from "./components/Auth";
 import { PrimaryButton, StatusBadge, card } from "./components/ui";
 import { HELPLINES } from "./storefront/content";
-import { ChevronRight, CardIcon, ShieldIcon } from "./components/icons";
+import { BellIcon, ChevronRight, CardIcon, ShieldIcon } from "./components/icons";
 import type { LivePoint } from "./components/LiveTracking";
 import { friendly, roleOf, supabaseFor, useLive, useSession } from "./lib/supabase";
 import { useCatalog } from "./lib/catalog";
@@ -151,6 +151,7 @@ export default function CustomerApp({ roleSwitch, skipIntro = false }: { roleSwi
   const [useWallet, setUseWallet] = useState(false);
   const [seenChat, setSeenChat] = useState(0);
   const [otps, setOtps] = useState<Record<string, string>>({});
+  const [closeCodes, setCloseCodes] = useState<Record<string, string>>({});
   const [referral, setReferral] = useState("");
   const [toast, setToast] = useState<{ msg: string; bad?: boolean } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -224,6 +225,22 @@ export default function CustomerApp({ roleSwitch, skipIntro = false }: { roleSwi
     .map((r) => new Date(r.completed_at!).getTime() + 365 * 864e5));
   const amcDaysLeft = amcUntil > Date.now() ? Math.ceil((amcUntil - Date.now()) / 864e5) : null;
 
+  // Heads-up popup: the latest unread notification when the app opens, then each new one as it arrives.
+  const [popup, setPopup] = useState<AppNotification | null>(null);
+  const seenNotifs = useRef<Set<string> | null>(null);
+  const popupTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    const list = data?.notifications;
+    if (!list || stage !== "app") return;
+    const first = seenNotifs.current === null;
+    const fresh = first ? list.filter((n) => !n.read).slice(0, 1) : list.filter((n) => !n.read && !seenNotifs.current!.has(n.id));
+    seenNotifs.current = new Set(list.map((n) => n.id));
+    if (!fresh.length) return;
+    setPopup(fresh[0]);
+    clearTimeout(popupTimer.current);
+    popupTimer.current = setTimeout(() => setPopup(null), 6000);
+  }, [data?.notifications, stage]);
+
   const chatFull = (!detail && tab === "chat") || detail?.k === "chat";
   useEffect(() => { if (chatFull) setSeenChat(agentMsgs); }, [chatFull, agentMsgs]);
   const unreadChat = chatFull ? 0 : Math.max(0, agentMsgs - seenChat);
@@ -237,6 +254,11 @@ export default function CustomerApp({ roleSwitch, skipIntro = false }: { roleSwi
     if (!tracked || otps[tracked.id] || tracked.current >= 2 || tracked.status === "Cancelled") return;
     sb().rpc("my_start_code", { p_request: tracked.id }).then(({ data: code }) => { if (code) setOtps((o) => ({ ...o, [tracked.id]: code as string })); });
   }, [tracked?.id, tracked?.current, tracked?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The close code shows once work has started; the technician needs it to finish the job.
+  useEffect(() => {
+    if (!tracked || closeCodes[tracked.id] || tracked.current !== 2) return;
+    sb().rpc("my_close_code", { p_request: tracked.id }).then(({ data: code }) => { if (code) setCloseCodes((o) => ({ ...o, [tracked.id]: code as string })); });
+  }, [tracked?.id, tracked?.current]); // eslint-disable-line react-hooks/exhaustive-deps
   const photoUrls = useSignedUrls("customer", tracked?.photos);
   const chatImageUrls = useSignedUrls("customer", (data?.chat ?? []).map((m) => m.image_path).filter((p): p is string => !!p));
 
@@ -339,7 +361,10 @@ export default function CustomerApp({ roleSwitch, skipIntro = false }: { roleSwi
   const sendChat = async (body: string, image?: string) => {
     try {
       const path = image ? await uploadRoPhoto("customer", image, "chat") : null;
-      await run(sb().from("chat_messages").insert({ customer_id: uid, sender: "customer", body, image_path: path }));
+      if (!(await run(sb().from("chat_messages").insert({ customer_id: uid, sender: "customer", body, image_path: path })))) return;
+      // AI assistant answers first; a team member can take over any time.
+      const { data: sess } = await sb().auth.getSession();
+      void fetch("/api/support/ai", { method: "POST", headers: { authorization: `Bearer ${sess.session?.access_token ?? ""}` } }).catch(() => undefined);
     } catch (e) { flash(friendly(e), true); }
   };
 
@@ -352,7 +377,7 @@ export default function CustomerApp({ roleSwitch, skipIntro = false }: { roleSwi
     push(direct[key] ?? { k: "info", key });
   };
   const logout = async () => {
-    setStack([]); setTab("home"); setCart([]); setOtps({});
+    setStack([]); setTab("home"); setCart([]); setOtps({}); setCloseCodes({});
     await sb().auth.signOut();
   };
 
@@ -364,6 +389,19 @@ export default function CustomerApp({ roleSwitch, skipIntro = false }: { roleSwi
       <div style={{ width: "100%", maxWidth: SHELL_MAX_W, height: "100%", position: "relative", background: "var(--app-bg)", overflow: "hidden", boxShadow: "var(--shadow-float)", display: "flex", flexDirection: "column" }}>
         {children}
         {showNav && <BottomNav active={tab} onChange={goTab} unreadChat={unreadChat} />}
+        {popup && (
+          <div className="drop-in" role="status" style={{ position: "absolute", top: "calc(10px + env(safe-area-inset-top))", left: 12, right: 12, zIndex: 130, display: "flex", alignItems: "flex-start", gap: 10,
+            background: "var(--surface)", borderRadius: 16, padding: "12px 12px 12px 14px", boxShadow: "var(--shadow-xl)", border: "1px solid var(--line)" }}>
+            <button onClick={() => { const n = popup; setPopup(null); openNotif(n); }} style={{ flex: 1, minWidth: 0, display: "flex", gap: 10, background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>
+              <span style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: "var(--blue-tint)", display: "flex", alignItems: "center", justifyContent: "center" }}><BellIcon s={18} c="var(--blue)" /></span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{popup.title}</span>
+                <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.4 }}>{popup.body}</span>
+              </span>
+            </button>
+            <button onClick={() => setPopup(null)} aria-label="Dismiss" style={{ background: "none", border: "none", fontSize: 18, lineHeight: 1, color: "var(--ink-mute)", cursor: "pointer", padding: 2 }}>×</button>
+          </div>
+        )}
         {toast && (
           <div className="fade-up" role={toast.bad ? "alert" : "status"} style={{
             position: "absolute", left: 16, right: 16, bottom: showNav ? 90 : 96, zIndex: 120,
@@ -429,7 +467,7 @@ export default function CustomerApp({ roleSwitch, skipIntro = false }: { roleSwi
         <OrderPlacedPage orderId={detail.ref} title={detail.title} onTrack={() => setStack([detail.next])} onHome={() => goTab("home")} />
       )}
       {detail?.k === "track" && (tracked ? (
-        <TrackServicePage key={tracked.id} service={tracked} position={position} otp={otps[tracked.id] ?? null}
+        <TrackServicePage key={tracked.id} service={tracked} position={position} otp={otps[tracked.id] ?? null} closeCode={closeCodes[tracked.id] ?? null}
           photoUrls={(tracked.photos ?? []).map((p) => photoUrls[p]).filter(Boolean)}
           onBack={back} onChat={() => push({ k: "chat" })}
           onRate={(r) => void rateService(tracked.id, r)} onOpenTech={(id) => push({ k: "tech", id })}

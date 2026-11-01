@@ -8,11 +8,15 @@ import {
   DealerAuthScreen, DealerHelpPage, DealerProfileScreen, ShopForm, TeamPage,
   type DealerPage, type DealerSignup, type NewTeamMember, type ShopEdit,
 } from "../components/dealer/ProfileScreens";
+import { DealerShopScreen } from "../components/dealer/ShopScreen";
+import { BuyStockPage } from "../technician/TechShop";
+import { NewTaskPage, type NewTask, type TaskRoute } from "../technician/NewTask";
 import { BrandMark } from "../components/Brand";
 import { ROLE_NAME } from "../components/RoleSwitch";
 import { useCatalog } from "../lib/catalog";
 import { friendly, roleOf, supabaseFor, useLive, useSession } from "../lib/supabase";
 import { isOpenJob, loadDealerData, type DbListing, type DealerOrderStatus } from "../lib/dealerData";
+import type { DbDealerPurchase } from "../lib/techShop";
 
 const SHELL_MAX_W = 430;
 const sb = () => supabaseFor("dealer");
@@ -21,6 +25,8 @@ type Detail =
   | { k: "listing"; id?: string }
   | { k: "order"; id: string }
   | { k: "job"; id: string }
+  | { k: "newTask" }
+  | { k: "buy" }
   | { k: "page"; p: DealerPage };
 
 export default function DealerApp({ roleSwitch }: { roleSwitch?: React.ReactNode } = {}) {
@@ -30,7 +36,7 @@ export default function DealerApp({ roleSwitch }: { roleSwitch?: React.ReactNode
   // Zavtoo's catalogue, for "resell a Zavtoo model" on new listings.
   useCatalog("dealer", session === undefined ? undefined : uid);
   const live = useLive("dealer", uid, (c) => loadDealerData(c, uid!), [
-    { table: "dealers" }, { table: "products" }, { table: "dealer_orders" }, { table: "service_requests" }, { table: "technicians" },
+    { table: "dealers" }, { table: "products" }, { table: "dealer_orders" }, { table: "service_requests" }, { table: "technicians" }, { table: "dealer_purchases" },
   ]);
   const data = live.data;
 
@@ -147,6 +153,22 @@ export default function DealerApp({ roleSwitch }: { roleSwitch?: React.ReactNode
   const assignJob = (id: string, techId: string) =>
     run(sb().rpc("dealer_assign_job", { p_request: id, p_tech: techId }), `Assigned to ${data.team.find((t) => t.id === techId)?.name ?? "technician"}`);
 
+  const createTask = async (t: NewTask, route: TaskRoute, techId?: string) => {
+    const ok = await run(sb().rpc("dealer_create_task", {
+      p_name: t.customer.name, p_phone: t.customer.phone, p_address: t.customer.address, p_pincode: t.customer.pincode,
+      p_type: t.type, p_product: t.product, p_date: t.date, p_slot: t.slot, p_issue: t.issue, p_tech: route === "self" ? techId ?? null : null,
+    }), route === "self" ? `Assigned to ${data.team.find((x) => x.id === techId)?.name ?? "your technician"}` : "Sent to Zavtoo — ops will assign a technician");
+    if (ok) back();
+  };
+  const buy = async (items: { id: string; qty: number }[]) => {
+    const ok = await run(sb().rpc("dealer_buy", { p_items: items }), "Order sent to Zavtoo");
+    if (ok) back();
+    return ok;
+  };
+  const cancelPurchase = (p: DbDealerPurchase) => {
+    if (confirm(`Cancel order #${p.ref}?`)) void run(sb().rpc("dealer_cancel_purchase", { p_id: p.id }), "Order cancelled");
+  };
+
   const saveShop = async (d: ShopEdit) => {
     const ok = await run(sb().from("dealers").update(d).eq("id", dealer.id), "Shop details saved");
     if (ok) back();
@@ -184,6 +206,11 @@ export default function DealerApp({ roleSwitch }: { roleSwitch?: React.ReactNode
         return j ? <JobDetail key={j.id} job={j} team={data.team} verified={verified} onBack={back}
           onAssign={(t) => assignJob(j.id, t)} onAddTech={() => push({ k: "page", p: "team" })} /> : <Gone onBack={back} />;
       })()}
+      {detail?.k === "newTask" && (
+        <NewTaskPage onBack={back} onSubmit={(t, r, techId) => void createTask(t, r, techId)}
+          team={data.team.filter((t) => t.active).map((t) => ({ id: t.id, name: t.name, code: t.code }))} />
+      )}
+      {detail?.k === "buy" && <BuyStockPage who="dealer" onBack={back} onSubmit={buy} />}
       {detail?.k === "page" && detail.p === "edit" && <ShopForm dealer={dealer} onBack={back} onSave={saveShop} />}
       {detail?.k === "page" && detail.p === "team" && <TeamPage team={data.team} jobs={data.jobs} shopPins={dealer.pincodes} onBack={back} onAdd={addTechnician} />}
       {detail?.k === "page" && detail.p === "help" && <DealerHelpPage onBack={back} />}
@@ -201,7 +228,8 @@ export default function DealerApp({ roleSwitch }: { roleSwitch?: React.ReactNode
           onToggle={(l, a) => void toggleListing(l, a)} onStock={(l, n) => void setStock(l, n)} />
       )}
       {!detail && tab === "orders" && <DealerOrdersScreen orders={data.orders} onOpen={(id) => push({ k: "order", id })} />}
-      {!detail && tab === "jobs" && <JobsScreen jobs={data.jobs} team={data.team} verified={verified} onOpen={(id) => push({ k: "job", id })} />}
+      {!detail && tab === "jobs" && <JobsScreen jobs={data.jobs} team={data.team} verified={verified} onOpen={(id) => push({ k: "job", id })} onNewTask={() => push({ k: "newTask" })} />}
+      {!detail && tab === "shop" && <DealerShopScreen purchases={data.purchases} verified={verified} onBuy={() => push({ k: "buy" })} onCancel={cancelPurchase} />}
       {!detail && tab === "profile" && <DealerProfileScreen data={data} onOpen={(p) => push({ k: "page", p })} onLogout={logout} />}
     </div>,
   );

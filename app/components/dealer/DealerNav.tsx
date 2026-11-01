@@ -1,8 +1,8 @@
 "use client";
 
-import { BagIcon, BoxIcon, StoreIcon, WrenchIcon } from "../icons";
+import { BagIcon, BoxIcon, CartIcon, StoreIcon, WrenchIcon } from "../icons";
 
-export type DealerTab = "home" | "listings" | "orders" | "jobs" | "profile";
+export type DealerTab = "home" | "listings" | "orders" | "jobs" | "shop" | "profile";
 
 const ProfileGlyph = ({ s = 22, c = "currentColor" }: { s?: number; c?: string }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -15,6 +15,7 @@ const tabs: { id: DealerTab; label: string; Icon: (p: { s?: number; c?: string; 
   { id: "listings", label: "Listings", Icon: BoxIcon },
   { id: "orders", label: "Orders", Icon: BagIcon },
   { id: "jobs", label: "Jobs", Icon: WrenchIcon },
+  { id: "shop", label: "Shop", Icon: CartIcon },
   { id: "profile", label: "Profile", Icon: ProfileGlyph },
 ];
 

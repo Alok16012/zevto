@@ -213,7 +213,7 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
     flash("Job started"); live.reload();
     return null;
   };
-  const complete = async (job: Job, payment: NonNullable<Job["payment"]>) => {
+  const complete = async (job: Job, payment: NonNullable<Job["payment"]>, code: string): Promise<string | null> => {
     // Make sure the latest worksheet is saved before closing.
     clearTimeout(saveTimers.current[job.id]);
     const d = drafts[job.id];
@@ -222,11 +222,24 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
       const { error } = await sb().rpc("tech_save_worksheet", {
         p_request: job.id, p_checklist: w.checklist, p_tds_before: w.tdsBefore, p_tds_after: w.tdsAfter, p_parts: w.parts, p_notes: w.notes,
       });
-      if (error) { flash(friendly(error), true); return; }
+      if (error) return friendly(error);
     }
-    if (await run(sb().rpc("tech_complete_job", { p_request: job.id, p_payment: payment }), "Job closed. Great work!")) {
-      setDrafts((all) => { const n = { ...all }; delete n[job.id]; return n; });
-    }
+    const { error } = await sb().rpc("tech_complete_job", { p_request: job.id, p_payment: payment, p_code: code || null });
+    if (error) return friendly(error);
+    setDrafts((all) => { const n = { ...all }; delete n[job.id]; return n; });
+    flash("Job closed. Send the customer their bill."); live.reload();
+    return null;
+  };
+  const emailBill = async (job: Job, email: string): Promise<string | null> => {
+    const { data: s } = await sb().auth.getSession();
+    try {
+      const res = await fetch("/api/bill/send", {
+        method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${s.session?.access_token ?? ""}` },
+        body: JSON.stringify({ id: job.id, email }),
+      });
+      if (res.ok) return null;
+      return ((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't send the email";
+    } catch (e) { return friendly(e); }
   };
   const reschedule = (job: Job, reason: string) => run(sb().rpc("tech_reschedule", { p_request: job.id, p_reason: reason }), "Job sent back to ops");
   const respond = async (job: Job, accept: boolean) => {
@@ -274,6 +287,11 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
     run(sb().from("tech_listings").update({ selling }).eq("id", l.id), selling ? `${listingName(l)} is on sale in the app` : `${listingName(l)} is hidden from the app`);
   const buyStock = async (items: { id: string; qty: number }[]) => {
     const ok = await run(sb().rpc("tech_buy", { p_items: items }), "Order sent to Zavtoo — it lands in your shop once delivered");
+    if (ok) setShopView(null);
+    return ok;
+  };
+  const addOwnStock = async (productId: string, qty: number, cost: number) => {
+    const ok = await run(sb().rpc("tech_add_own_stock", { p_product: productId, p_qty: qty, p_cost: cost }), `${qty} × ${productName(productId) ?? "product"} added to your stock`);
     if (ok) setShopView(null);
     return ok;
   };
@@ -345,7 +363,8 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
         <JobDetailPage key={job.id} job={job} stock={data.stock} onBack={() => setOpenJob(null)} sharing={riding?.id === job.id ? sharing : null}
           onUpdate={(patch) => void updateJob(job.id, patch)}
           onStartJob={(code) => startJob(job.id, code)}
-          onComplete={(p) => void complete(job, p)}
+          shopStock={data.listings.map((l) => ({ id: l.id, name: productName(l.product_id) ?? "Product", price: l.price, stock: l.stock }))}
+          onComplete={(p, code) => complete(job, p, code)} onEmailBill={(email) => emailBill(job, email)}
           onReschedule={(reason) => void reschedule(job, reason)} />
       ) : (
         <>
@@ -361,7 +380,7 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
             <DealerOrdersScreen orders={data.orders} onBack={() => setShopView(null)} onOpen={(id) => setShopView({ order: id })}
               empty="When a customer in your pincodes buys one of your products in the Zavtoo app, the order lands here." />
           ) : shopView === "buy" ? (
-            <BuyStockPage onBack={() => setShopView(null)} onSubmit={buyStock} />
+            <BuyStockPage onBack={() => setShopView(null)} onSubmit={buyStock} onSelf={addOwnStock} />
           ) : shopView === "gallery" ? (
             <>
               {!partEditing && <button onClick={() => setShopView(null)} style={{ ...linkBtn, margin: "8px 8px 0" }}>‹ Back to shop</button>}

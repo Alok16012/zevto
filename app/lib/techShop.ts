@@ -19,9 +19,20 @@ export interface DbTechListing {
 
 export type PurchaseStatus = "Pending" | "Delivered" | "Rejected" | "Cancelled";
 
+export interface PurchaseItem { id: string; name: string; qty: number; price: number; mrp: number; art?: ArtKind; pop?: boolean }
+
 export interface DbTechPurchase {
   id: string; ref: string; tech_id: string;
-  items: { id: string; name: string; qty: number; price: number; mrp: number; art?: ArtKind }[];
+  items: PurchaseItem[];
+  amount: number; status: PurchaseStatus; note: string | null; created_at: string; updated_at: string;
+  /** Bought by the technician themselves (not from Zavtoo). */
+  self?: boolean;
+}
+
+/** A dealer's order to Zavtoo for stock or POP material. */
+export interface DbDealerPurchase {
+  id: string; ref: string; dealer_id: string;
+  items: PurchaseItem[];
   amount: number; status: PurchaseStatus; note: string | null; created_at: string; updated_at: string;
 }
 

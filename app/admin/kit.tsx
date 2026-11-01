@@ -126,10 +126,10 @@ export function Filter<T extends string>({ options, value, onChange, counts }: {
   );
 }
 
-export function Modal({ title, onClose, children, footer }: { title: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode }) {
+export function Modal({ title, onClose, children, footer, wide }: { title: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean }) {
   return (
     <div role="dialog" aria-modal="true" aria-label={title} onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(15,23,41,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div onClick={(e) => e.stopPropagation()} className="fade-up" style={{ width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", borderRadius: 18, boxShadow: "var(--shadow-xl)" }}>
+      <div onClick={(e) => e.stopPropagation()} className="fade-up" style={{ width: "100%", maxWidth: wide ? 860 : 480, maxHeight: "90vh", overflowY: "auto", background: "var(--surface)", borderRadius: 18, boxShadow: "var(--shadow-xl)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", borderBottom: "1px solid var(--line)" }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{title}</h3>
           <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", fontSize: 20, lineHeight: 1, cursor: "pointer", color: "var(--ink-mute)" }}>×</button>

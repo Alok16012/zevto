@@ -201,10 +201,10 @@ export const TERMS: Policy = {
       { table: { head: ["Product Type", "Warranty Period", "Coverage"], rows: [
         ["RO Membranes", "6 Months", "Manufacturing defects only"],
         ["Booster Pumps & Motors", "3 Months", "Manufacturing defects, functional failure"],
-        ["Filters (Sediment/Carbon)", "30 Days", "Genuineness & quality defects only"],
+        ["Filters (Sediment/Carbon)", "10 Days", "Genuineness & quality defects only"],
         ["SMPS / Power Adapters", "3 Months", "Manufacturing defects, burnout"],
         ["Complete RO Systems", "1 Year", "As per manufacturer warranty terms"],
-        ["Spare Parts & Fittings", "30 Days", "Genuineness & defects only"],
+        ["Spare Parts & Fittings", "10 Days", "Genuineness & defects only"],
       ] } },
       { note: { title: "Warranty Exclusions", text: "Warranties do not cover: normal wear and tear, damage from improper installation by the customer, damage from excessive TDS levels, physical damage, water damage from external flooding, or products modified after purchase. Manufacturer warranties (where applicable) are governed by the respective manufacturer's terms." } },
     ] },

@@ -8,7 +8,7 @@ import { Badge, Btn, Initials, Panel, SearchBox, input, muted } from "./kit";
 
 /* Support inbox: every customer conversation from the app's Chat tab. */
 
-interface Msg { id: string; customer_id: string; sender: "customer" | "agent"; body: string; image_path: string | null; created_at: string }
+interface Msg { id: string; customer_id: string; sender: "customer" | "agent"; agent_id?: string | null; body: string; image_path: string | null; created_at: string }
 
 const sb = () => supabaseFor("admin");
 const SEEN_KEY = "zavtoo:admin:chat-seen";
@@ -120,7 +120,7 @@ function Thread({ list, customer, customerId, notify, onSent }: {
                 {m.body}
               </div>
               <p style={{ ...muted, margin: "2px 4px 0", textAlign: me ? "right" : "left", fontSize: 10.5 }}>
-                {new Date(m.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" })}
+                {me && !m.agent_id ? "🤖 AI assistant · " : ""}{new Date(m.created_at).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" })}
               </p>
             </div>
           );
