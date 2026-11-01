@@ -333,7 +333,7 @@ function JobCard({ job: j, tech, onOpen }: { job: DbRequest; tech?: DbTechnician
 
 type JobFilter = "open" | "team" | "done";
 
-export function JobsScreen({ jobs, team, verified, onOpen }: { jobs: DbRequest[]; team: DbTechnician[]; verified: boolean; onOpen: (id: string) => void }) {
+export function JobsScreen({ jobs, team, verified, onOpen, onNewTask }: { jobs: DbRequest[]; team: DbTechnician[]; verified: boolean; onOpen: (id: string) => void; onNewTask: () => void }) {
   const [f, setF] = useState<JobFilter>("open");
   const open = jobs.filter(isOpenJob);
   const active = jobs.filter((j) => j.tech_id && !isDone(j));
@@ -341,7 +341,9 @@ export function JobsScreen({ jobs, team, verified, onOpen }: { jobs: DbRequest[]
   const rows = f === "open" ? open : f === "team" ? active : done;
   return (
     <div>
-      <PageHeader title="Service Jobs" />
+      <PageHeader title="Service Jobs" right={verified ? (
+        <button onClick={onNewTask} className="press" style={{ border: "none", borderRadius: 999, background: "var(--blue)", color: "white", fontSize: 13, fontWeight: 700, padding: "8px 14px", cursor: "pointer" }}>+ New task</button>
+      ) : undefined} />
       <div style={{ padding: "0 16px 24px" }}>
         {!verified && <p style={{ margin: "0 0 12px", padding: "10px 12px", borderRadius: 12, background: "var(--warning)", color: "var(--warning-text)", fontSize: 12.5, fontWeight: 600 }}>Open jobs in your area show up once Zavtoo verifies your shop.</p>}
         <Chips<JobFilter> value={f} onChange={setF} items={[

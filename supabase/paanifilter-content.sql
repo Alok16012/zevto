@@ -8,19 +8,19 @@ alter table public.products add column if not exists images text[] not null defa
 insert into public.products (id, name, spec, price, mrp, category, art, stages, warranty, description, sort) values
   ('membrane-75', '75 GPD RO Membrane Premium', 'Universal fit · 75 GPD', 850, 1200, 'spare', 'cartridge', '75 GPD', '6 Months',
    'High-rejection TFC membrane for all standard RO systems. Fits Kent, Aquaguard & more.', 8),
-  ('sediment-5', 'Sediment Filter 5 Micron (Pack of 3)', 'Multi brand · 5 micron', 299, 450, 'spare', 'cartridge', '3 filters', '30 Days',
+  ('sediment-5', 'Sediment Filter 5 Micron (Pack of 3)', 'Multi brand · 5 micron', 299, 450, 'spare', 'cartridge', '3 filters', '10 Days',
    'Removes dirt, sand & rust. Compatible with standard 10-inch filter housings.', 9),
   ('booster-pump-24v', 'RO Booster Pump 24V DC Motor', 'Universal · 24V DC', 1299, 1800, 'spare', 'spare', '24V DC', '3 Months',
    'High-pressure booster pump for low water pressure RO systems. 24V DC, 75-100 GPD.', 10),
-  ('cto-carbon', 'Carbon Block Filter CTO (4 Stage)', 'Premium · carbon block', 549, 750, 'spare', 'cartridge', 'Carbon block', '30 Days',
+  ('cto-carbon', 'Carbon Block Filter CTO (4 Stage)', 'Premium · carbon block', 549, 750, 'spare', 'cartridge', 'Carbon block', '10 Days',
    'Removes chlorine, bad taste & odour. Activated carbon block technology for pure water.', 11),
   ('smps-24v', 'SMPS Power Supply 24V 2A Adapter', 'Universal · 24V 2A', 399, 599, 'spare', 'spare', '24V 2A', '3 Months',
    'Reliable 24V 2A SMPS adapter for RO booster pumps. Input 220V AC, Output 24V DC.', 12),
-  ('service-kit-7', 'Complete RO Service Kit (7 Pcs)', 'Combo pack · 7 pieces', 1999, 3200, 'spare', 'spare', '7 pieces', '30 Days',
+  ('service-kit-7', 'Complete RO Service Kit (7 Pcs)', 'Combo pack · 7 pieces', 1999, 3200, 'spare', 'spare', '7 pieces', '10 Days',
    'All-in-one kit: Sediment + Carbon + UF + Membrane + SMPS + Connectors + Spanner.', 13),
-  ('uf-membrane', 'UF Hollow Fiber Ultra Membrane', 'Multi brand · UF', 699, 999, 'spare', 'cartridge', 'UF', '30 Days',
+  ('uf-membrane', 'UF Hollow Fiber Ultra Membrane', 'Multi brand · UF', 699, 999, 'spare', 'cartridge', 'UF', '10 Days',
    'Ultra-filtration membrane for bacteria removal without electricity. 0.01 micron filtration.', 14),
-  ('valve-kit', 'Ball Valve & Connector Kit Set', 'Universal · fittings', 149, 250, 'spare', 'spare', 'Kit', '30 Days',
+  ('valve-kit', 'Ball Valve & Connector Kit Set', 'Universal · fittings', 149, 250, 'spare', 'spare', 'Kit', '10 Days',
    'Complete set of ball valves, check valves, elbow & straight connectors for RO system installation.', 15)
 on conflict (id) do nothing;
 
@@ -36,13 +36,13 @@ on conflict (type) do update set tagline = excluded.tagline, price = excluded.pr
 update public.service_catalog set sort = 7 where type = 'Uninstall';
 
 update public.products set description = 'High-rejection TFC membrane for all standard RO systems. Fits Kent, Aquaguard & more.', warranty = '6 Months' where id = 'membrane-75';
-update public.products set description = 'Removes dirt, sand & rust. Compatible with standard 10-inch filter housings.', warranty = '30 Days' where id = 'sediment-5';
+update public.products set description = 'Removes dirt, sand & rust. Compatible with standard 10-inch filter housings.', warranty = '10 Days' where id = 'sediment-5';
 update public.products set description = 'High-pressure booster pump for low water pressure RO systems. 24V DC, 75-100 GPD.', warranty = '3 Months' where id = 'booster-pump-24v';
-update public.products set description = 'Removes chlorine, bad taste & odour. Activated carbon block technology for pure water.', warranty = '30 Days' where id = 'cto-carbon';
+update public.products set description = 'Removes chlorine, bad taste & odour. Activated carbon block technology for pure water.', warranty = '10 Days' where id = 'cto-carbon';
 update public.products set description = 'Reliable 24V 2A SMPS adapter for RO booster pumps. Input 220V AC, Output 24V DC.', warranty = '3 Months' where id = 'smps-24v';
-update public.products set description = 'All-in-one kit: Sediment + Carbon + UF + Membrane + SMPS + Connectors + Spanner.', warranty = '30 Days' where id = 'service-kit-7';
-update public.products set description = 'Ultra-filtration membrane for bacteria removal without electricity. 0.01 micron filtration.', warranty = '30 Days' where id = 'uf-membrane';
-update public.products set description = 'Complete set of ball valves, check valves, elbow & straight connectors for RO system installation.', warranty = '30 Days' where id = 'valve-kit';
+update public.products set description = 'All-in-one kit: Sediment + Carbon + UF + Membrane + SMPS + Connectors + Spanner.', warranty = '10 Days' where id = 'service-kit-7';
+update public.products set description = 'Ultra-filtration membrane for bacteria removal without electricity. 0.01 micron filtration.', warranty = '10 Days' where id = 'uf-membrane';
+update public.products set description = 'Complete set of ball valves, check valves, elbow & straight connectors for RO system installation.', warranty = '10 Days' where id = 'valve-kit';
 
 insert into public.coupons (code, title, descr, kind, value, max_off, min_order, applies_to, expires) values
   ('PURE30', '30% off your first service', 'Get 30% off your first service booking.', 'percent', 30, null, 0, 'service', '2027-12-31')

@@ -11,20 +11,46 @@ import { AUDIENCES, type AdminCoupon, type AdminProduct, type AdminReview, type 
 import { isoDay } from "./Operations";
 import { Badge, Btn, Filter, Modal, Panel, Table, fieldLabel, input, muted } from "./kit";
 
-/* ───────────────────────── Products & stock ───────────────────────── */
+/* ───────────────────────── Products & spares ───────────────────────── */
 
-export type ProductDraft = Pick<AdminProduct, "name" | "category" | "spec" | "price" | "mrp" | "stock" | "stages" | "warranty" | "description" | "art">;
+export type ProductDraft = Pick<AdminProduct, "name" | "category" | "spec" | "price" | "mrp" | "stock" | "stages" | "warranty" | "description" | "art"
+  | "shopOnly" | "pop" | "forTech" | "forDealer" | "tradePrice">;
 
-export function ProductsSection({ products, onUpdate, onCreate, onDelete }: {
+type ProductTab = "Products" | "Spares";
+
+/** Customer catalogue, split into purifiers and spare parts. Partner-only items live in the shop section. */
+export function ProductsSection({ products: all, onUpdate, onCreate, onDelete }: {
   products: AdminProduct[]; onUpdate: (p: AdminProduct, patch: Partial<AdminProduct>) => Promise<boolean>;
+  onCreate: (d: ProductDraft) => Promise<string | null>; onDelete: (p: AdminProduct) => Promise<boolean>;
+}) {
+  const [tab, setTab] = useState<ProductTab>("Products");
+  const forCustomers = all.filter((p) => !p.shopOnly);
+  const products = forCustomers.filter((p) => (p.category === "spare") === (tab === "Spares"));
+  const counts = { Products: forCustomers.filter((p) => p.category !== "spare").length, Spares: forCustomers.filter((p) => p.category === "spare").length };
+  return (
+    <Panel title={tab === "Spares" ? `Spare parts & filters (${products.length})` : `Purifiers & products (${products.length})`} pad={false}>
+      <div style={{ padding: "12px 16px" }}>
+        <Filter<ProductTab> options={["Products", "Spares"]} value={tab} onChange={setTab} counts={counts} />
+      </div>
+      <CatalogTable products={products} kind={tab === "Spares" ? "spare" : "product"} onUpdate={onUpdate} onCreate={onCreate} onDelete={onDelete} />
+    </Panel>
+  );
+}
+
+/** Product table with add / edit / photos. `kind` sets what a new row starts as. */
+export function CatalogTable({ products, kind, onUpdate, onCreate, onDelete }: {
+  products: AdminProduct[]; kind: "product" | "spare" | "shop";
+  onUpdate: (p: AdminProduct, patch: Partial<AdminProduct>) => Promise<boolean>;
   onCreate: (d: ProductDraft) => Promise<string | null>; onDelete: (p: AdminProduct) => Promise<boolean>;
 }) {
   const [edit, setEdit] = useState<AdminProduct | "new" | null>(null);
   const [photosFor, setPhotosFor] = useState<string | null>(null);
   const photoProduct = products.find((p) => p.id === photosFor);
+  const noun = kind === "spare" ? "spare part" : kind === "shop" ? "shop item" : "product";
   return (
-    <Panel title={`Products & stock (${products.length})`} pad={false} actions={<Btn onClick={() => setEdit("new")}>+ Add product</Btn>}>
-      <Table rows={products} rowKey={(p) => p.id} empty="No products yet. Add your first product." cols={[
+    <>
+      <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 16px 12px" }}><Btn onClick={() => setEdit("new")}>+ Add {noun}</Btn></div>
+      <Table rows={products} rowKey={(p) => p.id} empty={`No ${noun}s yet.`} cols={[
         { key: "img", head: "Photo", width: 72, render: (p) => (
           <button onClick={() => setPhotosFor(p.id)} aria-label={`Manage photos of ${p.name}`} title={p.images.length ? `${p.images.length} photo${p.images.length > 1 ? "s" : ""}` : "Add photos"} style={{
             position: "relative", width: 52, height: 52, padding: 0, borderRadius: 10, cursor: "pointer", background: "var(--bg-secondary)",
@@ -34,9 +60,15 @@ export function ProductsSection({ products, onUpdate, onCreate, onDelete }: {
             {p.images.length > 1 && <span style={{ position: "absolute", right: 2, bottom: 2, background: "var(--ink)", color: "white", fontSize: 9.5, fontWeight: 700, borderRadius: 6, padding: "0 4px" }}>{p.images.length}</span>}
           </button>
         ) },
-        { key: "n", head: "Product", render: (p) => <><b style={{ color: p.active ? "var(--ink)" : "var(--ink-mute)" }}>{p.name}</b><div style={{ ...muted, textTransform: "capitalize" }}>{p.category}{p.spec ? ` · ${p.spec}` : ""}</div></> },
+        { key: "n", head: "Product", render: (p) => <>
+          <b style={{ color: p.active ? "var(--ink)" : "var(--ink-mute)" }}>{p.name}</b>
+          <div style={{ ...muted, textTransform: "capitalize" }}>{p.pop ? "POP material" : p.category}{p.spec ? ` · ${p.spec}` : ""}</div>
+          <div style={{ display: "flex", gap: 4, marginTop: 3 }}>
+            {p.forTech && <Badge tone="blue">Technicians</Badge>}{p.forDealer && <Badge tone="purple">Dealers</Badge>}
+          </div>
+        </> },
         { key: "p", head: "Price", align: "right", render: (p) => <><b>{inr(p.price)}</b><div style={{ ...muted, textDecoration: "line-through" }}>{inr(p.mrp)}</div></> },
-        { key: "d", head: "Discount", align: "right", render: (p) => `${Math.round((1 - p.price / p.mrp) * 100)}%` },
+        { key: "tp", head: "Partner price", align: "right", render: (p) => p.forTech || p.forDealer ? <b>{inr(p.tradePrice ?? p.price)}</b> : <span style={muted}>—</span> },
         { key: "s", head: "Stock", align: "right", render: (p) => p.stock == null ? <span style={muted}>Not tracked</span> : <span style={{ fontWeight: 700, color: p.stock === 0 ? "var(--error-text)" : p.stock <= 5 ? "var(--warning-text)" : "var(--ink)" }}>{p.stock}</span> },
         { key: "st", head: "Status", render: (p) => p.stock == null ? <Badge tone="green">Available</Badge> : p.stock === 0 ? <Badge tone="red">Out of stock</Badge> : p.stock <= 5 ? <Badge tone="amber">Low stock</Badge> : <Badge tone="green">In stock</Badge> },
         { key: "a", head: "Listed", render: (p) => <Toggle on={p.active} label={`List ${p.name}`} onChange={(v) => void onUpdate(p, { active: v })} /> },
@@ -50,7 +82,7 @@ export function ProductsSection({ products, onUpdate, onCreate, onDelete }: {
           </div>
         ) },
       ]} />
-      {edit && <ProductForm p={edit === "new" ? null : edit} onClose={() => setEdit(null)}
+      {edit && <ProductForm p={edit === "new" ? null : edit} kind={kind} onClose={() => setEdit(null)}
         onSave={async (d) => {
           if (edit === "new") {
             const id = await onCreate(d);
@@ -58,7 +90,7 @@ export function ProductsSection({ products, onUpdate, onCreate, onDelete }: {
           } else if (await onUpdate(edit, d)) setEdit(null);
         }} />}
       {photoProduct && <ProductPhotosModal p={photoProduct} onClose={() => setPhotosFor(null)} onSave={(images) => onUpdate(photoProduct, { images })} />}
-    </Panel>
+    </>
   );
 }
 
@@ -66,17 +98,20 @@ const CATEGORIES = [["domestic", "Home purifier"], ["commercial", "Commercial RO
 const ARTS = [["classic", "Purifier — classic"], ["pro", "Purifier — pro"], ["premium", "Purifier — premium"], ["commercial", "Commercial plant"], ["spare", "Spare parts"], ["cartridge", "Filter cartridge"]] as const;
 
 /** Add a new product or edit every detail of an existing one. */
-function ProductForm({ p, onClose, onSave }: { p: AdminProduct | null; onClose: () => void; onSave: (d: ProductDraft) => Promise<void> }) {
+function ProductForm({ p, kind, onClose, onSave }: { p: AdminProduct | null; kind: "product" | "spare" | "shop"; onClose: () => void; onSave: (d: ProductDraft) => Promise<void> }) {
+  const shop = p ? p.shopOnly : kind === "shop";
   const [f, setF] = useState({
-    name: p?.name ?? "", category: p?.category ?? "spare", spec: p?.spec ?? "", price: p ? String(p.price) : "", mrp: p ? String(p.mrp) : "",
+    name: p?.name ?? "", category: p?.category ?? (kind === "product" ? "domestic" : "spare"),
+    pop: p?.pop ?? false, forTech: p?.forTech ?? true, forDealer: p?.forDealer ?? true, tradePrice: p?.tradePrice == null ? "" : String(p.tradePrice), spec: p?.spec ?? "", price: p ? String(p.price) : "", mrp: p ? String(p.mrp) : "",
     stock: p?.stock == null ? "" : String(p.stock), stages: p?.stages ?? "", warranty: p?.warranty ?? "", description: p?.description ?? "",
-    art: p?.art ?? "cartridge",
+    art: p?.art ?? (kind === "product" ? "classic" : "cartridge"),
   });
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f, digits = false) => (e: { target: { value: string } }) => setF({ ...f, [k]: digits ? e.target.value.replace(/\D/g, "").slice(0, 7) : e.target.value });
-  const pr = Number(f.price), m = Number(f.mrp), st = f.stock === "" ? null : Number(f.stock);
+  const pr = Number(f.price), m = Number(f.mrp), st = f.stock === "" ? null : Number(f.stock), tp = f.tradePrice === "" ? null : Number(f.tradePrice);
   const err = f.name.trim().length < 3 ? "Enter the product name"
     : !pr ? "Enter the selling price" : !m ? "Enter the MRP" : pr > m ? "Selling price can't be higher than MRP"
+    : shop && !f.forTech && !f.forDealer ? "Choose who can buy it: technicians, dealers or both"
     : f.description.trim().length < 10 ? "Add a short description (at least 10 characters)" : null;
 
   const save = async () => {
@@ -85,13 +120,14 @@ function ProductForm({ p, onClose, onSave }: { p: AdminProduct | null; onClose: 
     await onSave({
       name: f.name.trim(), category: f.category, spec: f.spec.trim(), price: pr, mrp: m, stock: st,
       stages: f.stages.trim(), warranty: f.warranty.trim(), description: f.description.trim(), art: f.art,
+      shopOnly: shop, pop: shop && f.pop, forTech: f.forTech, forDealer: f.forDealer, tradePrice: tp,
     });
     setBusy(false);
   };
 
   const field = (label: string, el: React.ReactNode, span = false) => <label style={span ? { gridColumn: "1 / -1" } : undefined}><span style={fieldLabel}>{label}</span>{el}</label>;
   return (
-    <Modal title={p ? `Edit ${p.name}` : "Add product"} onClose={onClose} footer={<>
+    <Modal title={p ? `Edit ${p.name}` : shop ? "Add shop item" : kind === "spare" ? "Add spare part" : "Add product"} onClose={onClose} footer={<>
       <Btn kind="ghost" onClick={onClose}>Cancel</Btn>
       <Btn disabled={!!err || busy} onClick={() => void save()}>{busy ? "Saving…" : p ? "Save changes" : "Add product"}</Btn>
     </>}>
@@ -105,6 +141,13 @@ function ProductForm({ p, onClose, onSave }: { p: AdminProduct | null; onClose: 
         {field("Warranty", <input value={f.warranty} onChange={set("warranty")} maxLength={40} placeholder="e.g. 6 Months" style={input} />)}
         {field("Stages / size / capacity", <input value={f.stages} onChange={set("stages")} maxLength={40} placeholder="e.g. 7 Stage · 75 GPD · Pack of 3" style={input} />)}
         {field("Picture until photos are added", <select value={f.art} onChange={set("art")} style={input}>{ARTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>)}
+        <div style={{ gridColumn: "1 / -1", padding: 12, borderRadius: 12, background: "var(--bg-secondary)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <span style={{ ...fieldLabel, gridColumn: "1 / -1", margin: 0 }}>{shop ? "Partner shop item — customers never see it" : "Also sell to partners (Technician & Dealer Shop)"}</span>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}><input type="checkbox" checked={f.forTech} onChange={(e) => setF({ ...f, forTech: e.target.checked })} /> Technicians can buy</label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}><input type="checkbox" checked={f.forDealer} onChange={(e) => setF({ ...f, forDealer: e.target.checked })} /> Dealers can buy</label>
+          {field("Partner price (₹, blank = selling price)", <input value={f.tradePrice} onChange={set("tradePrice", true)} inputMode="numeric" style={input} />)}
+          {shop && <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, alignSelf: "end", paddingBottom: 8 }}><input type="checkbox" checked={f.pop} onChange={(e) => setF({ ...f, pop: e.target.checked })} /> POP material (banner, standee…) — not for resale</label>}
+        </div>
         {field("Description", <textarea value={f.description} onChange={set("description")} rows={4} maxLength={600} placeholder="What it does, what it fits, what's included…" style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />, true)}
       </div>
       {err && (f.name || f.price || f.mrp) ? <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>

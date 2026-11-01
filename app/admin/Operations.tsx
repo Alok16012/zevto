@@ -3,13 +3,13 @@
 import { useMemo, useState } from "react";
 import { StarIcon } from "../components/icons";
 import TechAvatar from "../components/TechAvatar";
-import { SERVICE_CATALOG, inr } from "../lib/data";
+import { PRODUCTS, SERVICE_CATALOG, TIME_SLOTS, inr, isPincode, type ServiceType } from "../lib/data";
 import { fmtDay } from "../lib/catalog";
 import {
   ORDER_FLOW,
-  type AdminCustomer, type AdminJob, type AdminJobStatus, type AdminOrder, type AdminOrderStatus, type AdminTech,
+  type AdminCustomer, type AdminJob, type AdminJobStatus, type AdminOrder, type AdminOrderStatus, type AdminTech, type Dealer,
 } from "../lib/adminData";
-import { Badge, Btn, Filter, Modal, Panel, SearchBox, Table, muted, type Tone } from "./kit";
+import { Badge, Btn, Filter, Modal, Panel, SearchBox, Table, fieldLabel, input, muted, type Tone } from "./kit";
 
 export const ORDER_TONE: Record<AdminOrderStatus, Tone> = { Placed: "purple", Shipped: "amber", Delivered: "green", Cancelled: "grey" };
 export const JOB_TONE: Record<AdminJobStatus, Tone> = {
@@ -92,13 +92,16 @@ type JobFilter = "All" | AdminJobStatus;
 const FILTERS: JobFilter[] = ["All", "Unassigned", "Awaiting tech", "Assigned", "On the way", "In Progress", "Rescheduled", "Completed", "Cancelled"];
 const ACTIVE: AdminJobStatus[] = ["Assigned", "On the way", "Arrived", "In Progress"];
 
-export function ServicesSection({ jobs, customers, techs, onAssign, onCancel }: {
-  jobs: AdminJob[]; customers: AdminCustomer[]; techs: AdminTech[];
+export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onCancel, onCreateTask }: {
+  jobs: AdminJob[]; customers: AdminCustomer[]; techs: AdminTech[]; dealers: Dealer[];
   onAssign: (j: AdminJob, techId: string, isoDate: string) => Promise<void>; onCancel: (j: AdminJob) => Promise<void>;
+  onCreateTask: (t: NewAdminTask) => Promise<boolean>;
 }) {
   const [f, setF] = useState<JobFilter>("All");
   const [q, setQ] = useState("");
   const [assigning, setAssigning] = useState<AdminJob | null>(null);
+  const [creating, setCreating] = useState(false);
+  const dealerName = (id: string | null) => dealers.find((d) => d.id === id)?.name;
 
   const rows = jobs.filter((j) => (f === "All" || j.status === f || (f === "On the way" && j.status === "Arrived")) &&
     (!q.trim() || `${j.ref} ${j.type} ${j.area} ${j.pincode} ${jobCustomer(customers, j)} ${j.raisedBy ?? ""}`.toLowerCase().includes(q.trim().toLowerCase())));
@@ -120,7 +123,10 @@ export function ServicesSection({ jobs, customers, techs, onAssign, onCancel }: 
         })}
       </div>
 
-      <Panel title="Service jobs" pad={false} actions={<SearchBox value={q} onChange={setQ} placeholder="Search job, customer, pincode" />}>
+      <Panel title="Service jobs" pad={false} actions={<>
+        <SearchBox value={q} onChange={setQ} placeholder="Search job, customer, pincode" />
+        <Btn onClick={() => setCreating(true)}>+ New task</Btn>
+      </>}>
         <div style={{ padding: "12px 16px" }}>
           <Filter<JobFilter> options={FILTERS} value={f} onChange={setF} counts={counts} />
         </div>
@@ -130,12 +136,20 @@ export function ServicesSection({ jobs, customers, techs, onAssign, onCancel }: 
             {jobCustomer(customers, j)}<div style={muted}>{j.area} · {j.pincode}</div>
             {j.customerPhone && <div style={muted}>{j.customerPhone}</div>}
             {j.raisedBy && <div style={{ marginTop: 3 }}><Badge tone="purple">Raised by {j.raisedBy}</Badge></div>}
+            {j.source === "dealer" && <div style={{ marginTop: 3 }}><Badge tone="purple">Dealer task · {dealerName(j.raisedDealer) ?? "dealer"}</Badge></div>}
+            {j.source === "admin" && <div style={{ marginTop: 3 }}><Badge tone="blue">Booked by ops</Badge></div>}
           </> },
           { key: "w", head: "When", render: (j) => <>{j.isoDate === today ? "Today" : j.date}<div style={muted}>{j.slot}</div></> },
           { key: "t", head: "Technician", render: (j) => techName(j.techId)
             ?? (j.preferredTechId ? <span style={{ color: "var(--warning-text)", fontWeight: 600 }}>Asked {techName(j.preferredTechId) ?? "a technician"}</span>
               : <span style={{ color: "var(--error-text)", fontWeight: 600 }}>Not assigned</span>) },
           { key: "s", head: "Status", render: (j) => <><Badge tone={JOB_TONE[j.status]}>{j.status}</Badge>{j.note && <div style={{ ...muted, marginTop: 3, maxWidth: 220 }}>{j.note}</div>}</> },
+          { key: "o", head: "Codes", render: (j) => j.startCode ? (
+            <div style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: "nowrap" }}>
+              <div><span style={muted}>Start</span> <b style={{ letterSpacing: "0.12em" }}>{j.startCode}</b></div>
+              {j.closeCode && <div><span style={muted}>Close</span> <b style={{ letterSpacing: "0.12em" }}>{j.closeCode}</b></div>}
+            </div>
+          ) : <span style={muted} title="Customer isn't on the app — no codes needed">—</span> },
           { key: "r", head: "Rating", render: (j) => j.rating ? <span style={{ color: "var(--gold-dark)", fontWeight: 700 }}>{"★".repeat(j.rating)}</span> : <span style={muted}>—</span> },
           { key: "x", head: "", align: "right", render: (j) => (
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
@@ -151,6 +165,8 @@ export function ServicesSection({ jobs, customers, techs, onAssign, onCancel }: 
         ]} />
       </Panel>
 
+      {creating && <NewTaskModal customers={customers} techs={techs} onClose={() => setCreating(false)}
+        onCreate={async (t) => { if (await onCreateTask(t)) setCreating(false); }} />}
       {assigning && (
         <AssignModal job={assigning} techs={techs} jobs={jobs} onClose={() => setAssigning(null)}
           onAssign={(techId, isoDate) => { void onAssign(assigning, techId, isoDate); setAssigning(null); }} />
@@ -214,6 +230,88 @@ function AssignModal({ job, techs, jobs, onClose, onAssign }: {
           );
         })}
       </div>
+    </Modal>
+  );
+}
+
+/* ───────────────────────── New task (ops books a job) ───────────────────────── */
+
+export interface NewAdminTask {
+  customerId: string | null; name: string; phone: string; address: string; pincode: string;
+  type: ServiceType; product: string; isoDate: string; slot: string; issue: string; techId: string | null;
+}
+
+function NewTaskModal({ customers, techs, onClose, onCreate }: {
+  customers: AdminCustomer[]; techs: AdminTech[]; onClose: () => void; onCreate: (t: NewAdminTask) => Promise<void>;
+}) {
+  const [customerId, setCustomerId] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [type, setType] = useState<ServiceType>(SERVICE_CATALOG[0]?.type ?? "Repair");
+  const [product, setProduct] = useState("");
+  const [date, setDate] = useState(isoDay(1));
+  const [slot, setSlot] = useState("");
+  const [issue, setIssue] = useState("");
+  const [techId, setTechId] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const pickCustomer = (id: string) => {
+    setCustomerId(id);
+    const c = customers.find((x) => x.id === id);
+    if (c) { setName(c.name); setPhone(c.phone); }
+  };
+  const eligible = techs.filter((t) => t.active && t.kyc === "Verified")
+    .sort((a, b) => Number(b.pincodes.includes(pincode)) - Number(a.pincodes.includes(pincode)));
+  const err = name.trim().length < 2 ? "Enter the customer's name" : address.trim().length < 8 ? "Enter the full address"
+    : !isPincode(pincode) ? "Enter the 6-digit pincode" : date < isoDay() ? "Pick today or a later date"
+    : techId && !slot ? "Pick a time slot for the technician" : null;
+
+  const save = async () => {
+    if (err) return;
+    setBusy(true);
+    await onCreate({ customerId: customerId || null, name: name.trim(), phone: phone.trim(), address: address.trim(), pincode, type,
+      product: product || "RO purifier", isoDate: date, slot: slot || "Any time", issue: issue.trim(), techId: techId || null });
+    setBusy(false);
+  };
+  const field = (label: string, el: React.ReactNode, span = false) => <label style={span ? { gridColumn: "1 / -1" } : undefined}><span style={fieldLabel}>{label}</span>{el}</label>;
+
+  return (
+    <Modal title="New service task" onClose={onClose} footer={<>
+      <Btn kind="ghost" onClick={onClose}>Cancel</Btn>
+      <Btn disabled={!!err || busy} onClick={() => void save()}>{busy ? "Creating…" : techId ? "Create & assign" : "Create task"}</Btn>
+    </>}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {field("App customer (optional)", <select value={customerId} onChange={(e) => pickCustomer(e.target.value)} style={input}>
+          <option value="">Not on the app / new customer</option>
+          {customers.filter((c) => !c.blocked).map((c) => <option key={c.id} value={c.id}>{c.name} · {c.code}{c.phone ? ` · ${c.phone}` : ""}</option>)}
+        </select>, true)}
+        {field("Customer name", <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} style={input} />)}
+        {field("Mobile", <input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={16} inputMode="tel" style={input} />)}
+        {field("Address", <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} maxLength={200} placeholder="House no., society, sector, city" style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />, true)}
+        {field("Pincode", <input value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" style={input} />)}
+        {field("Service", <select value={type} onChange={(e) => setType(e.target.value as ServiceType)} style={input}>
+          {SERVICE_CATALOG.map((s) => <option key={s.type} value={s.type}>{s.type} · {s.price ? inr(s.price) : "Free"}</option>)}
+        </select>)}
+        {field("Product", <select value={product} onChange={(e) => setProduct(e.target.value)} style={input}>
+          <option value="">RO purifier (unknown model)</option>
+          {PRODUCTS.filter((p) => p.category !== "spare" && !p.dealerId && !p.techId).map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+          <option value="Other brand purifier">Other brand purifier</option>
+        </select>)}
+        {field("Visit date", <input type="date" value={date} min={isoDay()} onChange={(e) => setDate(e.target.value)} style={input} />)}
+        {field("Time slot", <select value={slot} onChange={(e) => setSlot(e.target.value)} style={input}>
+          <option value="">Any time</option>
+          {TIME_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>)}
+        {field("Assign to (optional)", <select value={techId} onChange={(e) => setTechId(e.target.value)} style={input}>
+          <option value="">Assign later</option>
+          {eligible.map((t) => <option key={t.id} value={t.id}>{t.name} · {t.code}{t.pincodes.includes(pincode) ? " · covers pincode" : ""}</option>)}
+        </select>, true)}
+        {field("What needs doing", <textarea value={issue} onChange={(e) => setIssue(e.target.value)} rows={2} maxLength={300} style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />, true)}
+      </div>
+      {err && (name || address || pincode) ? <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>
+        : <p style={{ ...muted, margin: "10px 0 0" }}>{customerId ? "The customer gets start and close codes in their app." : "Not an app customer, so no codes are needed."}</p>}
     </Modal>
   );
 }

@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ArtKind, Category } from "./data";
 import type { DbTechnician } from "./catalog";
 import type { DbRequest } from "./db";
+import type { DbDealerPurchase } from "./techShop";
 
 export interface DbDealer {
   id: string; code: string; user_id: string | null; name: string; owner: string; phone: string; email: string | null;
@@ -39,6 +40,8 @@ export interface DealerData {
   orders: DbDealerOrder[];
   jobs: DbRequest[];
   team: DbTechnician[];
+  /** Orders to Zavtoo from the Dealer Shop. */
+  purchases: DbDealerPurchase[];
 }
 
 export async function loadDealerData(sb: SupabaseClient, uid: string): Promise<DealerData> {
@@ -46,11 +49,13 @@ export async function loadDealerData(sb: SupabaseClient, uid: string): Promise<D
   if (me.error) throw me.error;
   if (!me.data) throw new Error("NO_DEALER");
   const dealer = me.data as DbDealer;
-  const [listings, orders, jobs, team] = await Promise.all([
+  const [listings, orders, jobs, team, purchases] = await Promise.all([
     sb.from("products").select("*").eq("dealer_id", dealer.id).order("updated_at", { ascending: false }),
     sb.from("dealer_orders").select("*").eq("dealer_id", dealer.id).order("created_at", { ascending: false }).limit(300),
     sb.from("service_requests").select("*").order("visit_date", { ascending: true }).limit(300),
     sb.from("technicians").select("*").eq("dealer_id", dealer.id).order("name"),
+    // Optional until supabase/partner-upgrade-migration.sql has been run.
+    sb.from("dealer_purchases").select("*").eq("dealer_id", dealer.id).order("created_at", { ascending: false }).limit(100),
   ]);
   const err = listings.error ?? orders.error ?? jobs.error ?? team.error;
   if (err) throw err;
@@ -60,6 +65,7 @@ export async function loadDealerData(sb: SupabaseClient, uid: string): Promise<D
     orders: (orders.data ?? []) as DbDealerOrder[],
     jobs: (jobs.data ?? []) as DbRequest[],
     team: (team.data ?? []) as DbTechnician[],
+    purchases: (purchases.error ? [] : purchases.data ?? []) as DbDealerPurchase[],
   };
 }
 

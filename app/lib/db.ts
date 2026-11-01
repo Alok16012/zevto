@@ -8,7 +8,7 @@ import {
   type AppNotification, type ArtKind, type ChatMessage, type JobState, type Order, type OrderStatus, type Review,
   type ServiceRequest, type ServiceType, type WalletTxn,
 } from "./data";
-import type { Job, JobStatus } from "./techData";
+import type { Job, JobPart, JobStatus } from "./techData";
 
 export interface DbOrder {
   id: string; ref: string; customer_id: string; items: { id: string; name: string; qty: number; price: number; mrp: number; art?: ArtKind }[];
@@ -21,9 +21,14 @@ export interface DbRequest {
   id: string; ref: string; customer_id: string | null; customer_name: string; customer_phone: string; address: string; pincode: string;
   lat: number | null; lng: number | null; type: ServiceType; product: string; visit_date: string; slot: string; description: string;
   photos: string[]; price: number; coupon: string | null; discount: number; amount: number; status: JobState;
-  preferred_tech_id: string | null; tech_id: string | null; source: "customer" | "technician"; raised_by: string | null;
+  preferred_tech_id: string | null; tech_id: string | null; source: "customer" | "technician" | "admin" | "dealer"; raised_by: string | null;
+  /** Dealer who raised the task (dealer tasks only). */
+  raised_dealer?: string | null;
+  /** Secret for the shareable bill link. */
+  bill_token?: string;
   note: string | null; reschedule_reason: string | null; checklist: string[]; tds_before: string; tds_after: string;
-  parts: { id: string; qty: number }[]; tech_notes: string; payment: "Cash" | "UPI" | "AMC covered" | null;
+  /** Van parts { id, qty }, shop stock { listing, qty } or bought on the spot { own, name, price, qty }; saved with name and price on completion. */
+  parts: JobPart[]; tech_notes: string; payment: "Cash" | "UPI" | "AMC covered" | null;
   rating: number | null; rating_tags: string[]; rating_comment: string;
   assigned_at: string | null; trip_started_at: string | null; arrived_at: string | null; started_at: string | null;
   completed_at: string | null; rated_at: string | null; eta_min: number | null; distance_km: number | null;
@@ -97,7 +102,7 @@ export function toJob(r: DbRequest, me: string): Job {
     visitCharge: r.price - r.discount, amc: r.type === "AMC" && r.price === 0, needsCode: Boolean(r.customer_id),
     parts: r.parts ?? [], checklist: r.checklist ?? [], tdsBefore: r.tds_before ?? "", tdsAfter: r.tds_after ?? "", notes: r.tech_notes ?? "",
     payment: r.payment ?? undefined, completedAt: fmtStamp(r.completed_at) ?? undefined, completedIso: r.completed_at,
-    customerRating: r.rating ?? undefined, rescheduleReason: r.reschedule_reason ?? undefined, photos: r.photos ?? [],
+    customerRating: r.rating ?? undefined, rescheduleReason: r.reschedule_reason ?? undefined, photos: r.photos ?? [], billToken: r.bill_token,
     source: r.source === "technician" && r.raised_by === me ? "Self-created" : r.customer_id ? "Customer app" : undefined,
   };
 }

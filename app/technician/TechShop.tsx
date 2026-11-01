@@ -17,8 +17,13 @@ const small: React.CSSProperties = { margin: "2px 0 0", fontSize: 12.5, color: "
 const PURCHASE_TONE: Record<PurchaseStatus, "amber" | "green" | "red" | "grey"> = { Pending: "amber", Delivered: "green", Rejected: "red", Cancelled: "grey" };
 const PURCHASE_LABEL: Record<PurchaseStatus, string> = { Pending: "With Zavtoo", Delivered: "Delivered", Rejected: "Rejected", Cancelled: "Cancelled" };
 
-/** Zavtoo's own catalogue (not dealer or technician copies). */
-const zavtooProducts = () => PRODUCTS.filter((p) => !p.dealerId && !p.techId && p.active !== false);
+/** Zavtoo's own catalogue (not dealer or technician copies) that this kind of partner can buy. */
+const zavtooProducts = (who: Buyer) => PRODUCTS.filter((p) => !p.dealerId && !p.techId && p.active !== false && (who === "dealer" ? p.forDealer !== false : p.forTech !== false));
+/** What a partner pays. */
+const partnerPrice = (p: Product) => p.tradePrice ?? p.price;
+
+export type Buyer = "technician" | "dealer";
+type BuyTab = Category | "pop";
 
 export function TechShopScreen({ listings, purchases, ordersBar, onBuy, onGallery, onPrice, onStock, onSelling, onCancelPurchase }: {
   listings: DbTechListing[];
@@ -163,23 +168,30 @@ function ListingCard({ listing: l, onPrice, onStock, onSelling }: {
 
 /* ───────────────────────── Buy from Zavtoo ───────────────────────── */
 
-export function BuyStockPage({ onBack, onSubmit }: { onBack: () => void; onSubmit: (items: { id: string; qty: number }[]) => Promise<boolean> }) {
-  const [cat, setCat] = useState<Category>("spare");
+/** Buy from Zavtoo (technicians and dealers). Technicians can also add stock they bought themselves (`onSelf`). */
+export function BuyStockPage({ who = "technician", onBack, onSubmit, onSelf }: {
+  who?: Buyer; onBack: () => void; onSubmit: (items: { id: string; qty: number }[]) => Promise<boolean>;
+  onSelf?: (productId: string, qty: number, cost: number) => Promise<boolean>;
+}) {
+  const [mode, setMode] = useState<"zavtoo" | "self">("zavtoo");
+  const [cat, setCat] = useState<BuyTab>("spare");
   const [q, setQ] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
 
-  const all = zavtooProducts();
+  const all = zavtooProducts(who);
+  const hasPop = all.some((p) => p.pop);
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return all.filter((p) => p.category === cat && (!needle || `${p.name} ${p.spec}`.toLowerCase().includes(needle)));
+    return all.filter((p) => (cat === "pop" ? p.pop : !p.pop && p.category === cat) && (!needle || `${p.name} ${p.spec}`.toLowerCase().includes(needle)));
   }, [all, cat, q]);
   const lines = Object.entries(cart).filter(([, n]) => n > 0);
-  const total = lines.reduce((s, [id, n]) => s + (all.find((p) => p.id === id)?.price ?? 0) * n, 0);
+  const total = lines.reduce((s, [id, n]) => { const p = all.find((x) => x.id === id); return s + (p ? partnerPrice(p) : 0) * n; }, 0);
   const units = lines.reduce((s, [, n]) => s + n, 0);
+  const maxQty = who === "dealer" ? 999 : 99;
 
   const setQty = (p: Product, n: number) => {
-    const max = p.stock == null ? 99 : Math.min(99, p.stock);
+    const max = p.stock == null ? maxQty : Math.min(maxQty, p.stock);
     setCart((c) => ({ ...c, [p.id]: Math.max(0, Math.min(max, n)) }));
   };
   const submit = async () => {
@@ -194,10 +206,18 @@ export function BuyStockPage({ onBack, onSubmit }: { onBack: () => void; onSubmi
 
   return (
     <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}>
-      <PageHeader title="Buy from Zavtoo" onBack={onBack} />
+      <PageHeader title={who === "dealer" ? "Dealer Shop" : mode === "self" ? "Add my own stock" : "Buy stock"} onBack={onBack} />
+      {onSelf && (
+        <div style={{ padding: "0 16px 12px" }}>
+          <Tabs<"zavtoo" | "self"> value={mode} onChange={setMode} tabs={[{ id: "zavtoo", label: "From Zavtoo" }, { id: "self", label: "Bought myself" }]} />
+        </div>
+      )}
+      {mode === "self" && onSelf ? <SelfPurchaseForm products={all.filter((p) => !p.pop)} onSave={onSelf} /> : <>
       <div style={{ padding: "0 16px 16px", flex: 1 }}>
-        <p style={{ ...small, margin: "0 2px 12px" }}>Pick what you want to keep in stock. Zavtoo ops confirm and deliver it; pay as agreed with ops. Delivered units go straight into your shop.</p>
-        <Tabs<Category> value={cat} onChange={setCat} tabs={[{ id: "spare", label: "Spares" }, { id: "domestic", label: "Purifiers" }, { id: "commercial", label: "Commercial" }]} />
+        <p style={{ ...small, margin: "0 2px 12px" }}>{who === "dealer"
+          ? "Order spares, products and POP material (banners, standees) from Zavtoo. Ops confirm and deliver; pay as agreed. Delivered spares appear in your Listings, paused, so you can set your price."
+          : "Pick what you want to keep in stock. Zavtoo ops confirm and deliver it; pay as agreed with ops. Delivered units go straight into your shop."}</p>
+        <Tabs<BuyTab> value={cat} onChange={setCat} tabs={[{ id: "spare", label: "Spares" }, { id: "domestic", label: "Purifiers" }, { id: "commercial", label: "Commercial" }, ...(hasPop ? [{ id: "pop" as const, label: "POP" }] : [])]} />
         <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, background: "var(--surface)", borderRadius: 16, padding: "11px 14px", boxShadow: "var(--shadow-card)" }}>
           <SearchIcon s={19} c="var(--ink-mute)" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search Zavtoo products..." aria-label="Search Zavtoo products"
@@ -216,7 +236,7 @@ export function BuyStockPage({ onBack, onSubmit }: { onBack: () => void; onSubmi
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700 }}>{p.name}</p>
                   <p style={{ margin: "1px 0 0", fontSize: 12.5, color: "var(--ink-soft)" }}>
-                    <b style={{ color: "var(--ink)" }}>{inr(p.price)}</b> · MRP {inr(p.mrp)}{out ? " · out of stock" : ""}
+                    <b style={{ color: "var(--ink)" }}>{inr(partnerPrice(p))}</b>{!p.pop && <> · MRP {inr(p.mrp)}</>}{out ? " · out of stock" : ""}
                   </p>
                 </div>
                 {!out && (n === 0 ? (
@@ -244,7 +264,47 @@ export function BuyStockPage({ onBack, onSubmit }: { onBack: () => void; onSubmi
           </div>
         </Footer>
       )}
+      </>}
     </div>
+  );
+}
+
+/** Stock the technician bought on their own (market, another supplier): goes straight into their shop. */
+function SelfPurchaseForm({ products, onSave }: { products: Product[]; onSave: (productId: string, qty: number, cost: number) => Promise<boolean> }) {
+  const [id, setId] = useState("");
+  const [qty, setQty] = useState("1");
+  const [cost, setCost] = useState("");
+  const [busy, setBusy] = useState(false);
+  const p = products.find((x) => x.id === id);
+  const err = !p ? "Pick the product" : !(Number(qty) >= 1 && Number(qty) <= 99) ? "Quantity 1 to 99" : cost === "" ? "Enter what you paid per unit" : null;
+  const save = async () => {
+    if (err || busy) return;
+    setBusy(true);
+    if (await onSave(id, Number(qty), Number(cost))) { setId(""); setQty("1"); setCost(""); }
+    setBusy(false);
+  };
+  const fieldStyle: React.CSSProperties = { width: "100%", border: "1.5px solid var(--line-strong)", borderRadius: 12, padding: "11px 12px", fontSize: 14, background: "var(--surface)", color: "var(--ink)" };
+  return (
+    <>
+      <div style={{ padding: "0 16px 16px", flex: 1 }}>
+        <p style={{ ...small, margin: "0 2px 14px" }}>Bought a spare from the market yourself? Add it here — it goes straight into your stock, so you can fit it on a job or sell it in the app. Zavtoo keeps a record.</p>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, margin: "0 0 6px" }} htmlFor="sp-product">Product</label>
+        <select id="sp-product" value={id} onChange={(e) => setId(e.target.value)} style={fieldStyle}>
+          <option value="" disabled>Choose what you bought</option>
+          {products.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+        </select>
+        <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+          <label style={{ flex: 1 }}><span style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Quantity</span>
+            <input value={qty} inputMode="numeric" onChange={(e) => setQty(e.target.value.replace(/\D/g, "").slice(0, 2))} style={fieldStyle} /></label>
+          <label style={{ flex: 1 }}><span style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>You paid / unit (₹)</span>
+            <input value={cost} inputMode="numeric" onChange={(e) => setCost(e.target.value.replace(/\D/g, "").slice(0, 6))} style={fieldStyle} /></label>
+        </div>
+        {p && <p style={{ ...small, marginTop: 10 }}>Sells at {inr(p.price)} (MRP {inr(p.mrp)}). You can change your price in My Shop.</p>}
+      </div>
+      <Footer>
+        <PrimaryButton disabled={!!err || busy} onClick={() => void save()}>{busy ? "Adding…" : err ?? "Add to my stock"}</PrimaryButton>
+      </Footer>
+    </>
   );
 }
 

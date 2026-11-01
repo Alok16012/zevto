@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { inr } from "../lib/data";
 import { type AdminCustomer, type AdminJob, type AdminOrder, type AdminProduct, type AdminReview, type AdminTech } from "../lib/adminData";
 import { Badge, Btn, Panel, Stat, Table, muted } from "./kit";
@@ -83,6 +84,8 @@ export function Dashboard({ orders, jobs, customers, techs, products, reviews, g
         </Panel>
       </div>
 
+      <AmcVsProducts orders={orders} jobs={jobs} />
+
       <div className="admin-grid-2">
         <Panel title="Latest orders" actions={<Btn kind="ghost" small onClick={() => go("orders")}>View all</Btn>} pad={false}>
           <Table rows={orders.slice(0, 6)} rowKey={(o) => o.id} cols={[
@@ -111,5 +114,65 @@ export function Dashboard({ orders, jobs, customers, techs, products, reviews, g
         </Panel>
       </div>
     </div>
+  );
+}
+
+/* ───────── AMC vs product sales, month by month ───────── */
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const SERIES = [
+  { key: "amc", label: "AMC plans", color: "var(--blue)" },
+  { key: "products", label: "Product sales", color: "var(--gold)" },
+] as const;
+
+function AmcVsProducts({ orders, jobs }: { orders: AdminOrder[]; jobs: AdminJob[] }) {
+  const [hover, setHover] = useState<string | null>(null);
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const amcJobs = jobs.filter((j) => j.type === "AMC" && j.status === "Completed" && j.completedDay?.startsWith(key));
+    const sold = orders.filter((o) => o.status !== "Cancelled" && o.day.startsWith(key));
+    return {
+      key, label: MONTHS[d.getMonth()],
+      amc: amcJobs.reduce((s, j) => s + j.amount, 0), amcCount: amcJobs.length,
+      products: sold.reduce((s, o) => s + o.amount, 0), productsCount: sold.length,
+    };
+  });
+  const max = Math.max(1, ...months.flatMap((m) => [m.amc, m.products]));
+  const totals = { amc: months.reduce((s, m) => s + m.amc, 0), products: months.reduce((s, m) => s + m.products, 0) };
+  const share = totals.amc + totals.products ? Math.round((totals.amc / (totals.amc + totals.products)) * 100) : 0;
+
+  return (
+    <Panel title="AMC vs product sales · last 6 months" actions={
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+        {SERIES.map((s) => (
+          <span key={s.key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--text-secondary)" }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: s.color }} />{s.label} <b style={{ color: "var(--ink)" }}>{inr(totals[s.key])}</b>
+          </span>
+        ))}
+      </div>
+    }>
+      <div role="img" aria-label={`AMC ${inr(totals.amc)} vs products ${inr(totals.products)} over 6 months`} style={{ display: "flex", alignItems: "flex-end", gap: 14, height: 200, borderBottom: "1px solid var(--line)" }}>
+        {months.map((m) => (
+          <div key={m.key} onMouseEnter={() => setHover(m.key)} onMouseLeave={() => setHover(null)} style={{ flex: 1, height: "100%", position: "relative", display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 2, cursor: "default" }}>
+            {SERIES.map((s) => (
+              <div key={s.key} style={{ width: "34%", maxWidth: 28, height: `${Math.max(1.5, (m[s.key] / max) * 100)}%`, background: s.color, borderRadius: "4px 4px 0 0", opacity: hover && hover !== m.key ? 0.45 : 1 }} />
+            ))}
+            {hover === m.key && (
+              <div style={{ position: "absolute", bottom: "calc(100% - 40px)", left: "50%", transform: "translateX(-50%)", zIndex: 2, background: "var(--ink)", color: "white", borderRadius: 10, padding: "8px 10px", fontSize: 12, whiteSpace: "nowrap", boxShadow: "var(--shadow-xl)", pointerEvents: "none" }}>
+                <b>{m.label}</b>
+                <div>AMC: {inr(m.amc)} · {m.amcCount} plan{m.amcCount === 1 ? "" : "s"}</div>
+                <div>Products: {inr(m.products)} · {m.productsCount} order{m.productsCount === 1 ? "" : "s"}</div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 14 }}>
+        {months.map((m) => <span key={m.key} style={{ flex: 1, textAlign: "center", fontSize: 11, color: "var(--ink-mute)", marginTop: 6 }}>{m.label}</span>)}
+      </div>
+      <p style={{ ...muted, margin: "10px 0 0" }}>AMC = completed AMC jobs; products = orders that weren&apos;t cancelled. AMC is {share}% of the two combined.</p>
+    </Panel>
   );
 }

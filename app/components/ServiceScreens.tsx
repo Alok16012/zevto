@@ -358,8 +358,8 @@ export function OrderDetailPage({ order, onBack, onHelp, onReview }: {
 
 /* ───────────────────────── Track service ───────────────────────── */
 
-export function TrackServicePage({ service, position, otp, photoUrls, onBack, onChat, onRate, onOpenTech, onPhotos }: {
-  service: ServiceRequest; position: LivePoint | null; otp: string | null; photoUrls: string[];
+export function TrackServicePage({ service, position, otp, closeCode, photoUrls, onBack, onChat, onRate, onOpenTech, onPhotos }: {
+  service: ServiceRequest; position: LivePoint | null; otp: string | null; closeCode?: string | null; photoUrls: string[];
   onBack: () => void; onChat: () => void; onRate: (r: ServiceRating) => void; onOpenTech: (id: string) => void;
   onPhotos: (photos: string[]) => void;
 }) {
@@ -386,6 +386,13 @@ export function TrackServicePage({ service, position, otp, photoUrls, onBack, on
             <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: closed ? "var(--error-text)" : "var(--warning-text)" }}>
               {closed ? "This booking was cancelled. Chat with us if that's unexpected." : `Your visit needs a new slot${service.rescheduleReason ? ` — ${service.rescheduleReason}` : ""}. Our team will call you to fix a time.`}
             </p>
+          </div>
+        )}
+
+        {closeCode && service.current === 2 && (
+          <div className="fade-up" style={{ ...card, padding: "12px 14px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "var(--blue-tint)", boxShadow: "none" }}>
+            <span style={{ fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.4 }}>Close code — share it once the work is done and you&apos;re happy</span>
+            <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: "0.2em", color: "var(--blue-dark)" }}>{closeCode}</span>
           </div>
         )}
 

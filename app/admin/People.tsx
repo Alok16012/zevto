@@ -4,7 +4,9 @@ import { useState } from "react";
 import { StarIcon } from "../components/icons";
 import TechAvatar from "../components/TechAvatar";
 import { PIN_AREAS, inr, isPincode } from "../lib/data";
-import type { AdminCustomer, AdminJob, AdminOrder, AdminTech, Dealer } from "../lib/adminData";
+import type { AdminCustomer, AdminJob, AdminOrder, AdminTech, Dealer, DealerListing } from "../lib/adminData";
+import type { DbDealerPurchase } from "../lib/techShop";
+import { fmtDateOnly } from "../lib/db";
 import { Badge, Btn, Filter, Initials, Modal, Panel, SearchBox, Table, fieldLabel, input, muted } from "./kit";
 import { JOB_TONE, ORDER_TONE, isoDay } from "./Operations";
 
@@ -309,16 +311,21 @@ function ResetPasswordModal({ who: tech, onClose, onReset }: { who: { name: stri
 
 export interface NewDealer { name: string; owner: string; phone: string; city: string; pincodes: string[] }
 
-export function DealersSection({ dealers, techs, onToggle, onVerify, onCreate }: {
-  dealers: Dealer[]; techs: AdminTech[]; onToggle: (d: Dealer) => Promise<void>; onVerify: (d: Dealer) => Promise<void>;
+export function DealersSection({ dealers, techs, jobs, listings, purchases, onToggle, onVerify, onCreate }: {
+  dealers: Dealer[]; techs: AdminTech[]; jobs: AdminJob[]; listings: DealerListing[]; purchases: DbDealerPurchase[];
+  onToggle: (d: Dealer) => Promise<void>; onVerify: (d: Dealer) => Promise<void>;
   onCreate: (d: NewDealer) => Promise<{ code: string } | null>;
 }) {
   const pending = dealers.filter((d) => d.kyc === "Pending").length;
   const [adding, setAdding] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const open = dealers.find((d) => d.id === openId);
   return (
     <Panel title={`Dealers (${dealers.length})${pending ? ` · ${pending} awaiting KYC` : ""}`} pad={false} actions={<Btn onClick={() => setAdding(true)}>+ Add dealer</Btn>}>
       <Table rows={dealers} rowKey={(d) => d.id} empty="No dealers yet." cols={[
-        { key: "n", head: "Dealer", render: (d) => <><b style={{ color: d.active ? "var(--ink)" : "var(--ink-mute)" }}>{d.name}</b><div style={muted}>{d.code}</div></> },
+        { key: "n", head: "Dealer", render: (d) => <button onClick={() => setOpenId(d.id)} style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>
+          <b style={{ color: d.active ? "var(--blue)" : "var(--ink-mute)" }}>{d.name}</b><div style={muted}>{d.code}</div>
+        </button> },
         { key: "o", head: "Owner", render: (d) => <>{d.owner}<div style={muted}>{d.phone}</div>{d.email && <div style={muted}>{d.email}</div>}</> },
         { key: "c", head: "City", render: (d) => <>{d.city}{d.address && <div style={muted}>{d.address}</div>}{d.gstin && <div style={muted}>GST {d.gstin}</div>}</> },
         { key: "p", head: "Pincodes", render: (d) => <span style={muted}>{d.pincodes.join(", ")}</span> },
@@ -335,13 +342,66 @@ export function DealersSection({ dealers, techs, onToggle, onVerify, onCreate }:
         </> },
         { key: "x", head: "", align: "right", render: (d) => (
           <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+            <Btn small kind="ghost" onClick={() => setOpenId(d.id)}>Profile</Btn>
             {d.kyc === "Pending" && <Btn small onClick={() => void onVerify(d)}>Verify</Btn>}
             <Btn small kind={d.active ? "danger" : "primary"} onClick={() => void onToggle(d)}>{d.active ? "Pause" : "Activate"}</Btn>
           </div>
         ) },
       ]} />
       {adding && <DealerModal onClose={() => setAdding(false)} onSave={async (d) => { if (await onCreate(d)) setAdding(false); }} />}
+      {open && <DealerProfile d={open} techs={techs} jobs={jobs} listings={listings} purchases={purchases} onClose={() => setOpenId(null)} />}
     </Panel>
+  );
+}
+
+/** Everything about one dealer: their listings and prices, the parts their team fitted and charged, and what they bought from Zavtoo. */
+function DealerProfile({ d, techs, jobs, listings, purchases, onClose }: {
+  d: Dealer; techs: AdminTech[]; jobs: AdminJob[]; listings: DealerListing[]; purchases: DbDealerPurchase[]; onClose: () => void;
+}) {
+  const team = techs.filter((t) => t.dealerId === d.id);
+  const teamIds = new Set(team.map((t) => t.id));
+  const mine = listings.filter((l) => l.dealerId === d.id);
+  const theirJobs = jobs.filter((j) => (j.techId && teamIds.has(j.techId)) || j.raisedDealer === d.id);
+  const partsUsed = theirJobs.filter((j) => j.status === "Completed").flatMap((j) => j.parts.map((p, i) => ({ key: `${j.id}-${i}`, job: j, p })));
+  const bought = purchases.filter((p) => p.dealer_id === d.id);
+  const techName = (id: string | null) => team.find((t) => t.id === id)?.name ?? "—";
+  const h: React.CSSProperties = { margin: "18px 0 8px", fontSize: 13.5, fontWeight: 700 };
+
+  return (
+    <Modal wide title={`${d.name} · ${d.code}`} onClose={onClose}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+        {[["Owner", `${d.owner} · ${d.phone}`], ["City", d.city || "—"], ["Pincodes", d.pincodes.join(", ") || "—"], ["GSTIN", d.gstin || "—"],
+          ["Team", `${team.length} technician${team.length === 1 ? "" : "s"}`], ["Jobs", `${theirJobs.length} (${theirJobs.filter((j) => j.status === "Completed").length} done)`],
+          ["Bought from Zavtoo", inr(bought.filter((p) => p.status === "Delivered").reduce((s, p) => s + p.amount, 0))], ["Status", `${d.active ? "Active" : "Paused"} · KYC ${d.kyc}`],
+        ].map(([k, v]) => <div key={k} style={{ padding: "8px 10px", borderRadius: 10, background: "var(--bg-secondary)" }}><div style={muted}>{k}</div><div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div></div>)}
+      </div>
+
+      <h4 style={h}>Listings & their prices ({mine.length})</h4>
+      <Table rows={mine} rowKey={(l) => l.id} empty="No listings yet." cols={[
+        { key: "n", head: "Product / part", render: (l) => <>{l.name}{l.fromProduct && <div style={muted}>Bought from Zavtoo</div>}</> },
+        { key: "p", head: "Their price", align: "right", render: (l) => <b>{inr(l.price)}</b> },
+        { key: "m", head: "MRP", align: "right", render: (l) => <span style={muted}>{inr(l.mrp)}</span> },
+        { key: "s", head: "Stock", align: "right", render: (l) => l.stock ?? "—" },
+        { key: "a", head: "Status", render: (l) => <Badge tone={l.active && (l.stock ?? 0) > 0 ? "green" : "grey"}>{l.active ? ((l.stock ?? 0) > 0 ? "Live" : "Out of stock") : "Paused"}</Badge> },
+      ]} />
+
+      <h4 style={h}>Parts fitted on jobs ({partsUsed.length})</h4>
+      <Table rows={partsUsed} rowKey={(r) => r.key} empty="No parts used on completed jobs yet." cols={[
+        { key: "j", head: "Job", render: (r) => <><b>#{r.job.ref}</b><div style={muted}>{r.job.completedDay ?? r.job.date}</div></> },
+        { key: "t", head: "Technician", render: (r) => techName(r.job.techId) },
+        { key: "n", head: "Part", render: (r) => <>{r.p.name ?? r.p.id ?? "Part"}{r.p.src === "own" && <div style={muted}>Bought by technician</div>}</> },
+        { key: "q", head: "Qty", align: "right", render: (r) => r.p.qty },
+        { key: "p", head: "Price charged", align: "right", render: (r) => r.p.price != null ? <b>{inr(r.p.price * r.p.qty)}</b> : <span style={muted}>—</span> },
+      ]} />
+
+      <h4 style={h}>Bought from Zavtoo ({bought.length})</h4>
+      <Table rows={bought} rowKey={(p) => p.id} empty="No purchases yet." cols={[
+        { key: "r", head: "Ref", render: (p) => <><b>#{p.ref}</b><div style={muted}>{fmtDateOnly(p.created_at)}</div></> },
+        { key: "i", head: "Items", render: (p) => <span style={muted}>{p.items.map((i) => `${i.name} × ${i.qty}`).join(", ")}</span> },
+        { key: "a", head: "Amount", align: "right", render: (p) => <b>{inr(p.amount)}</b> },
+        { key: "s", head: "Status", render: (p) => <Badge tone={p.status === "Delivered" ? "green" : p.status === "Pending" ? "amber" : "grey"}>{p.status}</Badge> },
+      ]} />
+    </Modal>
   );
 }
 

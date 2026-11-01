@@ -37,7 +37,11 @@ const addDays = (iso: string, n: number) => {
 };
 const dayLabel = (d: string) => (d === todayIso() ? "Today" : d === addDays(todayIso(), 1) ? "Tomorrow" : fmtDay(d).slice(0, 6));
 
-export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit: (t: NewTask, route: TaskRoute) => void }) {
+/** Technicians keep a task or send it to ops. Dealers (`team` given) hand it to one of their technicians or send it to Zavtoo. */
+export function NewTaskPage({ onBack, onSubmit, team }: {
+  onBack: () => void; onSubmit: (t: NewTask, route: TaskRoute, techId?: string) => void;
+  team?: { id: string; name: string; code: string }[];
+}) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -48,7 +52,8 @@ export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit
   const [date, setDate] = useState(DAYS[0]);
   const [pincode, setPincode] = useState("");
   const [slot, setSlot] = useState("");
-  const [route, setRoute] = useState<TaskRoute>("self");
+  const [route, setRoute] = useState<TaskRoute>(team && !team.length ? "ops" : "self");
+  const [techId, setTechId] = useState("");
   const [touched, setTouched] = useState(false);
 
   const errs = {
@@ -59,6 +64,7 @@ export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit
     product: !product ? "Pick the product" : null,
     // Ops can pick the slot themselves; you can't do a job without one.
     slot: route === "self" && !slot ? "Pick a time slot" : null,
+    tech: team && route === "self" && !techId ? "Pick the technician" : null,
   };
   const ok = Object.values(errs).every((e) => !e);
   const bad = (k: keyof typeof errs) => (touched && errs[k] ? { border: "1.5px solid var(--error-text)" } : {});
@@ -70,7 +76,7 @@ export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit
     onSubmit({
       customer: { name: name.trim(), phone: `+91${phone}`, address: address.trim(), pincode },
       type, product, issue: issue.trim() || "No details given.", date, slot: slot || "Any time",
-    }, route);
+    }, route, team && route === "self" ? techId : undefined);
   };
 
   return (
@@ -130,11 +136,14 @@ export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit
 
         <h3 style={sectionTitle}>Who does it?</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {([
+          {(team ? [
+            ["self", "🧰 Keep it — my technician does it", team.length ? "Pick someone from your team. It goes straight to their jobs." : "Add a technician to your team first (Profile → Team)."],
+            ["ops", "📤 Send to Zavtoo", "Zavtoo ops confirm with the customer and assign the best technician. Slot is optional."],
+          ] as const : [
             ["self", "🧰 Keep it with me", "Added to your jobs. You'll visit and close it yourself."],
             ["ops", "📤 Send to ops", "Ops confirms with the customer and assigns the best technician. Slot is optional."],
           ] as const).map(([id, t, d]) => (
-            <button key={id} onClick={() => setRoute(id)} aria-pressed={route === id} style={{
+            <button key={id} disabled={!!team && id === "self" && !team.length} onClick={() => setRoute(id)} aria-pressed={route === id} style={{
               ...card, padding: 14, textAlign: "left", cursor: "pointer", display: "flex", gap: 12, alignItems: "center",
               border: route === id ? "2px solid var(--blue)" : "2px solid transparent",
             }}>
@@ -146,6 +155,15 @@ export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit
             </button>
           ))}
         </div>
+        {team && route === "self" && team.length > 0 && (
+          <>
+            <label style={{ ...label, marginTop: 12 }} htmlFor="nt-tech">Technician</label>
+            <select id="nt-tech" value={techId} onChange={(e) => setTechId(e.target.value)} style={{ ...field, color: techId ? "var(--ink)" : "var(--ink-mute)", ...bad("tech") }}>
+              <option value="" disabled>Choose from your team</option>
+              {team.map((t) => <option key={t.id} value={t.id}>{t.name} · {t.code}</option>)}
+            </select>
+          </>
+        )}
         {touched && !ok && (
           <p role="alert" style={{ margin: "12px 2px 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>
             {Object.values(errs).find(Boolean)}
@@ -154,7 +172,7 @@ export function NewTaskPage({ onBack, onSubmit }: { onBack: () => void; onSubmit
         <div style={{ height: 12 }} />
       </div>
       <Footer>
-        <PrimaryButton tone={route === "ops" ? "gold" : "blue"} onClick={submit}>{route === "self" ? "Add to My Jobs" : "Send to Ops"}</PrimaryButton>
+        <PrimaryButton tone={route === "ops" ? "gold" : "blue"} onClick={submit}>{team ? (route === "self" ? "Assign to technician" : "Send to Zavtoo") : route === "self" ? "Add to My Jobs" : "Send to Ops"}</PrimaryButton>
       </Footer>
     </div>
   );

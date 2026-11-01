@@ -30,7 +30,23 @@ export const partById = (id: string) => PARTS.find((p) => p.id === id);
 
 export const CHECKLIST = ["Checked inlet water pressure", "Inspected all filters", "Checked for leaks", "Sanitised storage tank", "Tested output TDS"];
 
-export interface JobPart { id: string; qty: number }
+/** A part on a job: from the van (id = parts row), from the technician's shop stock
+ * (listing), or bought on the spot (own, with name and price). Completed jobs carry
+ * the name and price of every line. */
+export interface JobPart {
+  qty: number;
+  id?: string;
+  listing?: string;
+  own?: boolean;
+  src?: "van" | "stock" | "own";
+  name?: string;
+  price?: number;
+}
+
+/** Stable key for a part line. */
+export const partKey = (p: JobPart) => p.listing ? `l:${p.listing}` : p.own ? `o:${p.name}` : `v:${p.id}`;
+export const partName = (p: JobPart) => p.name ?? partById(p.id ?? "")?.name ?? "Part";
+export const partPrice = (p: JobPart) => p.price ?? partById(p.id ?? "")?.price ?? 0;
 
 export interface Job {
   id: string;
@@ -66,6 +82,8 @@ export interface Job {
   /** Sorting key: "YYYY-MM-DD". */
   isoDate: string;
   completedIso?: string | null;
+  /** Secret for the customer's bill link. */
+  billToken?: string;
   /** Where the job came from, when it isn't normal dispatch. */
   source?: "Self-created" | "Customer app";
 }
@@ -80,7 +98,7 @@ export const todayIso = () => new Date(Date.now() - new Date().getTimezoneOffset
 export const PAYOUT = { visitShare: 0.6, freeJobFee: 250, partsCommission: 0.1 };
 
 export const partsTotal = (j: Job) =>
-  j.parts.reduce((s, p) => s + (partById(p.id)?.price ?? 0) * p.qty, 0);
+  j.parts.reduce((s, p) => s + partPrice(p) * p.qty, 0);
 
 /** Parts are free for AMC customers (filters are included in the plan). */
 export const customerBill = (j: Job) => (j.amc ? 0 : j.visitCharge + partsTotal(j));
