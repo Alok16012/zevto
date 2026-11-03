@@ -7,7 +7,7 @@ import RoleLoginForm from "../components/RoleLoginForm";
 import { AuthFooter, ROLE_NAME } from "../components/RoleSwitch";
 import { PrimaryButton, field, label } from "../components/ui";
 import { helpline } from "../storefront/content";
-import { PARTS, type Job } from "../lib/techData";
+import { PARTS, setPaySchedule, type EarningSchedule, type Job } from "../lib/techData";
 import { PRODUCTS, TECHNICIANS, type Review } from "../lib/data";
 import { friendly, roleOf, supabaseFor, useLive, useSession } from "../lib/supabase";
 import { toTechnician, useCatalog, type DbTechnician } from "../lib/catalog";
@@ -47,7 +47,7 @@ interface TechData {
 }
 
 async function loadTechData(client: ReturnType<typeof sb>, uid: string): Promise<TechData> {
-  const [me, reqs, stock, stockReqs, payouts, reviews, gallery, orders, listings, purchases] = await Promise.all([
+  const [me, reqs, stock, stockReqs, payouts, reviews, gallery, orders, listings, purchases, schedule] = await Promise.all([
     client.from("technicians").select("*").eq("id", uid).maybeSingle(),
     // Row-level security returns only this technician's jobs, requests to them and tasks they raised.
     client.from("service_requests").select("*").order("visit_date", { ascending: true }).limit(500),
@@ -59,10 +59,13 @@ async function loadTechData(client: ReturnType<typeof sb>, uid: string): Promise
     client.from("tech_orders").select("*").eq("tech_id", uid).order("created_at", { ascending: false }).limit(300),
     client.from("tech_listings").select("*").eq("tech_id", uid).order("updated_at", { ascending: false }),
     client.from("tech_purchases").select("*").eq("tech_id", uid).order("created_at", { ascending: false }).limit(50),
+    // Older databases without earning schedules keep the built-in pay.
+    client.rpc("my_earning_schedule"),
   ]);
   if (me.error) throw me.error;
   if (!me.data) throw new Error("NO_TECH");
   if (reqs.error) throw reqs.error;
+  setPaySchedule(schedule.error ? null : ((schedule.data as EarningSchedule[] | null)?.[0] ?? null));
   const t = me.data as DbTechnician;
   let dealer: TechData["dealer"] = null;
   if (t.dealer_id) {

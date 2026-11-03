@@ -25,11 +25,27 @@ export const SERVICE_ICON: Record<ServiceType, { Icon: IconC; bg: string; fg: st
 const FAQ = [
   ["How soon can a technician come?", "Usually within 2–4 hours of booking, with same-day service available. AMC customers get priority technician dispatch."],
   ["Do you service other brands?", "Yes — all major brands including Kent, Aquaguard, Pureit, LG Puricare, Livpure, A.O. Smith, Eureka Forbes, Havells and Blue Star."],
-  ["What if the problem comes back?", "Every repair and maintenance service has a 90-day warranty. If the same issue recurs, we re-do the service free — raise it from Track Service."],
+  ["What if the problem comes back?", "Every repair and maintenance service has a 7-day warranty. If the same issue recurs, we re-do the service free — raise it from Track Service."],
   ["How do I pay?", "Pay the technician by UPI or cash after the job, or apply your wallet balance while booking."],
 ];
 
 /* ───────────────────────── Service tab / hub ───────────────────────── */
+
+/** One "Repair · In Progress — Track →" card per running service (Services tab and Home). */
+export function ActiveServices({ services, onTrack }: { services: ServiceRequest[]; onTrack: (id: string) => void }) {
+  return <>
+    {services.map((s) => (
+      <button key={s.id} onClick={() => onTrack(s.id)} className="press" style={{ ...card, width: "100%", border: "1.5px solid var(--blue-ghost)", marginTop: 12, padding: 14, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left" }}>
+        <span className="animate-pulse-dot" style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--blue)", flexShrink: 0 }} />
+        <span style={{ flex: 1 }}>
+          <span style={{ display: "block", fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{s.type} · {s.timeline[s.current].label}</span>
+          <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>#{s.ref} · {s.date}</span>
+        </span>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--blue)" }}>Track →</span>
+      </button>
+    ))}
+  </>;
+}
 
 export function ServicesHubScreen({ services, onOpen, onTrack, onOpenTech }: {
   services: ServiceRequest[]; onOpen: (t: ServiceType) => void; onTrack: (id: string) => void; onOpenTech: (id: string) => void;
@@ -49,23 +65,14 @@ export function ServicesHubScreen({ services, onOpen, onTrack, onOpenTech }: {
           <div style={{ position: "absolute", right: -40, top: -60, width: 180, height: 180, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,166,35,0.3), transparent 70%)" }} />
           <p style={{ margin: 0, fontSize: 20, fontWeight: 800, lineHeight: 1.25, position: "relative" }}>Expert RO service<br /><span style={{ color: "var(--gold)" }}>at your doorstep</span></p>
           <div style={{ display: "flex", gap: 14, marginTop: 12, position: "relative" }}>
-            {[["4.8★", "Avg rating"], ["30k+", "Visits"], ["10 day", "Warranty"]].map(([v, l]) => (
+            {[["4.8★", "Avg rating"], ["30k+", "Visits"], ["7 day", "Warranty"]].map(([v, l]) => (
               <div key={l}><p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "var(--gold)" }}>{v}</p><p style={{ margin: 0, fontSize: 10.5, color: "rgba(255,255,255,0.75)" }}>{l}</p></div>
             ))}
           </div>
         </div>
 
         {/* Running jobs */}
-        {active.map((s) => (
-          <button key={s.id} onClick={() => onTrack(s.id)} className="press" style={{ ...card, width: "100%", border: "1.5px solid var(--blue-ghost)", marginTop: 12, padding: 14, display: "flex", alignItems: "center", gap: 12, cursor: "pointer", textAlign: "left" }}>
-            <span className="animate-pulse-dot" style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--blue)", flexShrink: 0 }} />
-            <span style={{ flex: 1 }}>
-              <span style={{ display: "block", fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{s.type} · {s.timeline[s.current].label}</span>
-              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>#{s.ref} · {s.date}</span>
-            </span>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--blue)" }}>Track →</span>
-          </button>
-        ))}
+        <ActiveServices services={active} onTrack={onTrack} />
 
         {/* Catalogue */}
         <h3 style={sectionTitle}>What do you need?</h3>
@@ -174,7 +181,7 @@ export function ServiceDetailPage({ type, reviews, onBack, onBook }: {
 
         <div style={{ ...card, padding: 14, marginTop: 12, display: "flex", gap: 12, alignItems: "center", background: "var(--gold-tint)", boxShadow: "none" }}>
           <ShieldIcon s={24} c="var(--gold-dark)" />
-          <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.5 }}><b>Zavtoo promise:</b> verified technicians, genuine parts and a 10-day re-visit guarantee.</p>
+          <p style={{ margin: 0, fontSize: 12.5, color: "var(--text-secondary)", lineHeight: 1.5 }}><b>Zavtoo promise:</b> verified technicians, genuine parts and a 7-day re-visit guarantee.</p>
         </div>
 
         {quotes.length > 0 && (

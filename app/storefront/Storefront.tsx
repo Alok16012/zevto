@@ -20,6 +20,37 @@ import PurifierShowcase from "./PurifierShowcase";
 type View = "home" | "shop" | "product" | "cart" | "checkout" | "orders" | "services" | "booking" | "about" | "contact" | "privacy" | "terms";
 const INFO_VIEWS: View[] = ["services", "about", "contact", "privacy", "terms"];
 const VIEW_LABEL: Partial<Record<View, string>> = { services: "Services", about: "About us", contact: "Contact us", privacy: "Privacy policy", terms: "Terms & conditions" };
+
+/** Flies a copy of the product picture from the tapped button's card into the header cart, then pops the count. */
+function flyToCart(from: HTMLElement | null) {
+  const cart = document.querySelector<HTMLElement>("[data-cart-target]");
+  if (!from || !cart || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  // The biggest picture in the card / product panel is the product itself.
+  const box = from.closest("[data-fly-source]") ?? from;
+  const pic = [...box.querySelectorAll<HTMLElement>("img, svg")].reduce<HTMLElement | null>((best, el) => {
+    const r = el.getBoundingClientRect(), b = best?.getBoundingClientRect();
+    return r.width * r.height > (b ? b.width * b.height : 0) && r.width > 40 ? el : best;
+  }, null);
+  const p = pic?.getBoundingClientRect();
+  // On phones the photo is often scrolled away by the time "Add to cart" is tapped — start from the button then.
+  const a = p && p.bottom > 60 && p.top < innerHeight - 60 ? p : from.getBoundingClientRect(), b = cart.getBoundingClientRect();
+  const size = Math.min(120, Math.max(64, Math.min(a.width, a.height * 2) * 0.45));
+  const ghost = document.createElement("div");
+  ghost.className = n.flyer;
+  ghost.style.cssText = `left:${a.left + a.width / 2 - size / 2}px;top:${a.top + a.height / 2 - size / 2}px;width:${size}px;height:${size}px`;
+  if (pic) { const c = pic.cloneNode(true) as HTMLElement; c.removeAttribute("id"); ghost.appendChild(c); }
+  document.body.appendChild(ghost);
+  const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
+  const flight = ghost.animate([
+    { transform: "translate(0, 0) scale(1)", opacity: 1 },
+    { transform: `translate(${dx * 0.45}px, ${dy * 0.45 - 90}px) scale(0.7)`, opacity: 1, offset: 0.45 },
+    { transform: `translate(${dx}px, ${dy}px) scale(0.12)`, opacity: 0.6 },
+  ], { duration: 750, easing: "cubic-bezier(.5,0,.3,1)" });
+  flight.onfinish = flight.oncancel = () => {
+    ghost.remove();
+    cart.animate([{ transform: "scale(1)" }, { transform: "scale(1.28) rotate(-8deg)" }, { transform: "scale(0.94)" }, { transform: "scale(1)" }], { duration: 420, easing: "ease-out" });
+  };
+}
 type Line = { id: string; qty: number };
 type Receipt = { id: string; date: string; total: number; lines: Line[] };
 type Saved = { cart: Line[]; wish: string[]; orders: Receipt[]; coupon: string };
@@ -159,13 +190,25 @@ export default function Storefront({ view, product: initialProduct, filters, ser
     try { localStorage.setItem(KEY, JSON.stringify(next)); }
     catch { setStorageError("Your browser cannot save this basket. Enable browser storage before continuing to checkout."); }
   }
-  function add(p: Product) {
+  function add(p: Product, from?: HTMLElement) {
     const existing = saved.cart.find(l => l.id === p.id);
     if (existing?.qty === 9) { setNotice("You can add up to 9 of each product."); return; }
+    flyToCart(from ?? null);
     save({ ...saved, cart: existing ? saved.cart.map(l => l.id === p.id ? { ...l, qty: l.qty + 1 } : l) : [...saved.cart, { id: p.id, qty: 1 }] });
     setNotice(`${p.name} added to your cart`);
   }
   function quantity(id: string, qty: number) { save({ ...saved, cart: qty < 1 ? saved.cart.filter(l => l.id !== id) : saved.cart.map(l => l.id === id ? { ...l, qty: Math.min(9, qty) } : l) }); }
+  const qtyOf = (id: string) => saved.cart.find(l => l.id === id)?.qty ?? 0;
+  /** "Add to cart", or − qty + once the product is in the cart. */
+  function cartControl(p: Product, cls: string, size = 18) {
+    const q = qtyOf(p.id);
+    if (!q) return <button className={cls} onClick={e => add(p, e.currentTarget)} disabled={!ready}><CartIcon s={size} /> Add to cart</button>;
+    return <div className={`${cls} ${n.stepper}`} role="group" aria-label={`${p.name} in cart`}>
+      <button aria-label={q === 1 ? `Remove ${p.name} from cart` : `Decrease ${p.name} quantity`} onClick={() => { quantity(p.id, q - 1); if (q === 1) setNotice(`${p.name} removed from your cart`); }}>{q === 1 ? <CloseIcon s={size - 2} /> : <MinusIcon s={size - 2} />}</button>
+      <span key={q} className={n.qtyNum} aria-live="polite">{q} <small>in cart</small></span>
+      <button disabled={q >= 9} aria-label={`Increase ${p.name} quantity`} onClick={e => add(p, e.currentTarget)}><PlusIcon s={size - 2} /></button>
+    </div>;
+  }
   function wish(id: string) { save({ ...saved, wish: saved.wish.includes(id) ? saved.wish.filter(x => x !== id) : [...saved.wish, id] }); }
   const count = saved.cart.reduce((n, l) => n + l.qty, 0);
   const subtotal = saved.cart.reduce((n, l) => n + PRODUCTS.find(p => p.id === l.id)!.price * l.qty, 0);
@@ -209,7 +252,7 @@ export default function Storefront({ view, product: initialProduct, filters, ser
   }
   function renderProductCard({ p }: { p: Product }) {
     const saved_ = saved.wish.includes(p.id);
-    return <article className={n.card} key={p.id} role="listitem">
+    return <article className={n.card} key={p.id} role="listitem" data-fly-source>
       <div className={n.media}>
         {BADGES[p.id] ? <span className={n.badge}>{BADGES[p.id]}</span> : sale(p) > 0 && <span className={`${n.badge} ${n.badgeSoft}`}>{sale(p)}% off</span>}
         <button className={n.heart} aria-label={`${saved_ ? "Unsave" : "Save"} ${p.name}`} aria-pressed={saved_} onClick={() => wish(p.id)} disabled={!ready}><HeartIcon filled={saved_} s={18} /></button>
@@ -222,7 +265,7 @@ export default function Storefront({ view, product: initialProduct, filters, ser
         <p className={n.hint}>{CATEGORY_HINT[p.category]} · {p.spec}</p>
         {p.category === "commercial"
           ? <a className={`${n.add} ${n.quote}`} href={`https://wa.me/918929454647?text=${encodeURIComponent(`Hi Paani Filter, please share a quote for ${p.name}.`)}`} target="_blank" rel="noopener noreferrer">Get a quote</a>
-          : <button className={n.add} onClick={() => add(p)} disabled={!ready}><CartIcon s={18} /> Add to cart</button>}
+          : cartControl(p, n.add)}
       </div>
     </article>;
   }
@@ -268,7 +311,7 @@ export default function Storefront({ view, product: initialProduct, filters, ser
       <div className={n.actions}>
         <Link href="/app" className={n.action} aria-label="Account"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" /></svg><span>Account</span></Link>
         <Link href="/shop?saved=1" className={`${n.action} ${n.optional}`} aria-label="Wishlist"><HeartIcon s={22} /><span>Wishlist</span></Link>
-        <Link href="/cart" className={n.action} aria-label={cartLabel}><CartIcon s={22} /><span>Cart</span>{count > 0 && <b className={n.count}>{count}</b>}</Link>
+        <Link href="/cart" className={n.action} aria-label={cartLabel} data-cart-target><CartIcon s={22} /><span>Cart</span>{count > 0 && <b key={count} className={n.count}>{count}</b>}</Link>
       </div>
     </div></header>
     <div id="store-drawer" className={n.drawer} hidden={!menu} onClick={e => { if (e.target === e.currentTarget) setMenu(false); }}>
@@ -350,7 +393,7 @@ export default function Storefront({ view, product: initialProduct, filters, ser
         <div className={s.breadcrumb}><Link href="/">Home</Link><span>/</span>{view === "product" ? <><Link href="/shop">Shop</Link><span>/</span>{product?.name}</> : <span>{view === "shop" ? "Shop" : VIEW_LABEL[view] ?? view[0].toUpperCase() + view.slice(1)}</span>}</div>
         {view !== "product" && view !== "booking" && !INFO_VIEWS.includes(view) && !placed && <div className={s.pageHeading}><span className={s.kicker}>ZAVTOO · MADE FOR YOUR EVERYDAY</span><h1>{title}</h1><p>{view === "shop" ? "From home essentials to hardworking commercial systems. Find your fit." : view === "services" ? "Installation, maintenance and a helping hand whenever you need it." : view === "orders" ? "Your orders and service visits live in your Zavtoo account." : "A few simple steps to your everyday essential."}</p></div>}
         {view === "shop" && <>{!onlySaved && !query && (category === "all" || category === "domestic") && <PurifierShowcase compact />}<div className={s.shopTools}><div className={s.tabs}>{categories.map(c => <button key={c.id} aria-pressed={category === c.id} className={category === c.id ? s.selected : ""} onClick={() => browseFilter(c.id)}>{c.title}</button>)}</div><label className={s.sort}>Sort by <select value={sort} onChange={e => setSort(e.target.value)}><option value="featured">Featured</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="rating">Top rated</option></select><ChevronDown s={15} /></label></div><div className={s.resultsBar}><span>{filtered.length} products{query && ` matching “${query}”`}</span><button aria-pressed={onlySaved} onClick={() => setOnlySaved(!onlySaved)}><HeartIcon s={17} filled={onlySaved} /> Saved only</button></div>{filtered.length ? <div className={n.grid} role="list">{filtered.map(p => renderProductCard({ p }))}</div> : <div className={s.empty}><SearchIcon s={40} /><h2>No products found.</h2><p>Try another search or explore the full collection.</p><button className={s.primary} onClick={() => { setQuery(""); browseFilter("all"); setOnlySaved(false); window.history.replaceState(null, "", "/shop"); }}>Show all products</button></div>}{(category === "all" || category === "spare") && !onlySaved && <PartsShowcase />}</>}
-        {view === "product" && product && <><div className={s.productDetail}><div className={s.detailArt}><span className={s.sale}>SAVE {inr(product.mrp - product.price)}</span><SpinButton product={product} onOpen={() => setSpinOpen(true)} /><ProductGallery product={product} size={410} /></div><div className={s.detailCopy}><span className={s.kicker}>{categories.find(c => c.id === product.category)?.title}</span><h1>{product.name}</h1>{product.soldBy && <p className={s.formNote}>Sold by {product.soldBy} · {product.techId ? "verified technician, delivers in their service area only" : "verified Zavtoo dealer, delivers in their area only"}</p>}<p className={s.rating}><StarIcon s={18} /> {product.reviews ? <>{product.rating} <span>· {product.reviews} reviews</span></> : <span>New · no reviews yet</span>}</p><p>{product.description}</p><div className={s.detailPrice}><strong>{inr(product.price)}</strong><del>{inr(product.mrp)}</del><span>{sale(product)}% off</span></div><small>Inclusive of all taxes</small><div className={s.specGrid}><div><DropIcon /><strong>{product.stages}</strong><span>Purification / filters</span></div><div><ShieldIcon /><strong>{product.warranty}</strong><span>Product warranty</span></div></div><div className={s.detailActions}><button className={s.primary} onClick={() => add(product)} disabled={!ready}><CartIcon s={19} /> Add to cart</button><button className={s.secondary} aria-pressed={saved.wish.includes(product.id)} onClick={() => wish(product.id)} disabled={!ready}><HeartIcon filled={saved.wish.includes(product.id)} /> Save</button></div><MarketplaceBox product={product} /><form className={s.pinForm} onSubmit={e => { e.preventDefault(); setPinMessage(PIN_AREAS[pin] ? `Available in ${PIN_AREAS[pin]}. Technician visits and delivery are available — exact timing is confirmed with your order.` : "Technician visits aren't available at this pincode yet — spare parts still ship pan India. Call 89-294-546-47 to check."); }}><label htmlFor="delivery-pin"><PinIcon s={18} /> Check your delivery area</label><div><input id="delivery-pin" aria-label="Delivery pincode" inputMode="numeric" pattern="[1-9][0-9]{5}" maxLength={6} placeholder="Enter 6-digit pincode" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ""))} required /><button>Check</button></div><p role="status">{pinMessage}</p></form></div></div><ProductDetails product={product} />{spinOpen && <SpinViewer frames={product.spinImages ?? []} name={product.name} onClose={() => setSpinOpen(false)} />}<section className={s.section}><div className={s.sectionHeading}><h2>Also worth a look.</h2><Link href="/shop" className={s.textLink}>View collection</Link></div><div className={n.grid} role="list">{PRODUCTS.filter(p => p.id !== product.id).slice(0, 4).map(p => renderProductCard({ p }))}</div></section></>}
+        {view === "product" && product && <><div className={s.productDetail} data-fly-source><div className={s.detailArt}><span className={s.sale}>SAVE {inr(product.mrp - product.price)}</span><SpinButton product={product} onOpen={() => setSpinOpen(true)} /><ProductGallery product={product} size={410} /></div><div className={s.detailCopy}><span className={s.kicker}>{categories.find(c => c.id === product.category)?.title}</span><h1>{product.name}</h1>{product.soldBy && <p className={s.formNote}>Sold by {product.soldBy} · {product.techId ? "verified technician, delivers in their service area only" : "verified Zavtoo dealer, delivers in their area only"}</p>}<p className={s.rating}><StarIcon s={18} /> {product.reviews ? <>{product.rating} <span>· {product.reviews} reviews</span></> : <span>New · no reviews yet</span>}</p><p>{product.description}</p><div className={s.detailPrice}><strong>{inr(product.price)}</strong><del>{inr(product.mrp)}</del><span>{sale(product)}% off</span></div><small>Inclusive of all taxes</small><div className={s.specGrid}><div><DropIcon /><strong>{product.stages}</strong><span>Purification / filters</span></div><div><ShieldIcon /><strong>{product.warranty}</strong><span>Product warranty</span></div></div><div className={s.detailActions}>{cartControl(product, s.primary, 19)}<button className={s.secondary} aria-pressed={saved.wish.includes(product.id)} onClick={() => wish(product.id)} disabled={!ready}><HeartIcon filled={saved.wish.includes(product.id)} /> Save</button></div>{qtyOf(product.id) > 0 && <Link href="/cart" className={n.goCart}><CheckIcon s={16} /> {qtyOf(product.id)} in your cart · {inr(product.price * qtyOf(product.id))} — View cart <ChevronRight s={15} /></Link>}<MarketplaceBox product={product} /><form className={s.pinForm} onSubmit={e => { e.preventDefault(); setPinMessage(PIN_AREAS[pin] ? `Available in ${PIN_AREAS[pin]}. Technician visits and delivery are available — exact timing is confirmed with your order.` : "Technician visits aren't available at this pincode yet — spare parts still ship pan India. Call 89-294-546-47 to check."); }}><label htmlFor="delivery-pin"><PinIcon s={18} /> Check your delivery area</label><div><input id="delivery-pin" aria-label="Delivery pincode" inputMode="numeric" pattern="[1-9][0-9]{5}" maxLength={6} placeholder="Enter 6-digit pincode" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ""))} required /><button>Check</button></div><p role="status">{pinMessage}</p></form></div></div><ProductDetails product={product} />{spinOpen && <SpinViewer frames={product.spinImages ?? []} name={product.name} onClose={() => setSpinOpen(false)} />}<section className={s.section}><div className={s.sectionHeading}><h2>Also worth a look.</h2><Link href="/shop" className={s.textLink}>View collection</Link></div><div className={n.grid} role="list">{PRODUCTS.filter(p => p.id !== product.id).slice(0, 4).map(p => renderProductCard({ p }))}</div></section></>}
         {(view === "cart" || view === "checkout") && !placed && (!ready ? <p role="status">Loading your basket…</p> : !saved.cart.length ? <div className={s.empty}><CartIcon s={46} /><h2>Your cart is waiting.</h2><p>Bring a little more purity to your everyday.</p><Link className={s.primary} href="/shop">Explore products</Link></div> : <div className={s.checkoutGrid}>{view === "cart" ? <div>{saved.cart.map(l => { const p = PRODUCTS.find(p => p.id === l.id)!; return <article className={s.cartItem} key={l.id}><Link className={s.cartArt} href={`/products/${p.id}`}><ProductImage product={p} size={100} /></Link><div><Link href={`/products/${p.id}`}><h3>{p.name}</h3></Link><p>{p.spec}</p><strong>{inr(p.price)}</strong><div className={s.quantity}><button aria-label={`Decrease ${p.name} quantity`} onClick={() => quantity(p.id, l.qty - 1)}><MinusIcon s={14} /></button><span>{l.qty}</span><button disabled={l.qty === 9} aria-label={`Increase ${p.name} quantity`} onClick={() => quantity(p.id, l.qty + 1)}><PlusIcon s={14} /></button></div></div><div className={s.lineTotal}><strong>{inr(p.price * l.qty)}</strong><button onClick={() => quantity(p.id, 0)} aria-label={`Remove ${p.name}`}><CloseIcon s={18} /> Remove</button></div></article>; })}<Link className={s.textLink} href="/shop">Continue shopping</Link></div> : <div className={s.checkoutForm}><h2>Secure checkout</h2><p className={s.formNote}>You&apos;ll finish your order in the Zavtoo customer app: log in or create an account, choose your delivery address, apply coupons or wallet balance, and pay online or on delivery. Your cart comes with you.</p><button type="button" className={s.primary} onClick={() => { try { localStorage.setItem("zavtoo:cart", JSON.stringify(saved.cart)); } catch { /* storage blocked */ } window.location.href = "/app?screen=cart"; }}>Continue to checkout · {inr(total)}</button><Link className={s.textLink} href="/cart">Back to cart</Link></div>}{renderSummary({ checkout: view === "checkout" })}</div>)}
         {placed && <div className={s.empty}><span className={s.successIcon}><CheckIcon s={34} /></span><span className={s.kicker}>THANK YOU FOR TRYING ZAVTOO</span><h1>Your demo order is saved.</h1><p>Order {placed.id} · {inr(placed.total)}</p><p>No payment was taken. This order will not be fulfilled.</p><Link className={s.primary} href="/orders">View my demo orders</Link><Link className={s.textLink} href="/shop">Continue shopping</Link></div>}
         {view === "booking" && service && <ServiceBooking key={service.type} service={service} />}

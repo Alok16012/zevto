@@ -220,7 +220,7 @@ export default function DealerApp({ roleSwitch }: { roleSwitch?: React.ReactNode
         <DealerHome data={data}
           onOrders={() => goTab("orders")} onJobs={() => goTab("jobs")} onListings={() => goTab("listings")}
           onTeam={() => push({ k: "page", p: "team" })} onAddListing={() => push({ k: "listing" })}
-          onOpenOrder={(id) => push({ k: "order", id })} onOpenJob={(id) => push({ k: "job", id })} />
+          onOpenOrder={(id) => push({ k: "order", id })} onOpenJob={(id) => push({ k: "job", id })} onNewTask={() => push({ k: "newTask" })} />
       )}
       {!detail && tab === "listings" && (
         <ListingsScreen listings={data.listings} verified={verified}

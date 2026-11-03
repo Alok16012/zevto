@@ -17,9 +17,9 @@ const isDone = (j: DbRequest) => j.status === "Completed" || j.status === "Cance
 
 /* ───────────────────────── Dashboard ───────────────────────── */
 
-export function DealerHome({ data, onOrders, onJobs, onListings, onTeam, onAddListing, onOpenOrder, onOpenJob }: {
+export function DealerHome({ data, onOrders, onJobs, onListings, onTeam, onAddListing, onOpenOrder, onOpenJob, onNewTask }: {
   data: DealerData; onOrders: () => void; onJobs: () => void; onListings: () => void; onTeam: () => void; onAddListing: () => void;
-  onOpenOrder: (id: string) => void; onOpenJob: (id: string) => void;
+  onOpenOrder: (id: string) => void; onOpenJob: (id: string) => void; onNewTask: () => void;
 }) {
   const { dealer, orders, jobs, listings, team } = data;
   const delivered = orders.filter((o) => o.status === "Delivered");
@@ -79,6 +79,22 @@ export function DealerHome({ data, onOrders, onJobs, onListings, onTeam, onAddLi
           </div>
         </div>
       </div>
+
+      {/* Same shortcut as the technician home; tasks need a verified, active shop. */}
+      {verified && dealer.active && (
+        <div style={{ padding: "12px 16px 0" }}>
+          <button onClick={onNewTask} className="press" style={{
+            ...card, width: "100%", padding: "12px 14px", border: "1.5px dashed var(--blue)", background: "var(--blue-tint)", boxShadow: "none",
+            display: "flex", alignItems: "center", gap: 10, cursor: "pointer", textAlign: "left",
+          }}>
+            <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><PlusIcon s={18} c="white" /></span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "var(--blue-dark)" }}>Create a new task</span>
+              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>{team.some((t) => t.active) ? "Give it to your technician or send it to Zavtoo" : "Send it to Zavtoo to schedule"}</span>
+            </span>
+          </button>
+        </div>
+      )}
 
       <div style={{ padding: "14px 16px 0", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <Tile Icon={BagIcon} tint="var(--purple-tint)" c="var(--purple)" value={newOrders.length} label="New orders" onClick={onOrders} />

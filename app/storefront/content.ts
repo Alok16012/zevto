@@ -52,7 +52,7 @@ export const VALUE_PROPS = [
 /** Homepage "Complete Water Purifier Solutions" cards. `href` points at booking or the shop. */
 export const HOME_SERVICES = [
   { title: "Repair & Maintenance", text: "Expert technicians at your doorstep for all types of RO water purifier repairs and maintenance services.",
-    points: ["Same day service available", "All brands & models covered", "Genuine spare parts used", "90-day service warranty"], cta: "Book repair service", href: "/services/repair" },
+    points: ["Same day service available", "All brands & models covered", "Genuine spare parts used", "7-day service warranty"], cta: "Book repair service", href: "/services/repair" },
   { title: "New Installation", text: "Professional installation of new RO water purifiers at your home or office by certified technicians.",
     points: ["Free site inspection", "Expert installation team", "Demo & usage training", "Post-installation support"], cta: "Book installation", href: "/services/installation" },
   { title: "AMC Plans", text: "Annual Maintenance Contract plans for hassle-free water purifier upkeep all year round at the best rates.",
@@ -95,14 +95,14 @@ export const ADVANTAGES = [
   { icon: "✅", title: "Genuine Products Only", text: "100% authentic spare parts with quality certification. Your family's health is our top priority." },
   { icon: "🇮🇳", title: "Pan India Network", text: "Serving customers across all major cities and towns in India with a growing network of certified technicians." },
   { icon: "📞", title: "24/7 Customer Support", text: "Round-the-clock support via call, WhatsApp, and online chat. We're always here when you need us." },
-  { icon: "🛡️", title: "Service Warranty", text: "Every service comes with a 90-day warranty. If issues recur, we fix them absolutely free of cost." },
+  { icon: "🛡️", title: "Service Warranty", text: "Every service comes with a 7-day warranty. If issues recur, we fix them absolutely free of cost." },
 ];
 
 export const STEPS = [
   { icon: "📱", title: "Contact or Book Online", text: "Call us, WhatsApp, or fill the online form with your details, service type, location and preferred time." },
   { icon: "✅", title: "Get Instant Confirmation", text: "Receive booking confirmation via SMS & WhatsApp with your technician's name, contact, and ETA." },
   { icon: "🧑‍🔧", title: "Technician Arrives", text: "Our certified technician arrives within 2–4 hours with all required tools, genuine parts and equipment." },
-  { icon: "🏅", title: "Done! Get Warranty", text: "Service completed with quality check. Receive your 90-day warranty certificate and digital invoice." },
+  { icon: "🏅", title: "Done! Get Warranty", text: "Service completed with quality check. Receive your 7-day warranty certificate and digital invoice." },
 ];
 
 export const TESTIMONIALS = [
@@ -172,12 +172,12 @@ export const ABOUT = {
     { value: "28+", title: "States Covered", text: "Delivery and service network across India" },
     { value: "20+", title: "Years Experience", text: "Two decades of water purifier industry expertise" },
     { value: "2 Hr", title: "Response Time", text: "Average technician arrival time in major cities" },
-    { value: "90 Day", title: "Service Warranty", text: "On every repair and maintenance service we do" },
+    { value: "7 Day", title: "Service Warranty", text: "On every repair and maintenance service we do" },
   ],
   values: [
     { icon: "🤝", title: "Integrity & Honesty", text: "We believe in complete transparency — honest pricing, genuine products, and straightforward communication with every customer, every time." },
     { icon: "⭐", title: "Quality First", text: "From the spare parts we stock to the technicians we deploy — quality is non-negotiable. We never compromise on what goes into your water purifier." },
-    { icon: "💙", title: "Customer Care", text: "Our customers are our family. We go above and beyond to ensure satisfaction, offering 90-day warranty, 24/7 WhatsApp support and no-questions-asked service." },
+    { icon: "💙", title: "Customer Care", text: "Our customers are our family. We go above and beyond to ensure satisfaction, offering 7-day warranty, 24/7 WhatsApp support and no-questions-asked service." },
     { icon: "⚡", title: "Speed & Reliability", text: "When your water purifier breaks down, every hour matters. Our 2-hour response time and same-day service commitment means you're never without pure water for long." },
     { icon: "🚀", title: "Continuous Innovation", text: "We constantly update our knowledge, expand our product range, and improve our processes to stay ahead in the ever-evolving water purification industry." },
     { icon: "🇮🇳", title: "Made for India", text: "We understand India's diverse water quality challenges and tailor our services and products specifically for Indian homes, water sources and budgets." },
@@ -187,7 +187,7 @@ export const ABOUT = {
     { title: "100% Genuine Products", text: "Only ISI-certified, authentic spare parts used in every service" },
     { title: "Any Brand, Any Model", text: "Kent, Aquaguard, Pureit, Livpure, LG, A.O. Smith & more" },
     { title: "2-Hour Service Response", text: "Fast technician dispatch to your doorstep in major cities" },
-    { title: "90-Day Service Warranty", text: "Free re-service if the same issue recurs within 90 days" },
+    { title: "7-Day Service Warranty", text: "Free re-service if the same issue recurs within 7 days" },
     { title: "Best Price Guarantee", text: "Lowest prices on services and spare parts — no hidden charges" },
     { title: "24/7 WhatsApp Support", text: "Round-the-clock support via WhatsApp, call and online chat" },
   ],

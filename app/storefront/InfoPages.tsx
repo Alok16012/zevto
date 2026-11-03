@@ -158,7 +158,7 @@ export function StartToday() {
         <h2>Your pure water journey starts right here</h2>
         <p>Whether you need a quick repair, spare parts, or a complete water purifier installation — we&apos;ve got you covered. Book your service now and experience the difference.</p>
         <div className={s.btnRow}><Link className={s.btnPrimary} href="/services">Book service now</Link><a className={s.btnOutline} href={COMPANY.phoneHref}>Call now: {COMPANY.phone}</a></div>
-        <Ticks items={["No hidden charges", "90-day warranty", "Certified technicians"]} />
+        <Ticks items={["No hidden charges", "7-day warranty", "Certified technicians"]} />
         <OfferBanner />
       </div>
       <QuickBooking />
@@ -299,7 +299,7 @@ function TrustCta({ title, text }: { title: string; text: string }) {
     <section className={`${s.section} ${s.cta}`}>
       <h2>{title}</h2><p>{text}</p>
       <div className={s.btnRow}><Link className={s.btnPrimary} href="/services">Book a service</Link><a className={s.btnOutline} href={COMPANY.whatsappHref} target="_blank" rel="noopener noreferrer">Chat on WhatsApp</a></div>
-      <ul className={s.trust}>{["90-Day Warranty", "Any Brand Covered", "Pan India Service", "20+ Years Trusted"].map((t) => <li key={t}><CheckIcon s={15} />{t}</li>)}</ul>
+      <ul className={s.trust}>{["7-Day Warranty", "Any Brand Covered", "Pan India Service", "20+ Years Trusted"].map((t) => <li key={t}><CheckIcon s={15} />{t}</li>)}</ul>
       <OfferBanner />
     </section>
   );

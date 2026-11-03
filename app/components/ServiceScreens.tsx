@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, CheckIcon, ChevronDown, ChevronRight, ChatIcon, PhoneIcon, StarIcon } from "./icons";
+import { ArrowRight, CheckIcon, ChevronRight, ChatIcon, PhoneIcon, StarIcon } from "./icons";
 import ProductImage from "./ProductImage";
 
 /** Order rows only keep a title; find the catalogue product it was for (for its photo). */
@@ -56,7 +56,8 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
 
   // Tomorrow is the earliest bookable day.
   const min = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  const ok = product && date && slot && address;
+  const brand = product.trim().replace(/\s+/g, " ");
+  const ok = brand && date && slot && address;
   const offering = SERVICE_CATALOG.find((o) => o.type === type)!;
   const price = offering.price;
   // Switching service type can make an applied coupon invalid — drop it quietly.
@@ -67,7 +68,7 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
   const submit = () => {
     setTouched(true);
     if (!ok) return;
-    onSubmit({ type, product, date: fmtDate(new Date(`${date}T00:00`)), slot, description: desc.trim(), price, coupon: valid?.code ?? null, discount, photos, address: address!, techId: chosen });
+    onSubmit({ type, product: brand, date: fmtDate(new Date(`${date}T00:00`)), slot, description: desc.trim(), price, coupon: valid?.code ?? null, discount, photos, address: address!, techId: chosen });
   };
 
   const err = (v: string) => touched && !v ? { border: "1.5px solid var(--error-text)" } : {};
@@ -103,18 +104,21 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
           <span style={{ fontSize: 18, fontWeight: 800, color: "var(--gold)", whiteSpace: "nowrap" }}>{price ? inr(price) : "FREE"}</span>
         </div>
 
+        {/* Customers type the brand — there are too many local and branded makes for a list. */}
         <div style={{ marginTop: 20 }}>
-          <label style={label} htmlFor="svc-product">Select Product</label>
-          <div style={{ position: "relative" }}>
-            <select id="svc-product" value={product} onChange={(e) => setProduct(e.target.value)}
-              style={{ ...field, appearance: "none", color: product ? "var(--ink)" : "var(--ink-mute)", paddingRight: 40, ...err(product) }}>
-              <option value="" disabled>Choose your product</option>
-              {PRODUCTS.filter((p) => p.category !== "spare" && !p.dealerId).map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
-              <option value="Other brand purifier">Other brand purifier</option>
-            </select>
-            <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex" }}><ChevronDown s={18} c="var(--ink-soft)" /></span>
-          </div>
+          <label style={label} htmlFor="svc-product">Your RO brand name</label>
+          <input id="svc-product" value={product} onChange={(e) => setProduct(e.target.value)} onBlur={() => setProduct(product.trim().replace(/\s+/g, " "))}
+            maxLength={60} autoComplete="off" autoCapitalize="words" enterKeyHint="next" placeholder="e.g. Kent, Aquaguard, Livpure"
+            style={{ ...field, ...err(product.trim()) }} />
+          <p style={{ margin: "6px 2px 0", fontSize: 12, color: "var(--ink-mute)" }}>Not sure? Type what&apos;s written on the purifier, or just “local”.</p>
         </div>
+
+        {/* A photo shows the technician the exact model; new installs don't need one. */}
+        {type !== "Installation" && (
+          <div style={{ marginTop: 14, padding: 14, borderRadius: 16, background: "var(--surface)", boxShadow: "var(--shadow-card)" }}>
+            <RoPhotoPicker photos={photos} onChange={setPhotos} recommended={type === "Repair" || type === "Filter Change"} />
+          </div>
+        )}
 
         <div style={{ marginTop: 18 }}>
           <label style={label} htmlFor="svc-date">Preferred Date</label>
@@ -186,13 +190,6 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
           </div>
         )}
 
-        {/* Photos matter most when something is wrong; new installs don't need them. */}
-        {type !== "Installation" && (
-          <div style={{ marginTop: 18, padding: 14, borderRadius: 16, background: "var(--surface)", boxShadow: "var(--shadow-card)" }}>
-            <RoPhotoPicker photos={photos} onChange={setPhotos} recommended={type === "Repair" || type === "Filter Change"} />
-          </div>
-        )}
-
         <div style={{ marginTop: 18, marginBottom: 12 }}>
           <label style={label} htmlFor="svc-desc">Problem Description <span style={{ fontWeight: 400, color: "var(--ink-mute)" }}>(optional)</span></label>
           <textarea id="svc-desc" value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} maxLength={300}
@@ -209,7 +206,7 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
             )}
           </div>
         )}
-        {touched && !ok && <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "var(--error-text)" }}>Please choose a product, address, date and time slot.</p>}
+        {touched && !ok && <p style={{ margin: "0 0 8px", fontSize: 12.5, color: "var(--error-text)" }}>Please enter your RO brand, address, date and time slot.</p>}
       </div>
       {addingAddress && (
         <AddressSheet initial={null} onClose={() => setAddingAddress(false)}

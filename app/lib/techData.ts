@@ -93,9 +93,31 @@ export const todayIso = () => new Date(Date.now() - new Date().getTimezoneOffset
 
 /* ───────────── Earnings ───────────── */
 
-/** What the technician keeps: a share of the visit charge, a flat fee for free
- * jobs, and a commission on parts sold. */
-export const PAYOUT = { visitShare: 0.6, freeJobFee: 250, partsCommission: 0.1 };
+/** How a technician is paid (Admin → Earning Schedules, table earning_schedules). */
+export type PayBasis = "Commission" | "Salary" | "Salary + Commission";
+export type RateMode = "Percent" | "Fixed";
+export interface EarningSchedule {
+  id: string; name: string; pay_basis: PayBasis; monthly_salary: number;
+  /** Percent: % of the visit charge; Fixed: ₹ per completed job. */
+  service_mode: RateMode; service_value: number;
+  /** ₹ per free job (installs, AMC visits). */
+  free_job_fee: number;
+  /** Percent: % of the parts value; Fixed: ₹ per part unit fitted. */
+  parts_mode: RateMode; parts_value: number;
+  /** ₹ per km to the customer, doubled when round_trip. */
+  km_rate: number; round_trip: boolean; is_default: boolean;
+}
+
+/** The pay built into the app before schedules; used until the technician's own schedule loads. */
+export const DEFAULT_SCHEDULE: EarningSchedule = {
+  id: "", name: "Standard commission", pay_basis: "Commission", monthly_salary: 0,
+  service_mode: "Percent", service_value: 60, free_job_fee: 250, parts_mode: "Percent", parts_value: 10,
+  km_rate: 0, round_trip: true, is_default: true,
+};
+
+/** The signed-in technician's schedule — replaced with their live one once the app loads. */
+export let PAY: EarningSchedule = DEFAULT_SCHEDULE;
+export const setPaySchedule = (s: EarningSchedule | null) => { PAY = s ? { ...s, km_rate: Number(s.km_rate) || 0 } : DEFAULT_SCHEDULE; };
 
 export const partsTotal = (j: Job) =>
   j.parts.reduce((s, p) => s + partPrice(p) * p.qty, 0);
@@ -103,5 +125,30 @@ export const partsTotal = (j: Job) =>
 /** Parts are free for AMC customers (filters are included in the plan). */
 export const customerBill = (j: Job) => (j.amc ? 0 : j.visitCharge + partsTotal(j));
 
-export const jobPayout = (j: Job) =>
-  Math.round((j.visitCharge ? j.visitCharge * PAYOUT.visitShare : PAYOUT.freeJobFee) + partsTotal(j) * PAYOUT.partsCommission);
+/** What one job earns the technician, by part. Salary is paid monthly, on top. */
+export function payBreakdown(j: Job, s: EarningSchedule = PAY) {
+  const commission = s.pay_basis !== "Salary";
+  const service = !commission ? 0 : !j.visitCharge ? s.free_job_fee
+    : s.service_mode === "Percent" ? (j.visitCharge * s.service_value) / 100 : s.service_value;
+  const units = j.parts.reduce((n, p) => n + p.qty, 0);
+  const parts = !commission ? 0 : s.parts_mode === "Percent" ? (partsTotal(j) * s.parts_value) / 100 : units * s.parts_value;
+  const km = j.customer.distanceKm ?? 0;
+  const travelKm = km * (s.round_trip ? 2 : 1);
+  const travel = travelKm * s.km_rate;
+  return { service: Math.round(service), parts: Math.round(parts), travel: Math.round(travel), travelKm, total: Math.round(service + parts + travel) };
+}
+
+export const jobPayout = (j: Job) => payBreakdown(j).total;
+
+/** "60% of the visit charge" / "₹150 per job" — for explaining a schedule. */
+export function describeSchedule(s: EarningSchedule) {
+  const bits: string[] = [];
+  if (s.pay_basis !== "Commission") bits.push(`₹${s.monthly_salary.toLocaleString("en-IN")} monthly salary`);
+  if (s.pay_basis !== "Salary") {
+    bits.push(s.service_mode === "Percent" ? `${s.service_value}% of the visit charge` : `₹${s.service_value} per job`);
+    if (s.free_job_fee) bits.push(`₹${s.free_job_fee} for free installs & AMC visits`);
+    if (s.parts_value) bits.push(s.parts_mode === "Percent" ? `${s.parts_value}% on parts` : `₹${s.parts_value} per part fitted`);
+  }
+  if (Number(s.km_rate)) bits.push(`₹${Number(s.km_rate)}/km travel${s.round_trip ? " (both ways)" : ""}`);
+  return bits.length ? bits.join(" · ") : "No pay set";
+}

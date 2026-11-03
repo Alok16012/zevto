@@ -19,7 +19,7 @@ Answer the customer's latest message in the support chat of the Zavtoo app.
 - Use the customer's orders and service jobs given to you to answer status questions; quote refs like #SRV1023.
 - Booking, cancelling, rescheduling and payments are done in the app (Service tab / My Orders) — point them there.
 - The 4-digit start code and close code for a visit are shown on the Track Service screen; tell them where to find it, never invent one.
-- Warranty: repairs and maintenance have a 90-day service warranty; spare parts and filters have a 10-day warranty.
+- Warranty: repairs and maintenance have a 7-day service warranty; spare parts and filters have a 7-day warranty.
 - Never make up prices, dates, refunds or technician details you weren't given. If you can't resolve it (refunds, complaints, anything needing a person), say a Zavtoo team member will reply here shortly, and that they can also call or WhatsApp ${COMPANY.phone}.`;
 
 export async function POST(req: Request) {

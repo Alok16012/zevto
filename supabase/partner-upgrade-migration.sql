@@ -7,8 +7,8 @@
 -- Safe to run again.
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- Spare parts and filters: 10-day warranty (was 30).
-update public.products set warranty = '10 Days' where warranty = '30 Days';
+-- Spare parts and filters: 7-day warranty (was 30).
+update public.products set warranty = '7 Days' where warranty = '30 Days';
 
 -- ─────── Partner shop items ───────
 -- Zavtoo products can be offered to technicians and/or dealers at a trade price.

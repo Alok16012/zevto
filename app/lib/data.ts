@@ -129,7 +129,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "sediment-5", name: "Sediment Filter 5 Micron (Pack of 3)", spec: "Multi brand · 5 micron",
     price: 299, mrp: 450, category: "spare", art: "cartridge",
-    rating: 0, reviews: 0, stages: "3 filters", warranty: "10 Days",
+    rating: 0, reviews: 0, stages: "3 filters", warranty: "7 Days",
     description: "Removes dirt, sand & rust. Compatible with standard 10-inch filter housings.",
     images: ["/products/parts/sediment-spun-filter-1.jpg", "/products/parts/sediment-spun-filter-2.jpg", "/products/parts/sediment-spun-filter-3.jpg"],
   },
@@ -142,7 +142,7 @@ export const PRODUCTS: Product[] = [
   {
     id: "cto-carbon", name: "Carbon Block Filter CTO (4 Stage)", spec: "Premium · carbon block",
     price: 549, mrp: 750, category: "spare", art: "cartridge",
-    rating: 0, reviews: 0, stages: "Carbon block", warranty: "10 Days",
+    rating: 0, reviews: 0, stages: "Carbon block", warranty: "7 Days",
     description: "Removes chlorine, bad taste & odour. Activated carbon block technology for pure water.",
     images: ["/products/parts/black-inline-cartridge-1.jpg", "/products/parts/black-inline-cartridge-2.jpg", "/products/parts/black-inline-cartridge-3.jpg"],
   },
@@ -155,21 +155,21 @@ export const PRODUCTS: Product[] = [
   {
     id: "service-kit-7", name: "Complete RO Service Kit (7 Pcs)", spec: "Combo pack · 7 pieces",
     price: 1999, mrp: 3200, category: "spare", art: "spare",
-    rating: 0, reviews: 0, stages: "7 pieces", warranty: "10 Days",
+    rating: 0, reviews: 0, stages: "7 pieces", warranty: "7 Days",
     description: "All-in-one kit: Sediment + Carbon + UF + Membrane + SMPS + Connectors + Spanner.",
     images: ["/products/parts/sediment-spun-filter-1.jpg", "/products/parts/black-inline-cartridge-1.jpg", "/products/parts/blue-cap-cartridge-1.jpg", "/products/parts/membrane-housing-1.jpg"],
   },
   {
     id: "uf-membrane", name: "UF Hollow Fiber Ultra Membrane", spec: "Multi brand · UF",
     price: 699, mrp: 999, category: "spare", art: "cartridge",
-    rating: 0, reviews: 0, stages: "UF", warranty: "10 Days",
+    rating: 0, reviews: 0, stages: "UF", warranty: "7 Days",
     description: "Ultra-filtration membrane for bacteria removal without electricity. 0.01 micron filtration.",
     images: ["/products/parts/blue-cap-cartridge-1.jpg", "/products/parts/blue-cap-cartridge-2.jpg", "/products/parts/blue-cap-cartridge-3.jpg"],
   },
   {
     id: "valve-kit", name: "Ball Valve & Connector Kit Set", spec: "Universal · fittings",
     price: 149, mrp: 250, category: "spare", art: "spare",
-    rating: 0, reviews: 0, stages: "Kit", warranty: "10 Days",
+    rating: 0, reviews: 0, stages: "Kit", warranty: "7 Days",
     description: "Complete set of ball valves, check valves, elbow & straight connectors for RO system installation.",
   },
 ];
@@ -516,7 +516,7 @@ export const SERVICE_CATALOG: ServiceOffering[] = [
   { type: "Installation", tagline: "Professional installation of brand new RO water purifiers with complete setup, testing, and demo.", price: 399, priceNote: "installation charges only", duration: "45–60 min",
     includes: ["Free site inspection", "All brands supported", "Pipeline setup included", "Full demo & training", "Post-installation support"], rating: 4.8, bookings: "12k+" },
   { type: "Repair", tagline: "Expert diagnosis and repair of all RO water purifier problems at your doorstep by certified technicians.", price: 299, priceNote: "visit charge · spare parts if needed", duration: "30–90 min",
-    includes: ["Low water pressure fix", "Water leakage repair", "Bad taste/odour fix", "Pump & motor repair", "90-day service warranty"], rating: 4.7, bookings: "8k+" },
+    includes: ["Low water pressure fix", "Water leakage repair", "Bad taste/odour fix", "Pump & motor repair", "7-day service warranty"], rating: 4.7, bookings: "8k+" },
   { type: "AMC", tagline: "Regular servicing, priority support and free filter replacements — one plan for the whole year.", price: 999, priceNote: "per year · Silver plan (Gold ₹1,799 · Platinum ₹2,999)", duration: "1 year cover",
     includes: ["2 service visits a year", "Filter inspection", "Basic cleaning", "Phone support"], rating: 4.9, bookings: "5k+" },
   { type: "Filter Change", tagline: "Timely replacement of RO filters, membranes, and cartridges to ensure 100% pure water quality.", price: 499, priceNote: "filters + service included", duration: "30 min",

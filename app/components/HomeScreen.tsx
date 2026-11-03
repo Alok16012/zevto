@@ -7,8 +7,8 @@ import PurifierArt from "./PurifierArt";
 import WaterBanner from "./WaterBanner";
 import ProductImage from "./ProductImage";
 import { ViewAll, iconBtn } from "./ui";
-import { SERVICE_ICON } from "./ServicesHub";
-import { COUPONS, PRODUCTS, REFERRAL_REWARD, SERVICE_CATALOG, inr, type Product, type ServiceType } from "../lib/data";
+import { ActiveServices, SERVICE_ICON } from "./ServicesHub";
+import { COUPONS, PRODUCTS, REFERRAL_REWARD, SERVICE_CATALOG, inr, type Product, type ServiceRequest, type ServiceType } from "../lib/data";
 
 interface HomeProps {
   cartCount: number;
@@ -27,6 +27,9 @@ interface HomeProps {
   onRefer: () => void;
   /** Days left on the customer's AMC, or null if they don't have one. */
   amcDaysLeft: number | null;
+  /** The customer's service requests — running ones show under search. */
+  services: ServiceRequest[];
+  onTrack: (id: string) => void;
 }
 
 /* ── Quick-action artwork — flat two-tone tiles, straight from the student
@@ -123,6 +126,13 @@ export default function HomeScreen(p: HomeProps) {
             style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 14, color: "var(--ink)" }} />
         </label>
       </form>
+
+      {/* ── Running services (repair in progress etc.) ── */}
+      {p.services.some((s) => s.current < 3) && (
+        <div style={{ padding: "0 16px 16px", marginTop: -12 }}>
+          <ActiveServices services={p.services.filter((s) => s.current < 3)} onTrack={p.onTrack} />
+        </div>
+      )}
 
       {/* ── Quick actions, right under search ── */}
       <div style={{ padding: "4px 14px 20px", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>

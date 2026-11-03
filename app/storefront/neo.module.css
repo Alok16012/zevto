@@ -1109,3 +1109,111 @@
     scroll-behavior:auto
   }
 }
+
+/* ───────── Add to cart: fly-to-cart and quantity stepper ───────── */
+.flyer {
+  position:fixed;
+  z-index:1000;
+  pointer-events:none;
+  border-radius:50%;
+  overflow:hidden;
+  background:#fff;
+  box-shadow:0 10px 30px rgba(15,23,41,.28),0 0 0 3px var(--cta);
+  display:grid;
+  place-items:center;
+  will-change:transform,opacity
+}
+.flyer>img,.flyer>svg {
+  width:86%!important;
+  height:86%!important;
+  max-width:none!important;
+  object-fit:contain;
+  position:static!important;
+  transform:none!important
+}
+.count {
+  animation:countPop .45s cubic-bezier(.3,1.6,.5,1) both;
+  animation-delay:.62s
+}
+@keyframes countPop {
+  0% { transform:scale(.4) }
+  60% { transform:scale(1.35) }
+  100% { transform:scale(1) }
+}
+.stepper {
+  display:flex;
+  align-items:stretch;
+  justify-content:space-between;
+  gap:0;
+  padding:0!important;
+  overflow:hidden;
+  animation:stepperIn .32s cubic-bezier(.2,1.2,.4,1) both
+}
+.stepper>button {
+  flex:0 0 auto;
+  width:48px;
+  min-height:inherit;
+  display:grid;
+  place-items:center;
+  border:0;
+  background:rgba(0,0,0,.07);
+  color:inherit;
+  cursor:pointer;
+  transition:background .15s
+}
+.stepper>button:hover:not(:disabled) {
+  background:rgba(0,0,0,.14)
+}
+.stepper>button:active:not(:disabled) {
+  transform:scale(.92)
+}
+.stepper>button:disabled {
+  opacity:.4;
+  cursor:not-allowed
+}
+.qtyNum {
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  font-weight:700;
+  font-size:16px;
+  animation:qtyBump .28s ease-out
+}
+.qtyNum small {
+  font-size:12px;
+  font-weight:500;
+  opacity:.75
+}
+@keyframes stepperIn {
+  0% { transform:scale(.92); opacity:.4 }
+  100% { transform:scale(1); opacity:1 }
+}
+@keyframes qtyBump {
+  0% { transform:translateY(-6px); opacity:0 }
+  100% { transform:none; opacity:1 }
+}
+.goCart {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-top:12px;
+  padding:10px 12px;
+  border-radius:10px;
+  background:#e9f7ef;
+  color:#17663a;
+  font-size:13.5px;
+  font-weight:600;
+  text-decoration:none;
+  animation:qtyBump .3s ease-out
+}
+.goCart:hover {
+  background:#dcf1e5
+}
+@media(prefers-reduced-motion:reduce) {
+  .count,.stepper,.qtyNum,.goCart { animation:none }
+}
+.card .qtyNum small {
+  display:none
+}

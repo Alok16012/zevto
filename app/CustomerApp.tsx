@@ -530,6 +530,8 @@ export default function CustomerApp({ roleSwitch, skipIntro = false }: { roleSwi
           onOpenServices={() => goTab("service")}
           onRefer={() => push({ k: "referral" })}
           amcDaysLeft={amcDaysLeft}
+          services={services}
+          onTrack={(id) => push({ k: "track", id })}
         />
       )}
       {!detail && tab === "orders" && <OrdersScreen orders={orders} onOpen={openOrder} />}
@@ -625,7 +627,7 @@ function ProfileInfo({ which, onBack, services, amcDaysLeft, onTrack, onRenew }:
     case "help":
       return (
         <InfoPage title="Help & Support" onBack={onBack}>
-          {[["How often should I change filters?", "Every 6–9 months, depending on your water TDS and usage."], ["How much is installation?", "New RO installation is ₹399 — it includes a free site inspection, pipeline setup, a full demo and post-installation support."], ["What does AMC cover?", "Silver ₹999/yr: 2 visits. Gold ₹1,799/yr: 4 visits, free filters, deep cleaning, 20% off parts. Platinum ₹2,999/yr: 6 visits, all parts free, 30% off parts."], ["Is there a warranty on service?", "Yes — every repair and maintenance service has a 90-day warranty. If the same issue comes back, we fix it free."], ["How do I send a photo of my RO?", "While booking: Service → pick a service → 'Photos of your RO'. After booking: open the job in My Orders → Track Service → 'Add photo'. Or tap 📎 in Chat to send one to support."]].map(([q, a]) => (
+          {[["How often should I change filters?", "Every 6–9 months, depending on your water TDS and usage."], ["How much is installation?", "New RO installation is ₹399 — it includes a free site inspection, pipeline setup, a full demo and post-installation support."], ["What does AMC cover?", "Silver ₹999/yr: 2 visits. Gold ₹1,799/yr: 4 visits, free filters, deep cleaning, 20% off parts. Platinum ₹2,999/yr: 6 visits, all parts free, 30% off parts."], ["Is there a warranty on service?", "Yes — every repair and maintenance service has a 7-day warranty. If the same issue comes back, we fix it free."], ["How do I send a photo of my RO?", "While booking: Service → pick a service → 'Photos of your RO'. After booking: open the job in My Orders → Track Service → 'Add photo'. Or tap 📎 in Chat to send one to support."]].map(([q, a]) => (
             <div key={q} style={{ ...card, padding: 14 }}><p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{q}</p><p style={small}>{a}</p></div>
           ))}
           {HELPLINES.filter((h) => h.label !== "Technician help").map((h) => (

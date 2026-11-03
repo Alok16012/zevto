@@ -9,7 +9,7 @@ import TechAvatar, { photoToDataUrl } from "../components/TechAvatar";
 import { ServiceAreaEditor, ServiceAreaSummary } from "./ServiceArea";
 import { ReviewCard } from "../components/Reviews";
 import { inr, type Review, type Technician } from "../lib/data";
-import { PARTS, PAYOUT, jobPayout, todayIso, type Job } from "../lib/techData";
+import { PARTS, PAY, describeSchedule, jobPayout, payBreakdown, todayIso, type Job } from "../lib/techData";
 
 export interface Payout { id: string; period: string; amount: number; status: "Pending" | "Paid"; paidAt: string | null }
 export interface MyStockRequest { id: string; items: Record<string, number>; status: "Pending" | "Approved" | "Rejected"; at: string }
@@ -134,6 +134,7 @@ export function EarningsScreen({ jobs, payouts }: { jobs: Job[]; payouts: Payout
   const max = Math.max(...week.map((d) => d.amount), 1);
   const cash = doneToday.filter((j) => j.payment === "Cash").reduce((s, j) => s + (j.amc ? 0 : j.visitCharge), 0);
   const weekJobs = week.reduce((s, d) => s + d.jobs, 0);
+  const weekTravelKm = done.filter((j) => Date.now() - new Date(j.completedIso!).getTime() < 7 * 864e5).reduce((s, j) => s + payBreakdown(j).travelKm, 0);
 
   return (
     <div style={{ paddingBottom: 12 }}>
@@ -177,7 +178,8 @@ export function EarningsScreen({ jobs, payouts }: { jobs: Job[]; payouts: Payout
           {doneToday.length === 0 && <p style={{ margin: 0, padding: "16px 0", textAlign: "center", fontSize: 13, color: "var(--ink-mute)" }}>No completed jobs yet today.</p>}
         </div>
         <p style={{ ...small, fontSize: 11.5, margin: "8px 4px 0" }}>
-          You keep {PAYOUT.visitShare * 100}% of the visit charge (₹{PAYOUT.freeJobFee} for free installs &amp; AMC visits) plus {PAYOUT.partsCommission * 100}% on parts.
+          Your pay ({PAY.name}): {describeSchedule(PAY)}.{PAY.km_rate > 0 && weekTravelKm > 0 ? ` ${Math.round(weekTravelKm)} km travelled in the last 7 days.` : ""}
+          {PAY.pay_basis !== "Commission" && " Salary is paid monthly, on top of the amounts above."}
         </p>
 
         <h3 style={sectionTitle}>Weekly payouts</h3>

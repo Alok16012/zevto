@@ -98,7 +98,7 @@ export default async function BillPage({ params, searchParams }: { params: Promi
         )}
 
         <p style={{ margin: "16px 2px 0", fontSize: 12, lineHeight: 1.6, color: "var(--ink-mute)" }}>
-          Repairs and maintenance carry a 90-day service warranty; spare parts and filters carry a 10-day warranty. Questions? WhatsApp {COMPANY.whatsapp}.
+          Repairs and maintenance carry a 7-day service warranty; spare parts and filters carry a 7-day warranty. Questions? WhatsApp {COMPANY.whatsapp}.
         </p>
       </main>
     </div>

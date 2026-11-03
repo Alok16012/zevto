@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Toggle } from "../components/ui";
 import { fmtDay } from "../lib/catalog";
 import { PRODUCTS, inr, type Product } from "../lib/data";
 import { friendly, supabaseFor, useLive } from "../lib/supabase";
+import { invoiceNotSetUp, isInvoiceTableMissing, loadInvoiceSetup, type InvoiceTerms } from "../lib/invoiceSettings";
 import { printBill } from "./printBill";
 import { Badge, Btn, Filter, Modal, Panel, SearchBox, Stat, Table, fieldLabel, input, muted, type Tone } from "./kit";
 
@@ -22,7 +23,7 @@ export interface Party {
 interface BillLine { product_id: string; name: string; qty: number; rate: number }
 interface Bill {
   id: string; ref: string; kind: "Purchase" | "Sale"; party_id: string; bill_no: string; bill_date: string; items: BillLine[];
-  subtotal: number; tax: number; total: number; notes: string; status: "Posted" | "Cancelled"; cancel_reason: string; created_at: string;
+  subtotal: number; tax: number; total: number; notes: string; status: "Posted" | "Cancelled"; cancel_reason: string; terms_id: string | null; created_at: string;
 }
 interface Payment { id: string; party_id: string; kind: "Received" | "Paid"; amount: number; mode: string; reference: string; paid_on: string; notes: string; created_at: string }
 interface Books { parties: Party[]; bills: Bill[]; payments: Payment[] }
@@ -33,6 +34,13 @@ const MODES = ["Cash", "UPI", "Bank transfer", "Cheque", "Other"] as const;
 const WATCH = ["parties", "party_bills", "party_payments", "products"].map((table) => ({ table }));
 const today = () => new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
 const notSetUp = "Parties aren't set up yet — run supabase/parties-migration.sql in Supabase first.";
+
+/** Terms & conditions templates (Admin → Invoice Settings) and the default one. */
+function useTerms() {
+  const [setup, setSetup] = useState<{ terms: InvoiceTerms[]; def: string | null }>({ terms: [], def: null });
+  useEffect(() => { void loadInvoiceSetup().then((s) => setSetup({ terms: s.terms, def: s.settings.default_terms })); }, []);
+  return setup;
+}
 
 async function loadBooks(sb: SupabaseClient): Promise<Books> {
   const [parties, bills, payments] = await Promise.all([
@@ -293,6 +301,9 @@ function BillModal({ kind, partyId, parties, onClose, onSaved, notify }: {
   const [lines, setLines] = useState<{ product: string; qty: string; rate: string }[]>([{ product: "", qty: "1", rate: "" }]);
   const [tax, setTax] = useState("");
   const [notes, setNotes] = useState("");
+  const termsSetup = useTerms();
+  const [termsId, setTermsId] = useState<string | null>(null);
+  const terms = termsId ?? termsSetup.def ?? "";
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -328,8 +339,14 @@ function BillModal({ kind, partyId, parties, onClose, onSaved, notify }: {
       p_kind: kind, p_party: party, p_bill_no: billNo, p_bill_date: date,
       p_items: used.map((l) => ({ product_id: l.product, qty: num(l.qty), rate: num(l.rate) })), p_tax: num(tax), p_notes: notes,
     });
+    if (error) { setBusy(false); const m = /admin_post_bill/.test(error.message) ? notSetUp : friendly(error); setErr(m); notify(m, true); return; }
+    // Stored on the bill so changing the default later doesn't change old bills.
+    if (terms) {
+      const { data: row } = await supabaseFor("admin").from("party_bills").select("id").eq("ref", data as string).single();
+      const { error: tErr } = row ? await supabaseFor("admin").rpc("admin_set_bill_terms", { p_bill: row.id, p_terms: terms }) : { error: null };
+      if (tErr) notify(`${data} saved, but its terms weren't: ${isInvoiceTableMissing(tErr.message) ? invoiceNotSetUp : friendly(tErr)}`, true);
+    }
     setBusy(false);
-    if (error) { const m = /admin_post_bill/.test(error.message) ? notSetUp : friendly(error); setErr(m); notify(m, true); return; }
     onSaved(`${kind} ${data} saved — stock ${kind === "Sale" ? "reduced" : "added"}`);
   };
 
@@ -378,6 +395,13 @@ function BillModal({ kind, partyId, parties, onClose, onSaved, notify }: {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginTop: 14 }}>
         <label><span style={fieldLabel}>Tax / GST amount (₹)</span><input value={tax} onChange={(e) => setTax(e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="0" style={input} /></label>
         <label style={{ gridColumn: "span 2" }}><span style={fieldLabel}>Notes</span><input value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={500} style={input} /></label>
+        <label style={{ gridColumn: "1 / -1" }}><span style={fieldLabel}>Terms &amp; conditions</span>
+          <select value={terms} onChange={(e) => setTermsId(e.target.value)} style={input}>
+            {!termsSetup.def && <option value="">None</option>}
+            {termsSetup.terms.map((t) => <option key={t.id} value={t.id}>{t.name}{t.id === termsSetup.def ? " (default)" : ""}</option>)}
+          </select>
+          {!termsSetup.terms.length && <small style={muted}>Add terms templates in Invoice Settings → Terms &amp; Conditions.</small>}
+        </label>
       </div>
       <p style={{ margin: "14px 0 0", textAlign: "right", fontSize: 14 }}>Subtotal {inr(subtotal)} · Tax {inr(num(tax))} · <strong style={{ fontSize: 16 }}>Total {inr(total)}</strong></p>
       <p style={{ ...muted, margin: "6px 0 0", textAlign: "right" }}>{kind === "Sale" ? "Saving takes these units off stock and adds the total to the party's balance." : "Saving adds these units to stock and adds the total to what we owe the party."}</p>
@@ -446,6 +470,13 @@ function NewPartForm({ kind, taken, onCreated, onCancel, notify }: {
 
 function BillView({ bill, party, onClose, onCancelled, notify }: { bill: Bill; party?: Party; onClose: () => void; onCancelled: (m: string) => void; notify: (m: string, bad?: boolean) => void }) {
   const [busy, setBusy] = useState(false);
+  const termsSetup = useTerms();
+  const [termsId, setTermsId] = useState(bill.terms_id);
+  const pickTerms = async (id: string | null) => {
+    const { error } = await supabaseFor("admin").rpc("admin_set_bill_terms", { p_bill: bill.id, p_terms: id });
+    if (error) { notify(isInvoiceTableMissing(error.message) ? invoiceNotSetUp : friendly(error), true); return; }
+    setTermsId(id); notify(id ? "Terms saved on this bill" : "Bill will print the default terms");
+  };
   const cancel = async () => {
     const reason = prompt(`Cancel ${bill.ref}? Stock will be ${bill.kind === "Sale" ? "added back" : "taken off again"}.\n\nReason (optional):`);
     if (reason === null) return;
@@ -457,7 +488,7 @@ function BillView({ bill, party, onClose, onCancelled, notify }: { bill: Bill; p
   };
   return (
     <Modal title={`${bill.kind} ${bill.ref}`} onClose={onClose}
-      footer={<>{bill.status === "Posted" && <Btn kind="danger" disabled={busy} onClick={() => void cancel()}>{busy ? "Cancelling…" : "Cancel bill"}</Btn>}<Btn kind="ghost" onClick={() => printBill(bill, party)}>🖨 Print / PDF</Btn><Btn onClick={onClose}>Done</Btn></>}>
+      footer={<>{bill.status === "Posted" && <Btn kind="danger" disabled={busy} onClick={() => void cancel()}>{busy ? "Cancelling…" : "Cancel bill"}</Btn>}<Btn kind="ghost" onClick={() => printBill({ ...bill, terms_id: termsId }, party)}>🖨 Print / PDF</Btn><Btn onClick={onClose}>Done</Btn></>}>
       <p style={{ margin: "0 0 12px", fontSize: 13.5, lineHeight: 1.6 }}>
         <strong>{party?.name ?? "—"}</strong> {party && <Badge tone={TYPE_TONE[party.type]}>{party.type}</Badge>}<br />
         {fmtDay(bill.bill_date)}{bill.bill_no && ` · Bill no. ${bill.bill_no}`} · <Badge tone={bill.status === "Posted" ? "green" : "grey"}>{bill.status}</Badge>
@@ -472,6 +503,14 @@ function BillView({ bill, party, onClose, onCancelled, notify }: { bill: Bill; p
         ]} />
       <p style={{ margin: "12px 0 0", textAlign: "right", fontSize: 14 }}>Subtotal {inr(bill.subtotal)} · Tax {inr(bill.tax)} · <strong>Total {inr(bill.total)}</strong></p>
       {bill.notes && <p style={{ ...muted, margin: "8px 0 0" }}>Notes: {bill.notes}</p>}
+      {termsSetup.terms.length > 0 && (
+        <label style={{ display: "block", marginTop: 12 }}><span style={fieldLabel}>Terms &amp; conditions on this bill</span>
+          <select value={termsId ?? ""} onChange={(e) => void pickTerms(e.target.value || null)} style={input}>
+            <option value="">{termsSetup.def ? `Default (${termsSetup.terms.find((t) => t.id === termsSetup.def)?.name ?? "—"})` : "None"}</option>
+            {termsSetup.terms.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </label>
+      )}
     </Modal>
   );
 }
