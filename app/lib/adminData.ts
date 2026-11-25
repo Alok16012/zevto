@@ -66,6 +66,8 @@ export interface AdminJob {
   pincode: string;
   techId: string | null;
   preferredTechId: string | null;
+  /** Dealer ops handed the job to; they pick the technician. */
+  dealerId: string | null;
   status: AdminJobStatus;
   amount: number;
   rating?: number;
@@ -285,7 +287,7 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
     })),
     jobs: requests.map((r) => ({
       id: r.id, ref: r.ref, customerId: r.customer_id ?? "", type: r.type, product: r.product, date: fmtDay(r.visit_date), isoDate: r.visit_date,
-      slot: r.slot, area: areaOf(r.address, r.pincode), pincode: r.pincode, techId: r.tech_id, preferredTechId: r.preferred_tech_id,
+      slot: r.slot, area: areaOf(r.address, r.pincode), pincode: r.pincode, techId: r.tech_id, preferredTechId: r.preferred_tech_id, dealerId: r.dealer_id ?? null,
       status: jobStatus(r), amount: r.amount, rating: r.rating ?? undefined,
       note: r.reschedule_reason ?? r.note ?? (r.description || undefined),
       customerLabel: r.customer_name, customerPhone: r.customer_phone,

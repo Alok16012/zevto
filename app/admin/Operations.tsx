@@ -92,9 +92,10 @@ type JobFilter = "All" | AdminJobStatus;
 const FILTERS: JobFilter[] = ["All", "Unassigned", "Awaiting tech", "Assigned", "On the way", "In Progress", "Rescheduled", "Completed", "Cancelled"];
 const ACTIVE: AdminJobStatus[] = ["Assigned", "On the way", "Arrived", "In Progress"];
 
-export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onCancel, onCreateTask }: {
+export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onAssignDealer, onCancel, onCreateTask }: {
   jobs: AdminJob[]; customers: AdminCustomer[]; techs: AdminTech[]; dealers: Dealer[];
-  onAssign: (j: AdminJob, techId: string, isoDate: string) => Promise<void>; onCancel: (j: AdminJob) => Promise<void>;
+  onAssign: (j: AdminJob, techId: string, isoDate: string) => Promise<void>;
+  onAssignDealer: (j: AdminJob, dealerId: string, isoDate: string) => Promise<void>; onCancel: (j: AdminJob) => Promise<void>;
   onCreateTask: (t: NewAdminTask) => Promise<boolean>;
 }) {
   const [f, setF] = useState<JobFilter>("All");
@@ -141,7 +142,8 @@ export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onC
           </> },
           { key: "w", head: "When", render: (j) => <>{j.isoDate === today ? "Today" : j.date}<div style={muted}>{j.slot}</div></> },
           { key: "t", head: "Technician", render: (j) => techName(j.techId)
-            ?? (j.preferredTechId ? <span style={{ color: "var(--warning-text)", fontWeight: 600 }}>Asked {techName(j.preferredTechId) ?? "a technician"}</span>
+            ?? (j.dealerId ? <span style={{ color: "var(--warning-text)", fontWeight: 600 }}>With dealer {dealerName(j.dealerId) ?? ""}</span>
+              : j.preferredTechId ? <span style={{ color: "var(--warning-text)", fontWeight: 600 }}>Asked {techName(j.preferredTechId) ?? "a technician"}</span>
               : <span style={{ color: "var(--error-text)", fontWeight: 600 }}>Not assigned</span>) },
           { key: "s", head: "Status", render: (j) => <><Badge tone={JOB_TONE[j.status]}>{j.status}</Badge>{j.note && <div style={{ ...muted, marginTop: 3, maxWidth: 220 }}>{j.note}</div>}</> },
           { key: "o", head: "Codes", render: (j) => j.startCode ? (
@@ -168,18 +170,22 @@ export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onC
       {creating && <NewTaskModal customers={customers} techs={techs} onClose={() => setCreating(false)}
         onCreate={async (t) => { if (await onCreateTask(t)) setCreating(false); }} />}
       {assigning && (
-        <AssignModal job={assigning} techs={techs} jobs={jobs} onClose={() => setAssigning(null)}
-          onAssign={(techId, isoDate) => { void onAssign(assigning, techId, isoDate); setAssigning(null); }} />
+        <AssignModal job={assigning} techs={techs} dealers={dealers} jobs={jobs} onClose={() => setAssigning(null)}
+          onAssign={(techId, isoDate) => { void onAssign(assigning, techId, isoDate); setAssigning(null); }}
+          onAssignDealer={(dealerId, isoDate) => { void onAssignDealer(assigning, dealerId, isoDate); setAssigning(null); }} />
       )}
     </div>
   );
 }
 
-function AssignModal({ job, techs, jobs, onClose, onAssign }: {
-  job: AdminJob; techs: AdminTech[]; jobs: AdminJob[]; onClose: () => void; onAssign: (techId: string, isoDate: string) => void;
+function AssignModal({ job, techs, dealers, jobs, onClose, onAssign, onAssignDealer }: {
+  job: AdminJob; techs: AdminTech[]; dealers: Dealer[]; jobs: AdminJob[]; onClose: () => void;
+  onAssign: (techId: string, isoDate: string) => void; onAssignDealer: (dealerId: string, isoDate: string) => void;
 }) {
   const eligible = techs.filter((t) => t.active && t.kyc === "Verified");
+  const [mode, setMode] = useState<"tech" | "dealer">(job.dealerId && !job.techId ? "dealer" : "tech");
   const [pick, setPick] = useState<string | null>(job.techId ?? job.preferredTechId);
+  const [dealerPick, setDealerPick] = useState<string | null>(job.dealerId);
   // Rescheduled jobs need a new day; never offer a day that has passed.
   const firstDay = job.status === "Rescheduled" || job.isoDate < isoDay() ? isoDay(1) : job.isoDate;
   const days = Array.from(new Set([firstDay, isoDay(1), isoDay(2), isoDay(3)])).filter((d) => d >= isoDay()).slice(0, 4);
@@ -191,12 +197,28 @@ function AssignModal({ job, techs, jobs, onClose, onAssign }: {
   const ranked = [...eligible].sort((a, b) =>
     Number(covers(b)) - Number(covers(a)) || Number(primary(b)) - Number(primary(a)) || load(a.id) - load(b.id) || b.rating - a.rating);
 
+  const liveDealers = dealers.filter((d) => d.active && d.kyc === "Verified");
+  const team = (d: Dealer) => techs.filter((t) => t.dealerId === d.id && t.active && t.kyc === "Verified").length;
+  const dealerLoad = (id: string) => jobs.filter((j) => j.dealerId === id && !j.techId && j.status === "Unassigned").length;
+  const dealerCovers = (d: Dealer) => d.pincodes.includes(job.pincode);
+  // Dealers who serve the pincode first, then those with a team, then the least backed-up.
+  const rankedDealers = [...liveDealers].sort((a, b) =>
+    Number(dealerCovers(b)) - Number(dealerCovers(a)) || Number(team(b) > 0) - Number(team(a) > 0) || dealerLoad(a.id) - dealerLoad(b.id));
+  const tab = (m: "tech" | "dealer", label: string) => (
+    <button key={m} onClick={() => setMode(m)} aria-pressed={mode === m} style={{ flex: 1, padding: "8px 0", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "none", background: mode === m ? "var(--surface)" : "transparent", color: mode === m ? "var(--ink)" : "var(--text-secondary)", boxShadow: mode === m ? "0 1px 3px rgba(0,0,0,.12)" : "none" }}>{label}</button>
+  );
+
   return (
     <Modal title={`Assign #${job.ref} · ${job.type}`} onClose={onClose} footer={<>
       <Btn kind="ghost" onClick={onClose}>Cancel</Btn>
-      <Btn disabled={!pick} onClick={() => pick && onAssign(pick, date)}>Assign technician</Btn>
+      {mode === "tech"
+        ? <Btn disabled={!pick} onClick={() => pick && onAssign(pick, date)}>Assign technician</Btn>
+        : <Btn disabled={!dealerPick} onClick={() => dealerPick && onAssignDealer(dealerPick, date)}>Send to dealer</Btn>}
     </>}>
       <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--ink-soft)" }}>{job.product} · {job.area} · pincode {job.pincode} · {job.slot}</p>
+      <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 12, background: "var(--line)", marginBottom: 12 }}>
+        {tab("tech", "Technician")}{tab("dealer", "Dealer")}
+      </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
         {days.map((d) => (
           <button key={d} onClick={() => setDate(d)} aria-pressed={date === d} style={{ flex: 1, padding: "7px 0", borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: "pointer", border: date === d ? "1.5px solid var(--blue)" : "1.5px solid var(--line)", background: date === d ? "var(--blue-tint)" : "var(--surface)", color: date === d ? "var(--blue)" : "var(--text-secondary)" }}>
@@ -204,8 +226,9 @@ function AssignModal({ job, techs, jobs, onClose, onAssign }: {
           </button>
         ))}
       </div>
-      {eligible.length === 0 && <p style={{ ...muted, fontSize: 13 }}>No verified technicians yet. Add one under People → Technicians.</p>}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {mode === "tech" && eligible.length === 0 && <p style={{ ...muted, fontSize: 13 }}>No verified technicians yet. Add one under People → Technicians.</p>}
+      {mode === "dealer" && <DealerList dealers={rankedDealers} pick={dealerPick} onPick={setDealerPick} pincode={job.pincode} team={team} load={dealerLoad} />}
+      {mode === "tech" && <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {ranked.map((t, i) => {
           const n = load(t.id);
           return (
@@ -229,7 +252,7 @@ function AssignModal({ job, techs, jobs, onClose, onAssign }: {
             </button>
           );
         })}
-      </div>
+      </div>}
     </Modal>
   );
 }
@@ -313,5 +336,40 @@ function NewTaskModal({ customers, techs, onClose, onCreate }: {
       {err && (name || address || pincode) ? <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>
         : <p style={{ ...muted, margin: "10px 0 0" }}>{customerId ? "The customer gets start and close codes in their app." : "Not an app customer, so no codes are needed."}</p>}
     </Modal>
+  );
+}
+
+function DealerList({ dealers, pick, onPick, pincode, team, load }: {
+  dealers: Dealer[]; pick: string | null; onPick: (id: string) => void; pincode: string;
+  team: (d: Dealer) => number; load: (id: string) => number;
+}) {
+  if (!dealers.length) return <p style={{ ...muted, fontSize: 13 }}>No verified dealers yet. Add or verify one under People → Dealers.</p>;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <p style={{ ...muted, margin: 0, fontSize: 12.5 }}>The dealer gets a notification and assigns one of their own technicians.</p>
+      {dealers.map((d, i) => {
+        const covers = d.pincodes.includes(pincode);
+        const size = team(d);
+        return (
+          <button key={d.id} onClick={() => onPick(d.id)} aria-pressed={pick === d.id} style={{
+            display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 12, cursor: "pointer", textAlign: "left",
+            border: pick === d.id ? "2px solid var(--blue)" : "2px solid var(--line)", background: pick === d.id ? "var(--blue-tint)" : "var(--surface)",
+          }}>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: "block", fontSize: 13.5, fontWeight: 600 }}>
+                {d.name} <span style={{ ...muted, fontWeight: 500 }}>{d.code}</span> {i === 0 && covers && size > 0 && <Badge tone="green">Best match</Badge>}
+              </span>
+              <span style={{ ...muted, color: covers ? "var(--success-text)" : "var(--ink-mute)" }}>
+                {d.city ? `${d.city} · ` : ""}{covers ? `Covers ${pincode}` : `Doesn't cover ${pincode}`}
+              </span>
+            </span>
+            <span style={{ textAlign: "right" }}>
+              <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: size ? "var(--ink)" : "var(--error-text)" }}>{size ? `${size} technician${size > 1 ? "s" : ""}` : "No team yet"}</span>
+              <span style={muted}>{load(d.id)} waiting</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }

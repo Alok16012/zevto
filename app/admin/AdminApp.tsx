@@ -94,8 +94,16 @@ export default function AdminApp() {
     const t = data?.techs.find((x) => x.id === techId);
     await act(() => sb().from("service_requests").update({
       tech_id: techId, preferred_tech_id: null, status: "Assigned", assigned_at: new Date().toISOString(), visit_date: isoDate,
-      reschedule_reason: null, trip_started_at: null,
+      reschedule_reason: null, trip_started_at: null, ...(j.dealerId ? { dealer_id: null } : {}),
     }).eq("id", j.id), `#${j.ref} assigned to ${t?.name ?? "technician"} — they and the customer are notified`);
+  };
+  /** The dealer sees the job in their app and assigns someone on their team. */
+  const assignJobToDealer = async (j: AdminJob, dealerId: string, isoDate: string) => {
+    const d = data?.dealers.find((x) => x.id === dealerId);
+    await act(() => sb().from("service_requests").update({
+      dealer_id: dealerId, tech_id: null, preferred_tech_id: null, status: "With ops", assigned_at: null, visit_date: isoDate,
+      reschedule_reason: null, trip_started_at: null, note: `Sent to dealer ${d?.name ?? ""}`.trim(),
+    }).eq("id", j.id), `#${j.ref} sent to ${d?.name ?? "dealer"} — they'll assign a technician`);
   };
   const cancelJob = async (j: AdminJob) => {
     await act(() => sb().from("service_requests").update({ status: "Cancelled" }).eq("id", j.id), `#${j.ref} cancelled`);
@@ -293,7 +301,7 @@ export default function AdminApp() {
             {section === "dashboard" && <Dashboard orders={orders} jobs={jobs} customers={customers} techs={techs} products={products} reviews={reviews} go={go} />}
             {section === "support" && <SupportSection customers={customers} notify={notify} />}
             {section === "orders" && <OrdersSection orders={orders} customers={customers} onStatus={setOrderStatus} />}
-            {section === "services" && <ServicesSection jobs={jobs} customers={customers} techs={techs} dealers={dealers} onAssign={assignJob} onCancel={cancelJob} onCreateTask={createTask} />}
+            {section === "services" && <ServicesSection jobs={jobs} customers={customers} techs={techs} dealers={dealers} onAssign={assignJob} onAssignDealer={assignJobToDealer} onCancel={cancelJob} onCreateTask={createTask} />}
             {section === "customers" && (
               <CustomersSection customers={customers} orders={orders} jobs={jobs} onBlock={blockCustomer} onCredit={creditCustomer}
                 onResetPassword={async (id, password) => {

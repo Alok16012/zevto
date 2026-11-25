@@ -21,7 +21,9 @@ export interface DbRequest {
   id: string; ref: string; customer_id: string | null; customer_name: string; customer_phone: string; address: string; pincode: string;
   lat: number | null; lng: number | null; type: ServiceType; product: string; visit_date: string; slot: string; description: string;
   photos: string[]; price: number; coupon: string | null; discount: number; amount: number; status: JobState;
-  preferred_tech_id: string | null; tech_id: string | null; source: "customer" | "technician" | "admin" | "dealer"; raised_by: string | null;
+  preferred_tech_id: string | null; tech_id: string | null;
+  /** Dealer ops handed the job to (null until supabase/dealer-dispatch-migration.sql is run). */
+  dealer_id?: string | null; source: "customer" | "technician" | "admin" | "dealer"; raised_by: string | null;
   /** Dealer who raised the task (dealer tasks only). */
   raised_dealer?: string | null;
   /** Secret for the shareable bill link. */

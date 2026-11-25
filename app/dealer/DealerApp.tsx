@@ -227,7 +227,7 @@ export default function DealerApp({ roleSwitch }: { roleSwitch?: React.ReactNode
           onAdd={() => push({ k: "listing" })} onEdit={(id) => push({ k: "listing", id })}
           onToggle={(l, a) => void toggleListing(l, a)} onStock={(l, n) => void setStock(l, n)} />
       )}
-      {!detail && tab === "orders" && <DealerOrdersScreen orders={data.orders} onOpen={(id) => push({ k: "order", id })} />}
+      {!detail && tab === "orders" && <DealerOrdersScreen earnings orders={data.orders} onOpen={(id) => push({ k: "order", id })} />}
       {!detail && tab === "jobs" && <JobsScreen jobs={data.jobs} team={data.team} verified={verified} onOpen={(id) => push({ k: "job", id })} onNewTask={() => push({ k: "newTask" })} />}
       {!detail && tab === "shop" && <DealerShopScreen purchases={data.purchases} verified={verified} onBuy={() => push({ k: "buy" })} onCancel={cancelPurchase} />}
       {!detail && tab === "profile" && <DealerProfileScreen data={data} onOpen={(p) => push({ k: "page", p })} onLogout={logout} />}

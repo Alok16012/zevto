@@ -1,6 +1,6 @@
 "use client";
 
-import { BagIcon, BoxIcon, CartIcon, StoreIcon, WrenchIcon } from "../icons";
+import { BoxIcon, CartIcon, StoreIcon, WalletIcon, WrenchIcon } from "../icons";
 
 export type DealerTab = "home" | "listings" | "orders" | "jobs" | "shop" | "profile";
 
@@ -13,7 +13,8 @@ const ProfileGlyph = ({ s = 22, c = "currentColor" }: { s?: number; c?: string }
 const tabs: { id: DealerTab; label: string; Icon: (p: { s?: number; c?: string; w?: number }) => React.ReactElement }[] = [
   { id: "home", label: "Home", Icon: StoreIcon },
   { id: "listings", label: "Listings", Icon: BoxIcon },
-  { id: "orders", label: "Orders", Icon: BagIcon },
+  // Customer orders and what they earned, in one place.
+  { id: "orders", label: "Earnings", Icon: WalletIcon },
   { id: "jobs", label: "Jobs", Icon: WrenchIcon },
   { id: "shop", label: "Shop", Icon: CartIcon },
   { id: "profile", label: "Profile", Icon: ProfileGlyph },

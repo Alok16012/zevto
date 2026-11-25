@@ -196,8 +196,10 @@ function OrderCard({ order: o, onOpen }: { order: ShopOrder; onOpen: () => void 
 
 type OrderFilter = "open" | DealerOrderStatus | "all";
 
-export function DealerOrdersScreen({ orders, onOpen, onBack, empty = "When a customer in your pincodes buys one of your live listings, the order lands here." }: {
+export function DealerOrdersScreen({ orders, onOpen, onBack, earnings = false, empty = "When a customer in your pincodes buys one of your live listings, the order lands here." }: {
   orders: ShopOrder[]; onOpen: (id: string) => void; onBack?: () => void; empty?: string;
+  /** Dealer's Earnings tab: what they earned on top, the orders behind it below. */
+  earnings?: boolean;
 }) {
   const [f, setF] = useState<OrderFilter>("open");
   const count = (s: DealerOrderStatus) => orders.filter((o) => o.status === s).length;
@@ -205,8 +207,10 @@ export function DealerOrdersScreen({ orders, onOpen, onBack, empty = "When a cus
 
   return (
     <div>
-      <PageHeader title="Orders" onBack={onBack} />
+      <PageHeader title={earnings ? "Earnings" : "Orders"} onBack={onBack} />
       <div style={{ padding: "0 16px 24px" }}>
+        {earnings && <EarningsCard orders={orders} />}
+        {earnings && <h3 style={{ ...sectionH, marginTop: 18 }}>Orders</h3>}
         <Chips<OrderFilter> value={f} onChange={setF} items={[
           { id: "open", label: "Open", count: count("New") + count("Accepted") + count("Shipped") },
           { id: "New", label: "New", count: count("New") },
@@ -219,6 +223,29 @@ export function DealerOrdersScreen({ orders, onOpen, onBack, empty = "When a cus
           {orders.length > 0 && rows.length === 0 && <p style={{ textAlign: "center", color: "var(--ink-soft)", fontSize: 13.5, padding: "30px 0" }}>Nothing here.</p>}
           {rows.map((o) => <OrderCard key={o.id} order={o} onOpen={() => onOpen(o.id)} />)}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Money from customer orders: delivered ones are earned, open ones are on the way. */
+function EarningsCard({ orders }: { orders: ShopOrder[] }) {
+  const delivered = orders.filter((o) => o.status === "Delivered");
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const month = delivered.filter((o) => o.updated_at >= monthStart).reduce((s, o) => s + o.amount, 0);
+  const total = delivered.reduce((s, o) => s + o.amount, 0);
+  const coming = orders.filter((o) => ["New", "Accepted", "Shipped"].includes(o.status)).reduce((s, o) => s + o.amount, 0);
+  return (
+    <div style={{ borderRadius: 20, padding: "16px 18px", color: "white", background: "var(--header-gradient, linear-gradient(135deg, #03505e, #00869e))", boxShadow: "var(--shadow-card)" }}>
+      <p style={{ margin: 0, fontSize: 12, color: "rgba(255,255,255,0.75)" }}>Earned this month</p>
+      <p style={{ margin: "2px 0 12px", fontSize: 28, fontWeight: 800 }}>{inr(month)}</p>
+      <div style={{ display: "flex", borderTop: "1px solid rgba(255,255,255,0.18)", paddingTop: 10 }}>
+        {([["All-time earned", inr(total)], ["Orders delivered", String(delivered.length)], ["On the way", inr(coming)]] as const).map(([l, v], i) => (
+          <div key={l} style={{ flex: 1, borderLeft: i ? "1px solid rgba(255,255,255,0.18)" : "none", paddingLeft: i ? 10 : 0 }}>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{v}</p>
+            <p style={{ margin: "2px 0 0", fontSize: 11, color: "rgba(255,255,255,0.75)" }}>{l}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -343,6 +370,7 @@ function JobCard({ job: j, tech, onOpen }: { job: DbRequest; tech?: DbTechnician
         <span style={{ display: "flex", alignItems: "center", gap: 4 }}><PinIcon s={14} c="var(--ink-mute)" />{j.pincode}</span>
         <span>{tech ? `👷 ${tech.name}` : "Not assigned"}</span>
       </div>
+      {!j.tech_id && j.dealer_id && <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 600, color: "var(--orange)" }}>📌 Sent to you by Zavtoo · assign someone from your team</p>}
     </button>
   );
 }

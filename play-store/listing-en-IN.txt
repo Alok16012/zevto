@@ -1,0 +1,37 @@
+APP NAME
+Zavtoo: RO Service & Parts
+
+SHORT DESCRIPTION
+Book RO service, shop purifiers and spare parts, and manage technician visits.
+
+FULL DESCRIPTION
+Zavtoo brings water purifier shopping and service management into one app for customers, technicians and RO dealers.
+
+FOR CUSTOMERS
+• Browse RO water purifiers and spare parts.
+• Request repair, installation, filter replacement and other available services.
+• Choose a service address and appointment slot.
+• View your orders, service history and booking status.
+• Track your assigned technician during an active ride when location sharing is available.
+• Send support messages and choose photos to explain an RO issue.
+• Manage saved addresses and account details.
+
+FOR TECHNICIANS
+• View assigned jobs and customer service details.
+• Manage service areas and update job progress.
+• Share live location during an active ride with permission.
+• Manage parts, stock requests and earnings records.
+
+FOR DEALERS
+• Manage shop information, product listings and orders.
+• Coordinate technicians and service work.
+• Review business and settlement records.
+
+An internet connection is required. Service availability, products and appointment slots depend on your location and the available technician or dealer network. Technician and dealer access may require Zavtoo verification.
+
+Location is used for address selection and active technician tracking with permission. Camera and photo access are used when you choose to add a picture. You can manage these permissions in your device settings.
+
+Support: Paanifilter9@gmail.com
+Website: https://zavtoo.in
+Privacy policy: https://zavtoo.in/privacy-policy
+Account deletion: https://zavtoo.in/delete-account

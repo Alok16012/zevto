@@ -480,6 +480,9 @@ create table if not exists public.service_requests (
 create index if not exists sr_customer_idx on public.service_requests (customer_id, created_at desc);
 create index if not exists sr_tech_idx on public.service_requests (tech_id, visit_date);
 create index if not exists sr_pref_idx on public.service_requests (preferred_tech_id) where status = 'Requested';
+-- Set when ops hands the job to a dealer, who then assigns someone on their team.
+alter table public.service_requests add column if not exists dealer_id uuid references public.dealers (id) on delete set null;
+create index if not exists sr_dealer_idx on public.service_requests (dealer_id) where dealer_id is not null;
 drop trigger if exists sr_touch on public.service_requests;
 create trigger sr_touch before update on public.service_requests for each row execute function public.touch_updated_at();
 
@@ -1052,21 +1055,25 @@ create trigger orders_cancel_dealers after update of status on public.orders
   for each row when (new.status = 'Cancelled' and old.status is distinct from 'Cancelled')
   execute function public.on_order_cancel_dealers();
 
--- Which service jobs a dealer may see: their technicians' jobs, plus unassigned
--- jobs in their pincodes that are waiting for someone.
-create or replace function public.dealer_sees_job(p_tech uuid, p_preferred uuid, p_status text, p_pincode text) returns boolean
+-- Which service jobs a dealer may see: jobs ops gave them, their technicians'
+-- jobs, plus unassigned jobs in their pincodes that no dealer has been given.
+create or replace function public.dealer_sees_job(p_tech uuid, p_preferred uuid, p_status text, p_pincode text, p_dealer uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from public.dealers d
     where d.user_id = auth.uid() and (
-      exists (select 1 from public.technicians t where t.id = coalesce(p_tech, p_preferred) and t.dealer_id = d.id)
-      or (d.active and d.kyc = 'Verified' and p_tech is null and p_pincode = any (d.pincodes)
+      p_dealer = d.id
+      or exists (select 1 from public.technicians t where t.id = coalesce(p_tech, p_preferred) and t.dealer_id = d.id)
+      or (d.active and d.kyc = 'Verified' and p_tech is null and p_dealer is null and p_pincode = any (d.pincodes)
           and (p_status = 'With ops' or (p_status = 'Requested' and p_preferred is null)))
     )
   )
 $$;
+drop policy if exists "see jobs" on public.service_requests;
+drop function if exists public.dealer_sees_job(uuid, uuid, text, text);
 
--- Dealer dispatch: give an open job in their area (or one of their team's jobs) to one of their technicians.
+-- Dealer dispatch: give a job ops handed them, an open job in their area, or one
+-- of their team's jobs to one of their technicians.
 create or replace function public.dealer_assign_job(p_request uuid, p_tech uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare d public.dealers; t public.technicians; r public.service_requests;
@@ -1081,13 +1088,15 @@ begin
   if not found then raise exception 'Job not found'; end if;
   if r.status not in ('Requested', 'With ops', 'Assigned', 'Rescheduled') then raise exception 'This job can''t be reassigned now'; end if;
   if not (
-    (r.tech_id is null and r.pincode = any (d.pincodes) and (r.status = 'With ops' or (r.status = 'Requested' and r.preferred_tech_id is null)))
+    r.dealer_id = d.id
+    or (r.tech_id is null and r.dealer_id is null and r.pincode = any (d.pincodes)
+        and (r.status = 'With ops' or (r.status = 'Requested' and r.preferred_tech_id is null)))
     or exists (select 1 from public.technicians x where x.id = r.tech_id and x.dealer_id = d.id)
   ) then
     raise exception 'This job isn''t open in your area';
   end if;
   update public.service_requests
-     set tech_id = t.id, preferred_tech_id = null, status = 'Assigned', assigned_at = now(), note = 'Assigned by ' || d.name
+     set tech_id = t.id, preferred_tech_id = null, dealer_id = d.id, status = 'Assigned', assigned_at = now(), note = 'Assigned by ' || d.name
    where id = r.id;
 end $$;
 
@@ -1172,7 +1181,7 @@ create trigger orders_notify after insert or update of status on public.orders f
 
 create or replace function public.on_request_change() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare v_link jsonb := jsonb_build_object('k', 'track', 'id', new.id); v_tech text;
+declare v_link jsonb := jsonb_build_object('k', 'track', 'id', new.id); v_tech text; v_dealer_user uuid;
 begin
   select split_part(name, ' ', 1) into v_tech from public.technicians where id = coalesce(new.tech_id, new.preferred_tech_id);
   v_tech := coalesce(v_tech, 'Your technician');
@@ -1182,6 +1191,13 @@ begin
       perform public.notify_user(new.preferred_tech_id, 'service', 'New job request', new.type || ' · ' || new.pincode || ' · ' || to_char(new.visit_date, 'DD Mon') || ', ' || new.slot, v_link);
     end if;
     return new;
+  end if;
+  if new.dealer_id is distinct from old.dealer_id and new.dealer_id is not null and new.tech_id is null then
+    select user_id into v_dealer_user from public.dealers where id = new.dealer_id;
+    if v_dealer_user is not null then
+      perform public.notify_user(v_dealer_user, 'service', 'New job from Zavtoo',
+        new.type || ' · ' || new.pincode || ' · ' || to_char(new.visit_date, 'DD Mon') || ', ' || new.slot || '. Assign it to your team.', v_link);
+    end if;
   end if;
   if new.tech_id is distinct from old.tech_id and new.tech_id is not null then
     perform public.notify_user(new.tech_id, 'service', 'Job assigned to you', new.type || ' · ' || new.customer_name || ' · ' || to_char(new.visit_date, 'DD Mon') || ', ' || new.slot, v_link);
@@ -1318,7 +1334,7 @@ create policy "staff update orders" on public.orders for update using (public.is
 create policy "see jobs" on public.service_requests for select using (
   customer_id = auth.uid() or tech_id = auth.uid() or raised_by = auth.uid()
   or (preferred_tech_id = auth.uid() and status = 'Requested') or public.is_staff()
-  or (public.is_dealer() and public.dealer_sees_job(tech_id, preferred_tech_id, status, pincode))
+  or (public.is_dealer() and public.dealer_sees_job(tech_id, preferred_tech_id, status, pincode, dealer_id))
 );
 create policy "staff dispatch" on public.service_requests for update using (public.is_staff()) with check (public.is_staff());
 

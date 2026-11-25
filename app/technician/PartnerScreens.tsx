@@ -19,8 +19,9 @@ const LOW_STOCK = 2;
 
 /* ───────────────────────── Van inventory ───────────────────────── */
 
-export function InventoryScreen({ stock, requests, onRequest }: {
-  stock: Record<string, number>; requests: MyStockRequest[]; onRequest: (items: Record<string, number>) => Promise<boolean>;
+/** Parts the technician carries for jobs. `embedded` drops the page header so it can sit inside the Shop tab. */
+export function InventoryScreen({ stock, requests, onRequest, embedded = false }: {
+  stock: Record<string, number>; requests: MyStockRequest[]; onRequest: (items: Record<string, number>) => Promise<boolean>; embedded?: boolean;
 }) {
   const [asking, setAsking] = useState(false);
   const [req, setReq] = useState<Record<string, number>>({});
@@ -35,8 +36,10 @@ export function InventoryScreen({ stock, requests, onRequest }: {
 
   return (
     <div style={{ paddingBottom: 12 }}>
-      <PageHeader title="Van Inventory" />
+      {!embedded && <PageHeader title="Van Inventory" />}
       <div style={{ padding: "0 16px" }}>
+        {embedded && <h3 style={{ ...sectionTitle, marginTop: 24 }}>Parts for your jobs (van stock)</h3>}
+        {embedded && <p style={{ ...small, fontSize: 12, margin: "0 4px 10px" }}>Spare parts you carry and fit on service jobs. Ask the Zavtoo warehouse to top them up.</p>}
         <div style={{ ...card, padding: "14px 16px", display: "flex" }}>
           {[[String(PARTS.reduce((s, p) => s + (stock[p.id] ?? 0), 0)), "Items in van"], [String(low.length), "Running low"], [inr(value), "Stock value"]].map(([v, l], i) => (
             <div key={l} style={{ flex: 1, textAlign: "center", borderRight: i < 2 ? "1px solid var(--border)" : "none" }}>

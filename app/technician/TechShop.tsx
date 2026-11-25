@@ -25,29 +25,28 @@ const partnerPrice = (p: Product) => p.tradePrice ?? p.price;
 export type Buyer = "technician" | "dealer";
 type BuyTab = Category | "pop";
 
-export function TechShopScreen({ listings, purchases, ordersBar, onBuy, onGallery, onPrice, onStock, onSelling, onCancelPurchase }: {
+/** Listing tab: the Zavtoo products this technician sells, customers' orders for them and the parts gallery. */
+export function TechListingScreen({ listings, purchases, ordersBar, onShop, onGallery, onPrice, onStock, onSelling }: {
   listings: DbTechListing[];
   purchases: DbTechPurchase[];
   /** Customers' orders summary. */
   ordersBar: React.ReactNode;
-  onBuy: () => void;
+  /** Go to the Shop tab to buy more stock. */
+  onShop: () => void;
   onGallery: () => void;
   onPrice: (l: DbTechListing, price: number) => Promise<boolean>;
   onStock: (l: DbTechListing, stock: number) => void;
   onSelling: (l: DbTechListing, selling: boolean) => void;
-  onCancelPurchase: (p: DbTechPurchase) => void;
 }) {
-  const pending = purchases.filter((p) => p.status === "Pending");
+  const coming = purchases.filter((p) => p.status === "Pending").length;
   const units = listings.reduce((n, l) => n + l.stock, 0);
 
   return (
     <div style={{ paddingBottom: 12 }}>
-      <PageHeader title="My Shop" right={
-        <button onClick={onBuy} className="press" style={{ border: "none", borderRadius: 999, background: "var(--blue)", color: "white", fontSize: 13, fontWeight: 700, padding: "8px 14px", cursor: "pointer" }}>+ Buy stock</button>
-      } />
+      <PageHeader title="My Listing" />
       <div style={{ padding: "0 16px" }}>
         <div style={{ ...card, padding: "14px 16px", display: "flex" }}>
-          {([["On sale", listings.filter(onSale).length], ["Units in hand", units], ["Coming", pending.length]] as const).map(([l, v], i) => (
+          {([["On sale", listings.filter(onSale).length], ["Units in hand", units], ["Coming", coming]] as const).map(([l, v], i) => (
             <div key={l} style={{ flex: 1, textAlign: "center", borderRight: i < 2 ? "1px solid var(--border)" : "none" }}>
               <p style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{v}</p>
               <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--text-muted)" }}>{l}</p>
@@ -55,39 +54,18 @@ export function TechShopScreen({ listings, purchases, ordersBar, onBuy, onGaller
           ))}
         </div>
         <p style={{ ...small, fontSize: 12, margin: "10px 4px 14px" }}>
-          Buy filters, membranes and spares from Zavtoo. Once delivered they show here, and customers in your pincodes can buy them from you in the Zavtoo app — you deliver and collect.
+          Products you sell. Customers in your pincodes can buy them from you in the Zavtoo app — you deliver and collect. Set your price and switch selling on or off.
         </p>
         {ordersBar}
 
         <h3 style={sectionH}>My products</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {listings.length === 0 && (
-            <Empty title="Nothing in your shop yet" body="Buy stock from Zavtoo. When ops deliver it, it shows here ready to sell."
-              action={<PrimaryButton onClick={onBuy} style={{ maxWidth: 220, margin: "0 auto" }}>Buy from Zavtoo</PrimaryButton>} />
+            <Empty title="Nothing listed yet" body="Buy stock from Zavtoo in the Shop tab. When it's delivered it shows here, ready to sell."
+              action={<PrimaryButton onClick={onShop} style={{ maxWidth: 220, margin: "0 auto" }}>Go to Shop</PrimaryButton>} />
           )}
           {listings.map((l) => <ListingCard key={l.id} listing={l} onPrice={onPrice} onStock={onStock} onSelling={onSelling} />)}
         </div>
-
-        {purchases.length > 0 && (
-          <>
-            <h3 style={sectionH}>Bought from Zavtoo</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {purchases.slice(0, 15).map((p) => (
-                <div key={p.id} style={{ ...card, padding: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <p style={{ margin: 0, flex: 1, fontSize: 13.5, fontWeight: 700 }}>#{p.ref} · {inr(p.amount)}</p>
-                    <Badge tone={PURCHASE_TONE[p.status]}>{PURCHASE_LABEL[p.status]}</Badge>
-                  </div>
-                  <p style={small}>{p.items.map((it) => `${it.name} × ${it.qty}`).join(", ")}</p>
-                  <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--ink-mute)" }}>{fmtStamp(p.created_at)}{p.note ? ` · ${p.note}` : ""}</p>
-                  {p.status === "Pending" && (
-                    <button onClick={() => onCancelPurchase(p)} style={{ marginTop: 8, background: "none", border: "none", padding: 0, color: "var(--red)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Cancel request</button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
 
         <button onClick={onGallery} className="press" style={{ ...card, width: "100%", marginTop: 18, padding: "12px 14px", border: "none", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 20 }}>🧰</span>
@@ -98,6 +76,61 @@ export function TechShopScreen({ listings, purchases, ordersBar, onBuy, onGaller
           <span aria-hidden style={{ color: "var(--ink-mute)", fontSize: 18 }}>›</span>
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Shop tab: what this technician buys from Zavtoo — stock to sell, and parts for their van (`vanParts`). */
+export function TechBuyScreen({ purchases, onBuy, onCancelPurchase, vanParts }: {
+  purchases: DbTechPurchase[];
+  onBuy: () => void;
+  onCancelPurchase: (p: DbTechPurchase) => void;
+  vanParts: React.ReactNode;
+}) {
+  const pending = purchases.filter((p) => p.status === "Pending");
+  const spent = purchases.filter((p) => p.status === "Delivered").reduce((s, p) => s + p.amount, 0);
+
+  return (
+    <div style={{ paddingBottom: 12 }}>
+      <PageHeader title="Zavtoo Shop" right={
+        <button onClick={onBuy} className="press" style={{ border: "none", borderRadius: 999, background: "var(--blue)", color: "white", fontSize: 13, fontWeight: 700, padding: "8px 14px", cursor: "pointer" }}>+ Buy</button>
+      } />
+      <div style={{ padding: "0 16px" }}>
+        <div style={{ ...card, padding: "14px 16px", display: "flex" }}>
+          {([["Orders", purchases.length], ["Coming", pending.length], ["Bought", inr(spent)]] as const).map(([l, v], i) => (
+            <div key={l} style={{ flex: 1, textAlign: "center", borderRight: i < 2 ? "1px solid var(--border)" : "none" }}>
+              <p style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{v}</p>
+              <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--text-muted)" }}>{l}</p>
+            </div>
+          ))}
+        </div>
+        <p style={{ ...small, fontSize: 12, margin: "10px 4px 14px" }}>
+          Buy purifiers, filters, membranes and spares from Zavtoo at partner prices. Once delivered they move to your Listing, ready to sell.
+        </p>
+        <PrimaryButton onClick={onBuy}>Buy from Zavtoo</PrimaryButton>
+
+        <h3 style={sectionH}>Bought from Zavtoo</h3>
+        {purchases.length === 0 ? (
+          <Empty title="No orders yet" body="What you order from Zavtoo shows here with its status." />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {purchases.slice(0, 15).map((p) => (
+              <div key={p.id} style={{ ...card, padding: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <p style={{ margin: 0, flex: 1, fontSize: 13.5, fontWeight: 700 }}>#{p.ref} · {inr(p.amount)}</p>
+                  <Badge tone={PURCHASE_TONE[p.status]}>{PURCHASE_LABEL[p.status]}</Badge>
+                </div>
+                <p style={small}>{p.items.map((it) => `${it.name} × ${it.qty}`).join(", ")}</p>
+                <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--ink-mute)" }}>{fmtStamp(p.created_at)}{p.note ? ` · ${p.note}` : ""}</p>
+                {p.status === "Pending" && (
+                  <button onClick={() => onCancelPurchase(p)} style={{ marginTop: 8, background: "none", border: "none", padding: 0, color: "var(--red)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Cancel request</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {vanParts}
     </div>
   );
 }

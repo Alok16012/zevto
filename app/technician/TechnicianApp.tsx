@@ -19,7 +19,7 @@ import { NewTaskPage, SentToOpsList, type NewTask, type SentTask, type TaskRoute
 import { ServiceAreaEditor } from "./ServiceArea";
 import { EarningsScreen, InventoryScreen, PartnerProfileScreen, type MyStockRequest, type Payout } from "./PartnerScreens";
 import { PartsGalleryScreen } from "./PartsGallery";
-import { BuyStockPage, TechShopScreen } from "./TechShop";
+import { BuyStockPage, TechBuyScreen, TechListingScreen } from "./TechShop";
 import type { DbTechListing, DbTechPurchase } from "../lib/techShop";
 import { DealerOrderDetail, DealerOrdersScreen } from "../components/dealer/WorkScreens";
 import type { DealerOrderStatus, ShopOrder } from "../lib/dealerData";
@@ -27,7 +27,8 @@ import type { DealerOrderStatus, ShopOrder } from "../lib/dealerData";
 const SHELL_MAX_W = 430;
 const sb = () => supabaseFor("technician");
 
-type Tab = "jobs" | "inventory" | "parts" | "earnings" | "profile";
+/** listing = what they sell, parts = Shop (what they buy from Zavtoo). */
+type Tab = "jobs" | "listing" | "parts" | "earnings" | "profile";
 
 interface TechData {
   me: DbTechnician;
@@ -347,7 +348,7 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
     );
   }
 
-  const showNav = !job && !newTask && !(tab === "parts" && (shopView === "gallery" ? partEditing : shopView));
+  const showNav = !job && !newTask && !((tab === "listing" || tab === "parts") && (shopView === "gallery" ? partEditing : shopView));
   const shopOrder = shopView && typeof shopView === "object" ? data.orders.find((o) => o.id === shopView.order) : undefined;
   const openOrders = data.orders.filter((o) => ["New", "Accepted", "Shipped"].includes(o.status));
   return shell(
@@ -378,26 +379,29 @@ export default function TechnicianApp({ roleSwitch }: { roleSwitch?: React.React
               onNewTask={() => setNewTask(true)} onProfile={() => setTab("profile")}
               footer={<SentToOpsList tasks={sentToOps} />} />
           )}
-          {tab === "inventory" && <InventoryScreen stock={data.stock} requests={data.stockRequests} onRequest={requestStock} />}
-          {tab === "parts" && (shopView === "orders" ? (
+          {(tab === "listing" || tab === "parts") && (shopView === "orders" ? (
             <DealerOrdersScreen orders={data.orders} onBack={() => setShopView(null)} onOpen={(id) => setShopView({ order: id })}
               empty="When a customer in your pincodes buys one of your products in the Zavtoo app, the order lands here." />
           ) : shopView === "buy" ? (
             <BuyStockPage onBack={() => setShopView(null)} onSubmit={buyStock} onSelf={addOwnStock} />
           ) : shopView === "gallery" ? (
             <>
-              {!partEditing && <button onClick={() => setShopView(null)} style={{ ...linkBtn, margin: "8px 8px 0" }}>‹ Back to shop</button>}
+              {!partEditing && <button onClick={() => setShopView(null)} style={{ ...linkBtn, margin: "8px 8px 0" }}>‹ Back to listing</button>}
               <PartsGalleryScreen parts={data.gallery} onSave={saveGalleryPart} onDelete={deleteGalleryPart} onEditingChange={setPartEditing} />
             </>
           ) : shopView ? (
             shopOrder ? <DealerOrderDetail order={shopOrder} onBack={() => setShopView("orders")} onStatus={(st, r) => setOrderStatus(shopOrder.id, st, r)} />
               : <Centered text="This order isn't available any more." action={<button onClick={() => setShopView("orders")} style={linkBtn}>Go back</button>} />
           ) : (
-            <TechShopScreen listings={data.listings} purchases={data.purchases}
-              onBuy={() => setShopView("buy")} onGallery={() => setShopView("gallery")}
-              onPrice={setListingPrice} onStock={(l, n) => void setListingStock(l, n)} onSelling={(l, v) => void setListingSelling(l, v)}
-              onCancelPurchase={cancelPurchase}
-              ordersBar={<ShopOrdersBar total={data.orders.length} open={openOrders.length} fresh={data.orders.filter((o) => o.status === "New").length} onOpen={() => setShopView("orders")} />} />
+            tab === "listing" ? (
+              <TechListingScreen listings={data.listings} purchases={data.purchases}
+                onShop={() => setTab("parts")} onGallery={() => setShopView("gallery")}
+                onPrice={setListingPrice} onStock={(l, n) => void setListingStock(l, n)} onSelling={(l, v) => void setListingSelling(l, v)}
+                ordersBar={<ShopOrdersBar total={data.orders.length} open={openOrders.length} fresh={data.orders.filter((o) => o.status === "New").length} onOpen={() => setShopView("orders")} />} />
+            ) : (
+              <TechBuyScreen purchases={data.purchases} onBuy={() => setShopView("buy")} onCancelPurchase={cancelPurchase}
+                vanParts={<InventoryScreen embedded stock={data.stock} requests={data.stockRequests} onRequest={requestStock} />} />
+            )
           ))}
           {tab === "earnings" && <EarningsScreen jobs={jobs} payouts={data.payouts} />}
           {tab === "profile" && (
@@ -566,15 +570,15 @@ const NavIcon = ({ id, c }: { id: Tab; c: string }) => {
   const p = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: c, strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
   switch (id) {
     case "jobs": return <svg {...p}><rect x="4" y="5" width="16" height="16" rx="3" /><path d="M8 3v4M16 3v4M4 11h16m-11 5 2 2 4-4" /></svg>;
-    case "inventory": return <svg {...p}><path d="m3 7 9-4 9 4v10l-9 4-9-4ZM3 7l9 5 9-5M12 12v9M7 5l10 5" /></svg>;
-    case "parts": return <svg {...p}><path d="M14.5 6.5 18 3a7 7 0 0 0-9 8.8l-7 7a2.8 2.8 0 0 0 4 4l7-7A7 7 0 0 0 21.8 7l-3.5 3.5-3.8-4Z" /></svg>;
+    case "listing": return <svg {...p}><path d="m3 7 9-4 9 4v10l-9 4-9-4ZM3 7l9 5 9-5M12 12v9M7 5l10 5" /></svg>;
+    case "parts": return <svg {...p}><path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6.2" /><circle cx="10" cy="20.5" r="1.2" /><circle cx="17" cy="20.5" r="1.2" /></svg>;
     case "earnings": return <svg {...p}><rect x="3" y="5" width="18" height="15" rx="3" /><path d="M3 10h18M7 16h4" /></svg>;
     default: return <svg {...p}><circle cx="12" cy="7" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></svg>;
   }
 };
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "jobs", label: "Jobs" }, { id: "inventory", label: "Inventory" }, { id: "parts", label: "Shop" }, { id: "earnings", label: "Earnings" }, { id: "profile", label: "Profile" },
+  { id: "jobs", label: "Jobs" }, { id: "listing", label: "Listing" }, { id: "parts", label: "Shop" }, { id: "earnings", label: "Earnings" }, { id: "profile", label: "Profile" },
 ];
 
 function PartnerNav({ active, onChange, newRequest, newOrder }: { active: Tab; onChange: (t: Tab) => void; newRequest: boolean; newOrder: boolean }) {
@@ -594,7 +598,7 @@ function PartnerNav({ active, onChange, newRequest, newOrder }: { active: Tab; o
             }}>
               <NavIcon id={t.id} c={color} />
               <span style={{ fontSize: 10.5, fontWeight: on ? 600 : 500, color }}>{t.label}</span>
-              {((t.id === "jobs" && newRequest) || (t.id === "parts" && newOrder)) && !on && (
+              {((t.id === "jobs" && newRequest) || (t.id === "listing" && newOrder)) && !on && (
                 <span style={{ position: "absolute", top: 5, left: "calc(50% + 7px)", width: 9, height: 9, borderRadius: "50%", background: "var(--red)", border: "1.5px solid white" }} />
               )}
             </button>
