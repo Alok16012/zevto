@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Footer, PageHeader, PrimaryButton, card, field, label, sectionTitle } from "../components/ui";
 import { SERVICE_ICON } from "../components/ServicesHub";
 import { PRODUCTS, SERVICE_CATALOG, inr, slotsFor, type ServiceType } from "../lib/data";
+import { DuplicateWarning, useDuplicates } from "../components/DuplicateWarning";
 import { todayIso } from "../lib/techData";
 import { fmtDay } from "../lib/catalog";
 import { isPincode } from "../lib/data";
@@ -55,6 +56,8 @@ export function NewTaskPage({ onBack, onSubmit, team }: {
   const [route, setRoute] = useState<TaskRoute>(team && !team.length ? "ops" : "self");
   const [techId, setTechId] = useState("");
   const [touched, setTouched] = useState(false);
+  // Warn when this mobile or this house is already on record (dealers when `team` is given).
+  const dupes = useDuplicates(team ? "dealer" : "technician", phone, address, pincode);
 
   const errs = {
     name: name.trim().length < 2 ? "Enter the customer's name" : null,
@@ -95,6 +98,7 @@ export function NewTaskPage({ onBack, onSubmit, team }: {
         <textarea id="nt-addr" rows={2} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House no., society, sector, city" style={{ ...field, resize: "none", ...bad("address") }} />
         <label style={{ ...label, marginTop: 12 }} htmlFor="nt-pin">Pincode</label>
         <input id="nt-pin" inputMode="numeric" value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))} style={{ ...field, ...bad("pincode") }} />
+        <DuplicateWarning hits={dupes} />
 
         <h3 style={sectionTitle}>Service</h3>
         <div className="no-scroll" style={{ display: "flex", gap: 8, overflowX: "auto", margin: "0 -16px", padding: "2px 16px 4px" }}>

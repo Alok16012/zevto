@@ -90,6 +90,8 @@ export interface AdminJob {
   repeatTechId: string | null;
   /** On the original job: the repeat complaint that came in for it. */
   repeatedByRef: string | null;
+  /** The full database row, for the job detail popup. */
+  raw: DbRequest;
 }
 
 
@@ -301,6 +303,7 @@ export async function loadAdminData(sb: SupabaseClient): Promise<AdminData> {
       source: r.source ?? "customer", raisedDealer: r.raised_dealer ?? null, parts: r.parts ?? [],
       startCode: codes.get(r.id)?.otp ?? null, closeCode: codes.get(r.id)?.close_otp ?? null,
       repeatOfRef: r.repeat_of_ref ?? null, repeatTechId: r.repeat_tech_id ?? null, repeatedByRef: r.repeated_by_ref ?? null,
+      raw: r,
     })),
     customers: profiles.map((p) => {
       const mine = orders.filter((o) => o.customer_id === p.id && o.status !== "Cancelled");

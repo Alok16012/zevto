@@ -201,10 +201,14 @@ export function TechnicianPage({ tech, reviews, onBack, onChat }: { tech: Techni
 
 /* ───────────────────────── Rate a finished service ───────────────────────── */
 
-export function RateServiceCard({ techName, onSubmit }: { techName?: string; onSubmit: (r: ServiceRating) => void }) {
-  const [stars, setStars] = useState(0);
-  const [tags, setTags] = useState<string[]>([]);
-  const [comment, setComment] = useState("");
+export function RateServiceCard({ techName, onSubmit, initial, onCancel }: {
+  techName?: string; onSubmit: (r: ServiceRating) => void;
+  /** Editing an existing rating: starts from it and replaces it. */
+  initial?: ServiceRating; onCancel?: () => void;
+}) {
+  const [stars, setStars] = useState(initial?.stars ?? 0);
+  const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
+  const [comment, setComment] = useState(initial?.comment ?? "");
   const toggle = (t: string) => setTags((x) => (x.includes(t) ? x.filter((y) => y !== t) : [...x, t]));
 
   return (
@@ -223,18 +227,23 @@ export function RateServiceCard({ techName, onSubmit }: { techName?: string; onS
             placeholder="Anything else you'd like to tell us?" style={{ ...field, resize: "none", marginTop: 12 }} />
         </div>
       )}
-      <PrimaryButton tone="gold" disabled={!stars} onClick={() => onSubmit({ stars, tags, comment: comment.trim() })} style={{ marginTop: 12 }}>Submit Feedback</PrimaryButton>
+      {techName && <p style={{ margin: "10px 0 0", fontSize: 11.5, color: "var(--ink-mute)", textAlign: "center" }}>You have one rating per technician — this replaces any earlier rating you gave {techName}.</p>}
+      <PrimaryButton tone="gold" disabled={!stars} onClick={() => onSubmit({ stars, tags, comment: comment.trim() })} style={{ marginTop: 12 }}>{initial ? "Update rating" : "Submit Feedback"}</PrimaryButton>
+      {onCancel && <button onClick={onCancel} style={{ display: "block", margin: "10px auto 0", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--ink-soft)" }}>Cancel</button>}
     </div>
   );
 }
 
 /** Read-only "you rated this" card once feedback is in. */
-export function ServiceRatedCard({ rating }: { rating: ServiceRating }) {
+export function ServiceRatedCard({ rating, onEdit }: { rating: ServiceRating; onEdit?: () => void }) {
   return (
     <div style={{ ...card, padding: 14, marginTop: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700 }}>Your rating</p>
-        <Stars value={rating.stars} size={15} />
+        <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Stars value={rating.stars} size={15} />
+          {onEdit && <button onClick={onEdit} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "var(--blue)", padding: 0 }}>Change</button>}
+        </span>
       </div>
       {rating.tags.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>

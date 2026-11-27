@@ -68,9 +68,9 @@ export function CustomersSection({ customers, orders, jobs, onBlock, onCredit, o
   );
 }
 
-function CustomerModal({ c, orders, jobs, onClose, onBlock, onCredit, onReset }: {
+export function CustomerModal({ c, orders, jobs, onClose, onBlock, onCredit, onReset }: {
   c: AdminCustomer; orders: AdminOrder[]; jobs: AdminJob[]; onClose: () => void;
-  onBlock: (blocked: boolean) => Promise<void>; onCredit: (amount: number, reason: string) => Promise<boolean>; onReset: () => void;
+  onBlock: (blocked: boolean) => Promise<void>; onCredit: (amount: number, reason: string) => Promise<boolean>; onReset?: () => void;
 }) {
   const [credit, setCredit] = useState("");
   const [reason, setReason] = useState("Goodwill credit");
@@ -85,7 +85,7 @@ function CustomerModal({ c, orders, jobs, onClose, onBlock, onCredit, onReset }:
       }}>
         {c.blocked ? "Unblock customer" : "Block customer"}
       </Btn>
-      <Btn kind="ghost" onClick={onReset}>Reset password</Btn>
+      {onReset && <Btn kind="ghost" onClick={onReset}>Reset password</Btn>}
       <Btn kind="ghost" onClick={onClose}>Close</Btn>
     </>}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 13 }}>

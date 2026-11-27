@@ -5,6 +5,8 @@ import { StarIcon } from "../components/icons";
 import TechAvatar from "../components/TechAvatar";
 import { PRODUCTS, SERVICE_CATALOG, inr, slotsFor, isPincode, type ServiceType } from "../lib/data";
 import { fmtDay } from "../lib/catalog";
+import { fmtStamp } from "../lib/db";
+import { DuplicateWarning, useDuplicates } from "../components/DuplicateWarning";
 import {
   ORDER_FLOW,
   type AdminCustomer, type AdminJob, type AdminJobStatus, type AdminOrder, type AdminOrderStatus, type AdminTech, type Dealer,
@@ -25,6 +27,139 @@ export const isoDay = (days = 0) => {
   const d = new Date(Date.now() + days * 864e5);
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 };
+
+/* ───────────────────────── Job detail popup ───────────────────────── */
+
+/** Fields ops can correct from the job popup. */
+export interface JobEdit {
+  customer_name: string; customer_phone: string; address: string; pincode: string; product: string;
+  visit_date: string; slot: string; description: string; note: string | null;
+}
+
+function JobDetailModal({ job, customers, techName, dealerName, onClose, onSave, onAssign, onCancel, onOpenCustomer }: {
+  job: AdminJob; customers: AdminCustomer[]; techName: (id: string | null) => string | undefined; dealerName: (id: string | null) => string | undefined;
+  onClose: () => void; onSave: (patch: JobEdit) => Promise<boolean>; onAssign: () => void; onCancel: () => Promise<void>; onOpenCustomer?: () => void;
+}) {
+  const r = job.raw;
+  const cust = customers.find((c) => c.id === job.customerId);
+  const closed = job.status === "Completed" || job.status === "Cancelled";
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  // The form starts from the job once; later refreshes don't wipe what's being typed.
+  const [form, setForm] = useState<JobEdit>(() => ({
+    customer_name: r.customer_name, customer_phone: r.customer_phone, address: r.address, pincode: r.pincode, product: r.product,
+    visit_date: r.visit_date, slot: r.slot, description: r.description, note: r.note,
+  }));
+  const set = (k: keyof JobEdit, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const slots = Array.from(new Set(["Any time", ...(form.slot ? [form.slot] : []), ...slotsFor(form.visit_date)]));
+  const err = form.customer_name.trim().length < 2 ? "Enter the customer's name"
+    : form.address.trim().length < 8 ? "Enter the full address"
+    : !isPincode(form.pincode) ? "Enter a valid 6-digit pincode"
+    : !form.visit_date ? "Pick a visit date" : null;
+  const save = async () => {
+    if (err) return;
+    setBusy(true);
+    const ok = await onSave({ ...form, customer_name: form.customer_name.trim(), customer_phone: form.customer_phone.trim(), address: form.address.trim(),
+      product: form.product.trim() || "RO purifier", description: form.description.trim(), note: form.note?.trim() || null });
+    setBusy(false);
+    if (ok) setEditing(false);
+  };
+
+  const row = (k: string, v: React.ReactNode) => (
+    <div style={{ minWidth: 0 }}><div style={muted}>{k}</div><div style={{ fontWeight: 600, overflowWrap: "anywhere" }}>{v || "—"}</div></div>
+  );
+  const section = (title: string) => <p style={{ ...fieldLabel, margin: "18px 0 8px" }}>{title}</p>;
+  const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, fontSize: 13 } as const;
+  const canAssign = ["Unassigned", "Awaiting tech", "Rescheduled", "Assigned"].includes(job.status);
+  const parts = (r.parts ?? []) as { name?: string; qty: number; price?: number }[];
+
+  return (
+    <Modal wide title={`#${job.ref} · ${job.type}`} onClose={onClose} footer={editing ? <>
+      <Btn kind="ghost" onClick={() => setEditing(false)}>Back</Btn>
+      <Btn disabled={!!err || busy} onClick={() => void save()}>{busy ? "Saving…" : "Save changes"}</Btn>
+    </> : <>
+      {!closed && <Btn kind="danger" onClick={() => void onCancel()}>Cancel job</Btn>}
+      {onOpenCustomer && <Btn kind="ghost" onClick={onOpenCustomer}>Customer profile</Btn>}
+      {!closed && <Btn kind="ghost" onClick={() => setEditing(true)}>Edit details</Btn>}
+      {canAssign && <Btn onClick={onAssign}>{job.status === "Rescheduled" ? "Re-book" : job.status === "Assigned" ? "Reassign" : "Assign"}</Btn>}
+      <Btn kind="ghost" onClick={onClose}>Close</Btn>
+    </>}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+        <Badge tone={JOB_TONE[job.status]}>{job.status}</Badge>
+        {job.repeatOfRef && <Badge tone="red">Repeat of #{job.repeatOfRef} · closed by {techName(job.repeatTechId) ?? "—"}</Badge>}
+        {job.repeatedByRef && <Badge tone="amber">Came back · #{job.repeatedByRef}</Badge>}
+        {job.source === "admin" && <Badge tone="blue">Booked by ops</Badge>}
+        {job.source === "dealer" && <Badge tone="purple">Dealer task · {dealerName(job.raisedDealer) ?? "dealer"}</Badge>}
+        {job.raisedBy && <Badge tone="purple">Raised by {job.raisedBy}</Badge>}
+      </div>
+
+      {editing ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 14 }}>
+          {([["Customer name", "customer_name"], ["Mobile", "customer_phone"]] as const).map(([l, k]) => (
+            <label key={k}><span style={fieldLabel}>{l}</span><input value={form[k]} onChange={(e) => set(k, e.target.value)} maxLength={k === "customer_phone" ? 16 : 60} style={input} /></label>
+          ))}
+          <label style={{ gridColumn: "1 / -1" }}><span style={fieldLabel}>Address</span>
+            <textarea value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} maxLength={200} style={{ ...input, resize: "vertical", fontFamily: "inherit" }} /></label>
+          <label><span style={fieldLabel}>Pincode</span><input value={form.pincode} onChange={(e) => set("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" style={input} /></label>
+          <label><span style={fieldLabel}>Product / brand</span><input value={form.product} onChange={(e) => set("product", e.target.value)} maxLength={60} style={input} /></label>
+          <label><span style={fieldLabel}>Visit date</span><input type="date" value={form.visit_date} onChange={(e) => set("visit_date", e.target.value)} style={input} /></label>
+          <label><span style={fieldLabel}>Time slot</span><select value={form.slot} onChange={(e) => set("slot", e.target.value)} style={input}>
+            {slots.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select></label>
+          <label style={{ gridColumn: "1 / -1" }}><span style={fieldLabel}>Problem</span>
+            <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} maxLength={300} style={{ ...input, resize: "vertical", fontFamily: "inherit" }} /></label>
+          <label style={{ gridColumn: "1 / -1" }}><span style={fieldLabel}>Ops note (shown on the job list)</span>
+            <input value={form.note ?? ""} onChange={(e) => set("note", e.target.value)} maxLength={200} style={input} /></label>
+          {err && <p role="alert" style={{ gridColumn: "1 / -1", margin: 0, fontSize: 12.5, color: "var(--error-text)", fontWeight: 600 }}>{err}</p>}
+        </div>
+      ) : <>
+        {section("Customer")}
+        <div style={grid}>
+          {row("Name", r.customer_name)}
+          {row("Mobile", r.customer_phone ? <a href={`tel:${r.customer_phone}`} style={{ color: "var(--blue)" }}>{r.customer_phone}</a> : null)}
+          {row("App account", cust ? `${cust.code} · ${cust.email}` : "Not on the app")}
+          <div style={{ gridColumn: "1 / -1" }}>{row("Address", `${r.address} · ${r.pincode}`)}</div>
+        </div>
+
+        {section("Visit")}
+        <div style={grid}>
+          {row("Date", job.isoDate === isoDay() ? `Today · ${job.date}` : job.date)}
+          {row("Time slot", r.slot)}
+          {row("Product", r.product)}
+          {row("Technician", techName(job.techId) ?? (job.dealerId ? `With dealer ${dealerName(job.dealerId) ?? ""}` : job.preferredTechId ? `Asked ${techName(job.preferredTechId) ?? "a technician"}` : "Not assigned"))}
+          <div style={{ gridColumn: "1 / -1" }}>{row("Problem", r.description)}</div>
+          {(r.note || r.reschedule_reason) && <div style={{ gridColumn: "1 / -1" }}>{row("Note", [r.reschedule_reason, r.note].filter(Boolean).join(" · "))}</div>}
+          {job.startCode && row("Start / close code", `${job.startCode}${job.closeCode ? ` / ${job.closeCode}` : ""}`)}
+        </div>
+
+        {section("Charges")}
+        <div style={grid}>
+          {row("Service charge", r.price ? inr(r.price) : "Free")}
+          {r.discount > 0 && row("Discount", `− ${inr(r.discount)}${r.coupon ? ` (${r.coupon})` : ""}`)}
+          {row(job.status === "Completed" ? "Customer paid" : "To collect", `${inr(r.amount)}${r.payment ? ` · ${r.payment}` : ""}`)}
+        </div>
+
+        {(job.status === "In Progress" || job.status === "Completed") && <>
+          {section("Work done")}
+          <div style={grid}>
+            {row("TDS before / after", r.tds_before || r.tds_after ? `${r.tds_before || "—"} → ${r.tds_after || "—"}` : null)}
+            {row("Parts", parts.length ? parts.map((p) => `${p.name ?? "Part"} × ${p.qty}`).join(", ") : "None")}
+            {row("Technician notes", r.tech_notes)}
+            {r.rating ? row("Rating", `${"★".repeat(r.rating)}${r.rating_comment ? ` · ${r.rating_comment}` : ""}`) : null}
+          </div>
+        </>}
+
+        {section("Timeline")}
+        <div style={grid}>
+          {row("Booked", fmtStamp(r.created_at))}
+          {row("Assigned", fmtStamp(r.assigned_at))}
+          {row("Started", fmtStamp(r.started_at))}
+          {row("Completed", fmtStamp(r.completed_at))}
+        </div>
+      </>}
+    </Modal>
+  );
+}
 
 /* ───────────────────────── Orders ───────────────────────── */
 
@@ -92,13 +227,20 @@ type JobFilter = "All" | "Repeat" | AdminJobStatus;
 const FILTERS: JobFilter[] = ["All", "Repeat", "Unassigned", "Awaiting tech", "Assigned", "On the way", "In Progress", "Rescheduled", "Completed", "Cancelled"];
 const ACTIVE: AdminJobStatus[] = ["Assigned", "On the way", "Arrived", "In Progress"];
 
-export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onAssignDealer, onCancel, onCreateTask }: {
+export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onAssignDealer, onCancel, onCreateTask, onUpdateJob, onOpenCustomer }: {
   jobs: AdminJob[]; customers: AdminCustomer[]; techs: AdminTech[]; dealers: Dealer[];
   onAssign: (j: AdminJob, techId: string, isoDate: string) => Promise<void>;
   onAssignDealer: (j: AdminJob, dealerId: string, isoDate: string) => Promise<void>; onCancel: (j: AdminJob) => Promise<void>;
   onCreateTask: (t: NewAdminTask) => Promise<boolean>;
+  /** Saves edits made in the job popup. */
+  onUpdateJob: (j: AdminJob, patch: JobEdit) => Promise<boolean>;
+  /** Opens the customer's profile (orders, wallet, block). */
+  onOpenCustomer: (customerId: string) => void;
 }) {
   const [f, setF] = useState<JobFilter>("All");
+  // Keep the id, not the row: the list refreshes every few seconds and the popup should show the latest.
+  const [openId, setOpenId] = useState<string | null>(null);
+  const openJob = jobs.find((j) => j.id === openId) ?? null;
   const [q, setQ] = useState("");
   const [assigning, setAssigning] = useState<AdminJob | null>(null);
   const [creating, setCreating] = useState(false);
@@ -131,7 +273,7 @@ export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onA
         <div style={{ padding: "12px 16px" }}>
           <Filter<JobFilter> options={FILTERS} value={f} onChange={setF} counts={counts} />
         </div>
-        <Table rows={rows} rowKey={(j) => j.id} empty={jobs.length ? "No jobs match." : "No service bookings yet."} cols={[
+        <Table rows={rows} rowKey={(j) => j.id} onRowClick={(j) => setOpenId(j.id)} empty={jobs.length ? "No jobs match." : "No service bookings yet."} cols={[
           { key: "id", head: "Job", render: (j) => <><b>#{j.ref}</b><div style={muted}>{j.type}</div>
             {/* A complaint within 7 days of a closed job: free, and counted against whoever closed it. */}
             {j.repeatOfRef && <div style={{ marginTop: 3 }}><Badge tone="red">Repeat of #{j.repeatOfRef}</Badge>
@@ -159,7 +301,7 @@ export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onA
           ) : <span style={muted} title="Customer isn't on the app — no codes needed">—</span> },
           { key: "r", head: "Rating", render: (j) => j.rating ? <span style={{ color: "var(--gold-dark)", fontWeight: 700 }}>{"★".repeat(j.rating)}</span> : <span style={muted}>—</span> },
           { key: "x", head: "", align: "right", render: (j) => (
-            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
               {(j.status === "Unassigned" || j.status === "Rescheduled" || j.status === "Awaiting tech") && (
                 <Btn small onClick={() => setAssigning(j)}>{j.status === "Rescheduled" ? "Re-book" : "Assign"}</Btn>
               )}
@@ -172,6 +314,13 @@ export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onA
         ]} />
       </Panel>
 
+      {openJob && (
+        <JobDetailModal job={openJob} customers={customers} techName={techName} dealerName={dealerName}
+          onClose={() => setOpenId(null)} onSave={(patch) => onUpdateJob(openJob, patch)}
+          onAssign={() => { setAssigning(openJob); setOpenId(null); }}
+          onCancel={async () => { if (confirm(`Cancel #${openJob.ref}? The customer will be notified.`)) { await onCancel(openJob); setOpenId(null); } }}
+          onOpenCustomer={openJob.customerId ? () => { onOpenCustomer(openJob.customerId); setOpenId(null); } : undefined} />
+      )}
       {creating && <NewTaskModal customers={customers} techs={techs} onClose={() => setCreating(false)}
         onCreate={async (t) => { if (await onCreateTask(t)) setCreating(false); }} />}
       {assigning && (
@@ -269,21 +418,25 @@ export interface NewAdminTask {
   type: ServiceType; product: string; isoDate: string; slot: string; issue: string; techId: string | null;
 }
 
-function NewTaskModal({ customers, techs, onClose, onCreate }: {
+export function NewTaskModal({ customers, techs, onClose, onCreate, initial }: {
   customers: AdminCustomer[]; techs: AdminTech[]; onClose: () => void; onCreate: (t: NewAdminTask) => Promise<void>;
+  /** Pre-filled fields, e.g. when turning an ad lead into a job. */
+  initial?: Partial<Pick<NewAdminTask, "customerId" | "name" | "phone" | "address" | "pincode" | "type" | "issue">>;
 }) {
-  const [customerId, setCustomerId] = useState("");
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [pincode, setPincode] = useState("");
-  const [type, setType] = useState<ServiceType>(SERVICE_CATALOG[0]?.type ?? "Repair");
+  const [customerId, setCustomerId] = useState(initial?.customerId ?? "");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [address, setAddress] = useState(initial?.address ?? "");
+  const [pincode, setPincode] = useState(initial?.pincode ?? "");
+  const [type, setType] = useState<ServiceType>(initial?.type ?? SERVICE_CATALOG[0]?.type ?? "Repair");
   const [product, setProduct] = useState("");
-  const [date, setDate] = useState(isoDay(1));
+  const [date, setDate] = useState(isoDay());
   const [slot, setSlot] = useState("");
-  const [issue, setIssue] = useState("");
+  const [issue, setIssue] = useState(initial?.issue ?? "");
   const [techId, setTechId] = useState("");
   const [busy, setBusy] = useState(false);
+  // Same mobile / same house already on record? (The customer already picked isn't a duplicate.)
+  const dupes = useDuplicates("admin", phone, address, pincode).filter((h) => !customerId || h.customer_id !== customerId);
 
   const pickCustomer = (id: string) => {
     setCustomerId(id);
@@ -320,6 +473,11 @@ function NewTaskModal({ customers, techs, onClose, onCreate }: {
         {field("Mobile", <input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={16} inputMode="tel" style={input} />)}
         {field("Address", <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} maxLength={200} placeholder="House no., society, sector, city" style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />, true)}
         {field("Pincode", <input value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" style={input} />)}
+        {dupes.length > 0 && <div style={{ gridColumn: "1 / -1" }}><DuplicateWarning hits={dupes} onUse={(h) => {
+          pickCustomer(h.customer_id!);
+          if (!address.trim() && h.address) setAddress(h.address);
+          if (!pincode && h.pincode) setPincode(h.pincode);
+        }} /></div>}
         {field("Service", <select value={type} onChange={(e) => setType(e.target.value as ServiceType)} style={input}>
           {SERVICE_CATALOG.map((s) => <option key={s.type} value={s.type}>{s.type} · {s.price ? inr(s.price) : "Free"}</option>)}
         </select>)}

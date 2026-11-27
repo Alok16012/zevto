@@ -370,6 +370,7 @@ export function TrackServicePage({ service, position, otp, closeCode, photoUrls,
   const [showInfo, setShowInfo] = useState(false);
   const tech = service.technician;
   const awaitingFeedback = service.status === "Completed" && !service.rating;
+  const [rerating, setRerating] = useState(false);
   const picked = !tech && service.preferredTechId ? TECHNICIANS.find((t) => t.id === service.preferredTechId) : undefined;
   const riding = service.status === "On the way" || service.status === "Arrived";
   const closed = service.status === "Cancelled";
@@ -488,7 +489,10 @@ export function TrackServicePage({ service, position, otp, closeCode, photoUrls,
         )}
 
         {awaitingFeedback && <RateServiceCard techName={tech?.name} onSubmit={onRate} />}
-        {service.rating && <ServiceRatedCard rating={service.rating} />}
+        {/* A rating can be changed later — it replaces the old one, it never adds a second. */}
+        {service.rating && (rerating
+          ? <RateServiceCard techName={tech?.name} initial={service.rating} onCancel={() => setRerating(false)} onSubmit={(r) => { setRerating(false); onRate(r); }} />
+          : <ServiceRatedCard rating={service.rating} onEdit={service.status === "Completed" ? () => setRerating(true) : undefined} />)}
 
         <button onClick={() => setShowInfo((s) => !s)} className="press" style={{
           width: "100%", marginTop: 14, background: "transparent", border: "2px solid var(--blue)", borderRadius: 999,

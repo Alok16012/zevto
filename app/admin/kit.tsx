@@ -54,7 +54,11 @@ export interface Col<T> {
 }
 
 /** Scrolls sideways on narrow screens instead of squashing columns. */
-export function Table<T>({ cols, rows, rowKey, empty = "Nothing to show." }: { cols: Col<T>[]; rows: T[]; rowKey: (r: T) => string; empty?: string }) {
+export function Table<T>({ cols, rows, rowKey, empty = "Nothing to show.", onRowClick }: {
+  cols: Col<T>[]; rows: T[]; rowKey: (r: T) => string; empty?: string;
+  /** Makes each row open something (buttons inside the row still work on their own). */
+  onRowClick?: (r: T) => void;
+}) {
   return (
     <div className="no-scroll" style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 640 }}>
@@ -67,7 +71,8 @@ export function Table<T>({ cols, rows, rowKey, empty = "Nothing to show." }: { c
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={rowKey(r)} className="admin-row">
+            <tr key={rowKey(r)} className="admin-row" onClick={onRowClick ? () => onRowClick(r) : undefined}
+              style={onRowClick ? { cursor: "pointer" } : undefined} title={onRowClick ? "Click to open details" : undefined}>
               {cols.map((c) => (
                 <td key={c.key} style={{ textAlign: c.align ?? "left", padding: "11px 14px", borderBottom: "1px solid var(--line)", verticalAlign: "middle" }}>{c.render(r)}</td>
               ))}

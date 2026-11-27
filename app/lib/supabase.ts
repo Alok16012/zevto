@@ -16,11 +16,23 @@ export type Role = "customer" | "technician" | "dealer" | "admin" | "super_admin
 
 const clients: Partial<Record<AppKind, SupabaseClient>> = {};
 
+/* A request that never answers (common after a phone sleeps or a laptop lid
+ * closes) used to hang forever — and a hung login-token refresh holds a lock
+ * every other query waits on, so nothing updated until the page was reloaded.
+ * Every request now gives up after a while: 20s for data, 2 min for uploads. */
+const timedFetch: typeof fetch = (input, init) => {
+  const url = typeof input === "string" ? input : "url" in input ? input.url : String(input);
+  const timeout = AbortSignal.timeout(url.includes("/storage/v1/") ? 120000 : 20000);
+  const signal = init?.signal && "any" in AbortSignal ? AbortSignal.any([init.signal, timeout]) : init?.signal ?? timeout;
+  return fetch(input, { ...init, signal });
+};
+
 export function supabaseFor(app: AppKind): SupabaseClient {
   // The storefront browses as the customer app, so a shopper logged in there is logged in here.
   const key = app === "store" ? "customer" : app;
   return (clients[key] ??= createClient(URL, ANON, {
     auth: { storageKey: `zavtoo-${key}-auth`, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+    global: { fetch: timedFetch },
   }));
 }
 
@@ -83,14 +95,21 @@ export function useLive<T>(app: AppKind, key: string | null, load: (sb: Supabase
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     // One load at a time; a change that lands mid-load queues exactly one more.
-    let busy = false, again = false;
+    // A load stuck for over 10s (a hung request) no longer blocks updates:
+    // a fresh one starts, and only the newest load's result is used.
+    let seq = 0, latest = 0, busySince = 0, again = false;
     const run = () => {
-      if (busy) { again = true; return; }
-      busy = true;
+      if (busySince && Date.now() - busySince < 10000) { again = true; return; }
+      const id = ++seq;
+      busySince = Date.now();
       loadRef.current(sb)
-        .then((d) => { if (alive) { setData(d); setError(null); } })
-        .catch((e) => { if (alive) setError(friendly(e)); })
-        .finally(() => { busy = false; if (again && alive) { again = false; run(); } });
+        .then((d) => { if (alive && id > latest) { latest = id; setData(d); setError(null); } })
+        .catch((e) => { if (alive && id > latest) setError(friendly(e)); })
+        .finally(() => {
+          if (id !== seq) return;
+          busySince = 0;
+          if (again && alive) { again = false; run(); }
+        });
     };
     run();
     // Coalesce bursts of changes (e.g. a trigger touching several rows) into one reload.
@@ -106,7 +125,8 @@ export function useLive<T>(app: AppKind, key: string | null, load: (sb: Supabase
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
     window.addEventListener("online", later);
-    const poll = setInterval(onVisible, app === "admin" ? 5000 : 15000);
+    // Staff and partner screens poll every 5s; customers every 10s.
+    const poll = setInterval(onVisible, app === "customer" || app === "store" ? 10000 : 5000);
     return () => {
       alive = false; clearTimeout(timer); clearInterval(poll); sb.removeChannel(channel);
       document.removeEventListener("visibilitychange", onVisible);

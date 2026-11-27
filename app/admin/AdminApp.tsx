@@ -12,8 +12,8 @@ import {
 } from "../lib/adminData";
 import { Btn, fieldLabel, input } from "./kit";
 import { Dashboard } from "./Dashboard";
-import { OrdersSection, ServicesSection, type NewAdminTask } from "./Operations";
-import { CustomersSection, DealersSection, TechniciansSection, type NewDealer, type NewTechnician } from "./People";
+import { OrdersSection, ServicesSection, type JobEdit, type NewAdminTask } from "./Operations";
+import { CustomerModal, CustomersSection, DealersSection, TechniciansSection, type NewDealer, type NewTechnician } from "./People";
 import { BroadcastSection, CouponsSection, ProductsSection, ReviewsSection, type ProductDraft } from "./Catalog";
 import { removeProductImages } from "../lib/photos";
 import { SupportSection, useSupportUnread } from "./Support";
@@ -23,16 +23,17 @@ import { SiteImagesSection } from "./SiteImages";
 import { PartiesSection } from "./Parties";
 import { InvoiceSettingsSection } from "./InvoiceSettings";
 import { EarningSchedulesSection } from "./EarningSchedules";
+import { LeadsSection } from "./Leads";
 import type { DbDealerPurchase, DbTechPurchase } from "../lib/techShop";
 import type { DbGalleryPart } from "../lib/partsGallery";
 
-export type Section = "dashboard" | "support" | "orders" | "services" | "customers" | "technicians" | "dealers" | "products" | "plans" | "techshop" | "coupons" | "reviews" | "broadcast" | "siteimages" | "parties" | "invoices" | "earnings";
+export type Section = "dashboard" | "support" | "orders" | "services" | "leads" | "customers" | "technicians" | "dealers" | "products" | "plans" | "techshop" | "coupons" | "reviews" | "broadcast" | "siteimages" | "parties" | "invoices" | "earnings";
 
 type NavIcon = (p: { s?: number; c?: string; w?: number }) => React.ReactElement;
 
 const NAV: { group: string; items: { id: Section; label: string; Icon: NavIcon }[] }[] = [
   { group: "Overview", items: [{ id: "dashboard", label: "Dashboard", Icon: GridIcon }] },
-  { group: "Operations", items: [{ id: "orders", label: "Orders", Icon: BagIcon }, { id: "services", label: "Service Jobs", Icon: WrenchIcon }, { id: "support", label: "Support Chat", Icon: InboxIcon }] },
+  { group: "Operations", items: [{ id: "orders", label: "Orders", Icon: BagIcon }, { id: "services", label: "Service Jobs", Icon: WrenchIcon }, { id: "leads", label: "Ad Leads", Icon: MegaphoneIcon }, { id: "support", label: "Support Chat", Icon: InboxIcon }] },
   { group: "People", items: [{ id: "customers", label: "Customers", Icon: UsersIcon }, { id: "technicians", label: "Technicians", Icon: TechnicianIcon }, { id: "dealers", label: "Dealers", Icon: StoreIcon }, { id: "earnings", label: "Earning Schedules", Icon: WalletIcon }] },
   { group: "Accounts", items: [{ id: "parties", label: "Parties & Ledger", Icon: WalletIcon }, { id: "invoices", label: "Invoice Settings", Icon: CardIcon }] },
   { group: "Catalogue & growth", items: [
@@ -43,7 +44,7 @@ const NAV: { group: string; items: { id: Section; label: string; Icon: NavIcon }
 ];
 
 const TITLES: Record<Section, string> = {
-  dashboard: "Dashboard", support: "Support Chat", orders: "Orders", services: "Service Jobs & Dispatch", customers: "Customers", technicians: "Technicians", dealers: "Dealers",
+  dashboard: "Dashboard", support: "Support Chat", orders: "Orders", services: "Service Jobs & Dispatch", leads: "Ad Leads · Facebook, Instagram & Google", customers: "Customers", technicians: "Technicians", dealers: "Dealers",
   products: "Product & Spare", plans: "Services & AMC Plans", techshop: "Technician & Dealer Shop", coupons: "Offers & Coupons", reviews: "Reviews", broadcast: "Broadcast Notifications", siteimages: "Website Images", parties: "Parties, Purchases & Sales", invoices: "Invoice Settings", earnings: "Technician Earning Schedules",
 };
 
@@ -62,6 +63,8 @@ export default function AdminApp() {
   const [section, setSection] = useState<Section>("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<{ msg: string; bad?: boolean } | null>(null);
+  // Customer profile opened from a service job.
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => { window.scrollTo({ top: 0 }); }, [section]);
@@ -105,6 +108,8 @@ export default function AdminApp() {
       reschedule_reason: null, trip_started_at: null, note: `Sent to dealer ${d?.name ?? ""}`.trim(),
     }).eq("id", j.id), `#${j.ref} sent to ${d?.name ?? "dealer"} — they'll assign a technician`);
   };
+  const updateJob = (j: AdminJob, patch: JobEdit) =>
+    act(() => sb().from("service_requests").update(patch).eq("id", j.id), `#${j.ref} updated`);
   const cancelJob = async (j: AdminJob) => {
     await act(() => sb().from("service_requests").update({ status: "Cancelled" }).eq("id", j.id), `#${j.ref} cancelled`);
   };
@@ -301,7 +306,9 @@ export default function AdminApp() {
             {section === "dashboard" && <Dashboard orders={orders} jobs={jobs} customers={customers} techs={techs} products={products} reviews={reviews} go={go} />}
             {section === "support" && <SupportSection customers={customers} notify={notify} />}
             {section === "orders" && <OrdersSection orders={orders} customers={customers} onStatus={setOrderStatus} />}
-            {section === "services" && <ServicesSection jobs={jobs} customers={customers} techs={techs} dealers={dealers} onAssign={assignJob} onAssignDealer={assignJobToDealer} onCancel={cancelJob} onCreateTask={createTask} />}
+            {section === "services" && <ServicesSection jobs={jobs} customers={customers} techs={techs} dealers={dealers} onAssign={assignJob} onAssignDealer={assignJobToDealer} onCancel={cancelJob} onCreateTask={createTask}
+              onUpdateJob={updateJob} onOpenCustomer={setCustomerId} />}
+            {section === "leads" && <LeadsSection customers={customers} techs={techs} notify={notify} />}
             {section === "customers" && (
               <CustomersSection customers={customers} orders={orders} jobs={jobs} onBlock={blockCustomer} onCredit={creditCustomer}
                 onResetPassword={async (id, password) => {
@@ -334,6 +341,11 @@ export default function AdminApp() {
         </div>
       </div>
 
+      {(() => {
+        const c = customerId ? customers.find((x) => x.id === customerId) : undefined;
+        return c && <CustomerModal c={c} orders={orders.filter((o) => o.customerId === c.id)} jobs={jobs.filter((j) => j.customerId === c.id)}
+          onClose={() => setCustomerId(null)} onBlock={(b) => blockCustomer(c, b)} onCredit={(n, r) => creditCustomer(c, n, r)} />;
+      })()}
       {toast && (
         <div className="fade-up" role={toast.bad ? "alert" : "status"} style={{
           position: "fixed", right: 20, bottom: 20, left: "auto", zIndex: 300, maxWidth: "calc(100vw - 40px)",
