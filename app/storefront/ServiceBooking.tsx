@@ -59,13 +59,13 @@ export default function ServiceBooking({ service }: { service: ServiceOffering }
   const [minDate, setMinDate] = useState("");
   const [maxDate, setMaxDate] = useState("");
   const busy = useRef(false);
-  useEffect(() => { setMinDate(indiaDate(1)); setMaxDate(indiaDate(30)); }, []);
+  useEffect(() => { setMinDate(indiaDate(0)); setMaxDate(indiaDate(30)); }, []);
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy.current) return;
     setError("");
     if (!PIN_AREAS[pincode]) { setError("This pincode is outside our current service area. We cover selected areas in Noida, Ghaziabad and Gurugram."); return; }
-    if (!date || date < indiaDate(1) || date > indiaDate(30) || !TIME_SLOTS.includes(slot)) { setError("Choose an appointment from tomorrow through the next 30 days and select a time slot."); return; }
+    if (!date || date < indiaDate(0) || date > indiaDate(30) || !TIME_SLOTS.includes(slot)) { setError("Choose an appointment from today through the next 30 days and select a time slot."); return; }
     const form = new FormData(e.currentTarget);
     const product = String(form.get("product") || "").trim();
     if (!product || !String(form.get("name") || "").trim() || String(form.get("address") || "").trim().length < 8) { setError("Please enter your name, purifier and a complete service address."); return; }

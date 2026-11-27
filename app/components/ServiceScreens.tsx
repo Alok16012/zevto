@@ -48,14 +48,15 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
   const [type, setType] = useState<ServiceType>(initialType);
   const [coupon, setCoupon] = useState<string | null>(null);
   const [product, setProduct] = useState("");
-  const [date, setDate] = useState("");
+  // Today (local date) is the earliest bookable day and the default, so a complaint
+  // raised today shows as today for the customer, technician, dealer and admin.
+  const min = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const [date, setDate] = useState(min);
   const [slot, setSlot] = useState("");
   const [desc, setDesc] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [touched, setTouched] = useState(false);
 
-  // Tomorrow is the earliest bookable day.
-  const min = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const brand = product.trim().replace(/\s+/g, " ");
   const ok = brand && date && slot && address;
   const offering = SERVICE_CATALOG.find((o) => o.type === type)!;

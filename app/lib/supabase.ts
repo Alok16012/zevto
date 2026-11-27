@@ -92,7 +92,20 @@ export function useLive<T>(app: AppKind, key: string | null, load: (sb: Supabase
     (JSON.parse(watchKey) as Watch[]).forEach((w) =>
       channel.on("postgres_changes", { event: "*", schema: "public", table: w.table, ...(w.filter ? { filter: w.filter } : {}) }, later));
     channel.subscribe();
-    return () => { alive = false; clearTimeout(timer); sb.removeChannel(channel); };
+    // Phones drop the realtime socket when the app is backgrounded or the screen
+    // sleeps, and missed changes never replay. Reload when the app comes back,
+    // and poll slowly while visible as a safety net.
+    const onVisible = () => { if (document.visibilityState === "visible") later(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    window.addEventListener("online", later);
+    const poll = setInterval(onVisible, 15000);
+    return () => {
+      alive = false; clearTimeout(timer); clearInterval(poll); sb.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      window.removeEventListener("online", later);
+    };
   }, [app, key, watchKey, tick]);
 
   return { data, error, loading: data === undefined && !error, reload: () => setTick((t) => t + 1) };

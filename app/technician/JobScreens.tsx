@@ -206,6 +206,7 @@ export function JobDetailPage({ job, stock, shopStock, onBack, onUpdate, onStart
   const ic = SERVICE_ICON[job.type];
   const step = JOB_FLOW.indexOf(job.status);
   const working = job.status === "In Progress";
+  const early = job.isoDate > todayIso();
   const done = job.status === "Completed";
   const closed = done || job.status === "Rescheduled" || job.status === "Rejected";
   const checklistDone = job.checklist.length === CHECKLIST.length;
@@ -387,9 +388,11 @@ export function JobDetailPage({ job, stock, shopStock, onBack, onUpdate, onStart
 
       {!closed && (
         <Footer>
-          {job.status === "Accepted" && <PrimaryButton onClick={() => onUpdate({ status: "On the way" })}>Start Travel</PrimaryButton>}
-          {job.status === "On the way" && <PrimaryButton onClick={() => onUpdate({ status: "Arrived" })}>I&apos;ve Arrived</PrimaryButton>}
-          {job.status === "Arrived" && <PrimaryButton disabled={(job.needsCode && otp.length !== 4) || starting} onClick={verifyOtp}>{starting ? "Checking…" : job.needsCode ? "Verify & Start Job" : "Start Job"}</PrimaryButton>}
+          {/* A job booked for a later day stays visible but can only be started on its visit date. */}
+          {early && ["Accepted", "On the way", "Arrived"].includes(job.status) && <PrimaryButton disabled>Opens on {job.date}</PrimaryButton>}
+          {!early && job.status === "Accepted" && <PrimaryButton onClick={() => onUpdate({ status: "On the way" })}>Start Travel</PrimaryButton>}
+          {!early && job.status === "On the way" && <PrimaryButton onClick={() => onUpdate({ status: "Arrived" })}>I&apos;ve Arrived</PrimaryButton>}
+          {!early && job.status === "Arrived" && <PrimaryButton disabled={(job.needsCode && otp.length !== 4) || starting} onClick={verifyOtp}>{starting ? "Checking…" : job.needsCode ? "Verify & Start Job" : "Start Job"}</PrimaryButton>}
           {working && <PrimaryButton tone="gold" disabled={!canFinish} onClick={() => setSheet("bill")}>Complete Job · Collect {inr(customerBill(job))}</PrimaryButton>}
         </Footer>
       )}

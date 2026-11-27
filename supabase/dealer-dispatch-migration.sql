@@ -27,12 +27,22 @@ language sql stable security definer set search_path = public as $$
   )
 $$;
 
+-- Keeps the dealer's own tasks visible when partner-upgrade-migration.sql
+-- (which adds service_requests.raised_dealer) has already been run.
 drop policy if exists "see jobs" on public.service_requests;
-create policy "see jobs" on public.service_requests for select using (
-  customer_id = auth.uid() or tech_id = auth.uid() or raised_by = auth.uid()
-  or (preferred_tech_id = auth.uid() and status = 'Requested') or public.is_staff()
-  or (public.is_dealer() and public.dealer_sees_job(tech_id, preferred_tech_id, status, pincode, dealer_id))
-);
+do $$
+begin
+  execute format($p$
+    create policy "see jobs" on public.service_requests for select using (
+      customer_id = auth.uid() or tech_id = auth.uid() or raised_by = auth.uid()
+      or (preferred_tech_id = auth.uid() and status = 'Requested') or public.is_staff()
+      or (public.is_dealer() and public.dealer_sees_job(tech_id, preferred_tech_id, status, pincode, dealer_id))
+      %s
+    )$p$,
+    case when exists (select 1 from information_schema.columns
+                      where table_schema = 'public' and table_name = 'service_requests' and column_name = 'raised_dealer')
+         then 'or (raised_dealer is not null and raised_dealer = public.my_dealer_id())' else '' end);
+end $$;
 drop function if exists public.dealer_sees_job(uuid, uuid, text, text);
 
 -- Dealer dispatch: give a job ops handed them, an open job in their area, or one

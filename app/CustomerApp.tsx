@@ -258,7 +258,7 @@ export default function CustomerApp({ roleSwitch, skipIntro = false }: { roleSwi
   useEffect(() => {
     if (!tracked || closeCodes[tracked.id] || tracked.current !== 2) return;
     sb().rpc("my_close_code", { p_request: tracked.id }).then(({ data: code }) => { if (code) setCloseCodes((o) => ({ ...o, [tracked.id]: code as string })); });
-  }, [tracked?.id, tracked?.current]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tracked?.id, tracked?.current, data]); // eslint-disable-line react-hooks/exhaustive-deps
   const photoUrls = useSignedUrls("customer", tracked?.photos);
   const chatImageUrls = useSignedUrls("customer", (data?.chat ?? []).map((m) => m.image_path).filter((p): p is string => !!p));
 
