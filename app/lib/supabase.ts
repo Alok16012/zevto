@@ -65,7 +65,9 @@ type Watch = { table: string; filter?: string };
 
 /**
  * Loads data and keeps it fresh: re-runs `load` whenever any watched table
- * changes in the database (Supabase Realtime, respecting row-level security).
+ * changes in the database (Supabase Realtime, respecting row-level security),
+ * and polls every few seconds as a safety net — every 5s for the admin panel
+ * so ops never need to refresh the page.
  */
 export function useLive<T>(app: AppKind, key: string | null, load: (sb: SupabaseClient) => Promise<T>, watch: Watch[]) {
   const [data, setData] = useState<T | undefined>(undefined);
@@ -80,10 +82,15 @@ export function useLive<T>(app: AppKind, key: string | null, load: (sb: Supabase
     const sb = supabaseFor(app);
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // One load at a time; a change that lands mid-load queues exactly one more.
+    let busy = false, again = false;
     const run = () => {
+      if (busy) { again = true; return; }
+      busy = true;
       loadRef.current(sb)
         .then((d) => { if (alive) { setData(d); setError(null); } })
-        .catch((e) => { if (alive) setError(friendly(e)); });
+        .catch((e) => { if (alive) setError(friendly(e)); })
+        .finally(() => { busy = false; if (again && alive) { again = false; run(); } });
     };
     run();
     // Coalesce bursts of changes (e.g. a trigger touching several rows) into one reload.
@@ -99,7 +106,7 @@ export function useLive<T>(app: AppKind, key: string | null, load: (sb: Supabase
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
     window.addEventListener("online", later);
-    const poll = setInterval(onVisible, 15000);
+    const poll = setInterval(onVisible, app === "admin" ? 5000 : 15000);
     return () => {
       alive = false; clearTimeout(timer); clearInterval(poll); sb.removeChannel(channel);
       document.removeEventListener("visibilitychange", onVisible);

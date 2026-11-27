@@ -97,7 +97,17 @@ export function useCatalog(app: AppKind, userId: string | null | undefined) {
     ["products", "service_catalog", "coupons", "technicians", "site_images", "showcase_parts"].forEach((table) =>
       ch.on("postgres_changes", { event: "*", schema: "public", table }, later));
     ch.subscribe();
-    return () => { alive = false; clearTimeout(timer); sb.removeChannel(ch); };
+    // Catch up after the socket drops (app backgrounded, laptop asleep); the
+    // admin panel also polls so new technicians, products etc. appear by themselves.
+    const onVisible = () => { if (document.visibilityState === "visible") later(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", later);
+    const poll = app === "admin" ? setInterval(onVisible, 7000) : undefined;
+    return () => {
+      alive = false; clearTimeout(timer); clearInterval(poll); sb.removeChannel(ch);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", later);
+    };
   }, [app, userId]);
 
   return { ready: version > 0, version, error };
