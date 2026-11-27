@@ -425,7 +425,7 @@ export function ContactPage() {
           <h2>Let&apos;s start a conversation</h2>
           <p className={s.lead}>{CONTACT.conversation}</p>
           <dl className={s.details}>
-            <dt>Office & store</dt><dd>{COMPANY.address}, India · <a href={COMPANY.mapHref} target="_blank" rel="noopener noreferrer">Get directions</a></dd>
+            <dt>Office</dt><dd>{COMPANY.address}, India · <a href={COMPANY.mapHref} target="_blank" rel="noopener noreferrer">Get directions</a></dd>
             <dt>Helplines</dt><dd>{HELPLINES.map((h) => <span key={h.label} style={{ display: "block" }}>{h.label}: <a href={h.href}>{h.number}</a></span>)}</dd>
             <dt>WhatsApp</dt><dd><a href={COMPANY.whatsappHref}>{COMPANY.whatsapp}</a></dd>
             <dt>Email</dt><dd><a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></dd>
@@ -449,18 +449,18 @@ export function ContactPage() {
       </section>
 
       <section className={s.section}>
-        <SectionHead kicker="OUR LOCATION" title="Find us on the map" text="We're located in Raja Puri, Dwarka Road, New Delhi. Come visit us for any water purifier needs!" />
+        <SectionHead kicker="OUR LOCATION" title="Find us on the map" text="Our office is in DLF Prime Tower, Okhla Phase I, New Delhi. For service, just call or WhatsApp customer care — we come to you." />
         <div className={s.map}>
-          <iframe title="Paani Filter store on Google Maps" loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-            src="https://www.google.com/maps?q=Raja+Puri+Dwarka+Road+New+Delhi+110059&output=embed" />
-          <div className={s.card}><h3>Paani Filter Store</h3><p>{COMPANY.address}</p><a className={s.btnPrimary} href={COMPANY.mapHref} target="_blank" rel="noopener noreferrer">Get directions</a></div>
+          <iframe title="Zavtoo office on Google Maps" loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+            src="https://www.google.com/maps?q=808B+DLF+Prime+Tower+Okhla+Phase+I+New+Delhi+110020&output=embed" />
+          <div className={s.card}><h3>Zavtoo Office</h3><p>{COMPANY.address}</p><a className={s.btnPrimary} href={COMPANY.mapHref} target="_blank" rel="noopener noreferrer">Get directions</a></div>
         </div>
       </section>
 
       <section className={s.section}>
         <SectionHead kicker="BUSINESS HOURS" title="When can you reach us?" text="We're available 7 days a week for your convenience." />
         <div className={s.grid3}>
-          {([["Store & office hours", CONTACT.storeHours, "Open 7 days"], ["Technician service hours", CONTACT.techHours, "Technicians available"], ["Customer support hours", CONTACT.supportHours, "WhatsApp always on"]] as const).map(([t, rows, note]) => (
+          {([["Customer care hours", CONTACT.storeHours, "Open 7 days"], ["Technician service hours", CONTACT.techHours, "Technicians available"], ["Customer support hours", CONTACT.supportHours, "WhatsApp always on"]] as const).map(([t, rows, note]) => (
             <article key={t} className={s.card}><h3>{t}</h3><table className={s.hours}><tbody>{rows.map(([d, h]) => <tr key={d}><th>{d}</th><td>{h}</td></tr>)}</tbody></table><small className={s.badge}>{note}</small></article>
           ))}
         </div>

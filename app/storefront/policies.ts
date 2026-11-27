@@ -12,7 +12,7 @@ export type Block =
 export interface PolicySection { title: string; sub?: string; blocks: Block[] }
 export interface Policy { title: string; intro: string; meta: string[]; sections: PolicySection[] }
 
-const CONTACT_LINE = "Paanifilter9@gmail.com or call 89-294-546-47";
+const CONTACT_LINE = "Paanifilter9@gmail.com or call 8929 45 46 47";
 
 export const PRIVACY: Policy = {
   title: "Zavtoo Privacy Policy",
@@ -20,7 +20,7 @@ export const PRIVACY: Policy = {
   meta: ["Last updated: 15 October 2026", "Applies to Zavtoo Android app and website"],
   sections: [
     { title: "Who we are", blocks: [
-      { p: "Zavtoo Paani Filter Pvt Ltd operates Zavtoo (Android package in.zavtoo.customer) and zavtoo.in for water purifier purchases, spare parts and service bookings. The app includes customer, technician and dealer access. Contact: Paanifilter9@gmail.com; account support: +91 8929029006; K-15, Raja Puri, Dwarka Road, New Delhi – 110059, India." },
+      { p: "Zavtoo Paani Filter Pvt Ltd operates Zavtoo (Android package in.zavtoo.customer) and zavtoo.in for water purifier purchases, spare parts and service bookings. The app includes customer, technician and dealer access. Contact: Paanifilter9@gmail.com; account support: +91 8929029006; 808B, DLF Prime Tower, Pocket F, Okhla Phase I, Okhla Industrial Estate, New Delhi, Delhi 110020, India." },
     ] },
     { title: "Information you provide", blocks: [
       { ul: [
@@ -73,7 +73,7 @@ export const TERMS: Policy = {
     { title: "Introduction", blocks: [
       { note: { title: "Important: By using our services, you agree to these Terms", text: "Accessing zavtoo.in, booking a service, or making a purchase constitutes your acceptance of these Terms & Conditions. If you disagree, please discontinue use of our services." } },
       { p: "Welcome to Zavtoo Paani Filter Pvt Ltd (\"Paani Filter\", \"Company\", \"we\", \"us\", or \"our\"). These Terms and Conditions (\"Terms\") govern your access to and use of our website zavtoo.in, our mobile applications, and all services, products, and features we offer — including RO water purifier sales, repair services, spare parts, AMC plans, and delivery." },
-      { p: "These Terms constitute a legally binding agreement between you (\"User\", \"Customer\", \"you\") and Zavtoo Paani Filter Pvt Ltd, registered in India with its principal office at K-15, Raja Puri, Dwarka Road, New Delhi – 110059." },
+      { p: "These Terms constitute a legally binding agreement between you (\"User\", \"Customer\", \"you\") and Zavtoo Paani Filter Pvt Ltd, registered in India with its principal office at 808B, DLF Prime Tower, Pocket F, Okhla Phase I, Okhla Industrial Estate, New Delhi, Delhi 110020." },
       { p: "By accessing our website, creating an account, placing an order, or booking a service, you confirm that you have read, understood, and agree to be bound by these Terms and our Privacy Policy." },
       { p: "Please Read Carefully: If you do not agree with any part of these Terms and Conditions, please refrain from using our website or services. Continued use of zavtoo.in constitutes your acceptance of these terms." },
     ] },
@@ -129,7 +129,7 @@ export const TERMS: Policy = {
       { p: "All purchases made on zavtoo.in are subject to product availability and acceptance of your order. Placing an order does not constitute a guaranteed purchase until you receive an order confirmation from us." },
       { h: "Order Process" },
       { ul: [
-        "Orders are placed through our website, WhatsApp, or by calling us directly at 89-294-546-47.",
+        "Orders are placed through our website, WhatsApp, or by calling us directly at 8929 45 46 47.",
         "You will receive an order confirmation via SMS/WhatsApp/email within 1-2 hours of placing your order.",
         "We reserve the right to cancel or modify any order if the product is out of stock, if pricing errors occur, or if fraud is suspected.",
         "All prices displayed on our website are inclusive of GST (Goods and Services Tax) unless stated otherwise.",
@@ -180,7 +180,7 @@ export const TERMS: Policy = {
       ] } },
       { h: "Refund Process" },
       { ol: [
-        { title: "Raise a Return Request", text: "Contact us within the return window via WhatsApp, phone (89-294-546-47), or email (Paanifilter9@gmail.com) with your order number, photos of the product, and reason for return." },
+        { title: "Raise a Return Request", text: "Contact us within the return window via WhatsApp, phone (8929 45 46 47), or email (Paanifilter9@gmail.com) with your order number, photos of the product, and reason for return." },
         { title: "Return Review (1–2 Days)", text: "Our team will review your request and photos within 1–2 business days and confirm whether the return is approved, requesting any additional information if needed." },
         { title: "Product Pickup or Drop", text: "Approved returns will be picked up by our courier partner (for eligible areas) or you may be asked to ship the product to our address. Return shipping is borne by us for eligible returns." },
         { title: "Refund Processing (5–7 Days)", text: "Once the returned product is received and inspected, refunds are processed within 5–7 business days to your original payment method (UPI, bank account, or card)." },
@@ -263,7 +263,7 @@ export const TERMS: Policy = {
       { p: "These Terms and Conditions are governed by and construed in accordance with the laws of the Republic of India, without regard to any conflict of law provisions. By using our services, you submit to the exclusive jurisdiction of Indian courts." },
       { h: "Dispute Resolution Process" },
       { ol: [
-        { title: "Informal Resolution First", text: "Contact us directly at 89-294-546-47 or Paanifilter9@gmail.com. We will make every effort to resolve your concern amicably within 7–14 business days through good faith negotiation." },
+        { title: "Informal Resolution First", text: "Contact us directly at 8929 45 46 47 or Paanifilter9@gmail.com. We will make every effort to resolve your concern amicably within 7–14 business days through good faith negotiation." },
         { title: "Consumer Forum (if needed)", text: "If informal resolution fails, consumers in India may approach the appropriate Consumer Disputes Redressal Commission under the Consumer Protection Act, 2019." },
         { title: "Arbitration", text: "For commercial disputes, both parties may agree to settle through arbitration under the Arbitration and Conciliation Act, 1996, with proceedings held in New Delhi, India." },
         { title: "Court Jurisdiction", text: "If arbitration is not agreed upon, disputes shall be subject to the exclusive jurisdiction of the courts located in New Delhi, India." },
@@ -286,10 +286,10 @@ export const TERMS: Policy = {
       { p: "If you have any questions, concerns, or need clarification about any part of these Terms and Conditions, please reach out to us. We are committed to being transparent and will respond to all legitimate enquiries within 2–3 business days." },
       { table: { head: ["", ""], rows: [
         ["Company Name", "Zavtoo Paani Filter Pvt Ltd"], ["Business Owner", "Aditya Badwal"],
-        ["Registered Address", "K-15, Raja Puri, Dwarka Road, New Delhi – 110059"], ["Support Hours", "Mon – Sun: 8:00 AM – 8:00 PM"],
-        ["Customer help", "89-294-546-47"], ["Technician help", "89-290-290-04"],
+        ["Registered Address", "808B, DLF Prime Tower, Pocket F, Okhla Phase I, Okhla Industrial Estate, New Delhi, Delhi 110020"], ["Support Hours", "Mon – Sun: 8:00 AM – 8:00 PM"],
+        ["Customer care (Call & WhatsApp)", "8929 45 46 47"], ["Technician help", "89-290-290-04"],
         ["Shipping help", "89-290-290-05"], ["Account help", "89-290-290-06"],
-        ["WhatsApp", "89-294-546-47"], ["Email", "Paanifilter9@gmail.com"],
+        ["WhatsApp", "8929 45 46 47"], ["Email", "Paanifilter9@gmail.com"],
         ["Website", "zavtoo.in"],
       ] } },
     ] },

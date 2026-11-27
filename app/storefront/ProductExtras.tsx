@@ -106,7 +106,7 @@ const DEFAULT_TERMS = [
   "Covers manufacturing defects in material and workmanship.",
   "Not covered: normal wear and tear, filters and membranes as consumables, damage from improper installation, very high TDS, power surges, physical or water damage, or changes made after purchase.",
   "Repair or service by anyone other than a Zavtoo technician voids the warranty.",
-  "To claim, call or WhatsApp 89-294-546-47 with your invoice number.",
+  "To claim, call or WhatsApp 8929 45 46 47 with your invoice number.",
 ];
 
 export function ProductDetails({ product }: { product: Product }) {

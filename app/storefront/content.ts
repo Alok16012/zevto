@@ -6,17 +6,17 @@ export const COMPANY = {
   brand: "Paani Filter",
   tagline: "Pure Water • Pure Life",
   owner: "Aditya Badwal",
-  phone: "89-294-546-47",
+  phone: "8929 45 46 47",
   phoneHref: "tel:+918929454647",
-  whatsapp: "89-294-546-47",
+  whatsapp: "8929 45 46 47",
   whatsappHref: "https://wa.me/918929454647",
   email: "Paanifilter9@gmail.com",
   website: "zavtoo.in",
   websiteHref: "https://zavtoo.in",
-  address: "K-15, Raja Puri, Dwarka Road, New Delhi – 110059",
+  address: "808B, DLF Prime Tower, Pocket F, Okhla Phase I, Okhla Industrial Estate, New Delhi, Delhi 110020",
   // Printed on purchase / sale bills when filled in (Admin → Parties & Ledger).
   gstin: "",
-  mapHref: "https://maps.google.com/?q=Raja+Puri+Dwarka+Road+New+Delhi+110059",
+  mapHref: "https://maps.google.com/?q=808B+DLF+Prime+Tower+Okhla+Phase+I+New+Delhi+110020",
   hours: "Mon – Sun: 8:00 AM – 8:00 PM",
   about: "India's most trusted water purifier sales, service & spare parts company with 20+ years of pure water expertise.",
   offer: { code: "PURE30", text: "Get 30% off your first service!" },
@@ -25,7 +25,7 @@ export const COMPANY = {
 /** WhatsApp link with a ready-to-send message. */
 /** Dedicated support lines — shown together on Contact us and in the footer. */
 export const HELPLINES = [
-  { label: "Customer help", number: "89-294-546-47", href: "tel:+918929454647" },
+  { label: "Customer care", number: "8929 45 46 47", href: "tel:+918929454647" },
   { label: "Technician help", number: "89-290-290-04", href: "tel:+918929029004" },
   { label: "Shipping help", number: "89-290-290-05", href: "tel:+918929029005" },
   { label: "Account help", number: "89-290-290-06", href: "tel:+918929029006" },
@@ -203,10 +203,10 @@ export const CONTACT = {
   title: "We're Here to Help You Every Step of the Way",
   intro: "Have a question, need a service, or want to track your order? Our expert support team is just a call or message away — 7 days a week.",
   cards: [
-    { icon: "📞", title: "Call Us", text: "Speak directly with our experts. Available 7 days a week.", value: COMPANY.phone, href: COMPANY.phoneHref, note: "⚡ Instant Response" },
+    { icon: "📞", title: "Customer Care", text: "Call or WhatsApp our customer care. Available 7 days a week.", value: COMPANY.phone, href: COMPANY.phoneHref, note: "⚡ Instant Response" },
     { icon: "💬", title: "WhatsApp", text: "Send us a message anytime. Quick replies guaranteed.", value: COMPANY.whatsapp, href: COMPANY.whatsappHref, note: "💬 Chat Anytime" },
     { icon: "✉️", title: "Email Us", text: "Drop us an email for detailed queries or complaints.", value: COMPANY.email, href: `mailto:${COMPANY.email}`, note: "📨 Reply in 2 Hours" },
-    { icon: "📍", title: "Visit Us", text: "Come visit our store in Dwarka, New Delhi.", value: "K-15, Raja Puri, New Delhi", href: COMPANY.mapHref, note: "🕗 Mon–Sun 8AM–8PM" },
+    { icon: "📍", title: "Our Office", text: "Zavtoo Paani Filter Pvt Ltd, registered office.", value: "808B, DLF Prime Tower, Okhla Phase I, New Delhi 110020", href: COMPANY.mapHref, note: "🕗 Mon–Sun 8AM–8PM" },
   ],
   conversation: "Whether you need to book a service, track an order, ask about spare parts, or just have a question — we're always ready to help. Reach out through any channel you prefer.",
   storeHours: [["Monday – Saturday", "8:00 AM – 8:00 PM"], ["Sunday", "9:00 AM – 6:00 PM"]],
@@ -222,9 +222,9 @@ export const CONTACT = {
   faq: [
     ["What are your contact hours?", "We are available Monday to Saturday from 8:00 AM to 8:00 PM, and Sunday from 9:00 AM to 6:00 PM. For urgent issues, you can WhatsApp us at any time and we will respond at the earliest possible."],
     ["How quickly will I get a response after submitting the contact form?", "We aim to respond within 30 minutes during business hours. For forms submitted after 8 PM, we will respond first thing the next morning. WhatsApp messages typically get faster replies."],
-    ["Can I visit your store directly without an appointment?", "Yes! You are welcome to visit our store at K-15, Raja Puri, Dwarka Road, New Delhi during business hours. No appointment is necessary. Our team will assist you with purchases, spare parts, or any service-related queries."],
+    ["Where is your office?", "Our office is at 808B, DLF Prime Tower, Pocket F, Okhla Phase I, Okhla Industrial Estate, New Delhi, Delhi 110020. Our technicians come to your doorstep, so you don't need to visit — just call or WhatsApp customer care on 8929 45 46 47 to book a service, order parts or ask anything."],
     ["Do you provide support for all RO brands?", "Absolutely! We provide sales, service, and spare parts support for all major RO brands including Kent, Aquaguard, Pureit, Livpure, LG Puricare, A.O. Smith, Eureka Forbes, Havells, Blue Star, and many more."],
     ["How can I track my spare parts order?", "After placing your order, you will receive a tracking link via SMS and WhatsApp. You can also contact us directly with your order number on WhatsApp or phone and we will provide real-time status updates."],
-    ["Is there a helpline number for emergencies?", "For after-hours emergencies, please WhatsApp us at 89-294-546-47. While phone calls may not be answered after 8 PM, WhatsApp messages are monitored and we will assist you as quickly as possible."],
+    ["Is there a helpline number for emergencies?", "For after-hours emergencies, please WhatsApp us at 8929 45 46 47. While phone calls may not be answered after 8 PM, WhatsApp messages are monitored and we will assist you as quickly as possible."],
   ],
 };

@@ -94,11 +94,12 @@ export function NewTaskPage({ onBack, onSubmit, team }: {
           <span style={{ ...field, width: "auto", color: "var(--ink-soft)" }}>+91</span>
           <input id="nt-phone" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} style={{ ...field, flex: 1, ...bad("phone") }} />
         </div>
+        {/* Right under the mobile, so it's seen as soon as the number is typed. */}
+        <DuplicateWarning hits={dupes} />
         <label style={{ ...label, marginTop: 12 }} htmlFor="nt-addr">Address</label>
         <textarea id="nt-addr" rows={2} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House no., society, sector, city" style={{ ...field, resize: "none", ...bad("address") }} />
         <label style={{ ...label, marginTop: 12 }} htmlFor="nt-pin">Pincode</label>
         <input id="nt-pin" inputMode="numeric" value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))} style={{ ...field, ...bad("pincode") }} />
-        <DuplicateWarning hits={dupes} />
 
         <h3 style={sectionTitle}>Service</h3>
         <div className="no-scroll" style={{ display: "flex", gap: 8, overflowX: "auto", margin: "0 -16px", padding: "2px 16px 4px" }}>

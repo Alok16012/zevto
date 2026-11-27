@@ -6,7 +6,7 @@ import TechAvatar from "../components/TechAvatar";
 import { PRODUCTS, SERVICE_CATALOG, inr, slotsFor, isPincode, type ServiceType } from "../lib/data";
 import { fmtDay } from "../lib/catalog";
 import { fmtStamp } from "../lib/db";
-import { DuplicateWarning, useDuplicates } from "../components/DuplicateWarning";
+import { DuplicateWarning, useDuplicates, type DuplicateHit } from "../components/DuplicateWarning";
 import {
   ORDER_FLOW,
   type AdminCustomer, type AdminJob, type AdminJobStatus, type AdminOrder, type AdminOrderStatus, type AdminTech, type Dealer,
@@ -321,7 +321,7 @@ export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onA
           onCancel={async () => { if (confirm(`Cancel #${openJob.ref}? The customer will be notified.`)) { await onCancel(openJob); setOpenId(null); } }}
           onOpenCustomer={openJob.customerId ? () => { onOpenCustomer(openJob.customerId); setOpenId(null); } : undefined} />
       )}
-      {creating && <NewTaskModal customers={customers} techs={techs} onClose={() => setCreating(false)}
+      {creating && <NewTaskModal customers={customers} techs={techs} jobs={jobs} onClose={() => setCreating(false)}
         onCreate={async (t) => { if (await onCreateTask(t)) setCreating(false); }} />}
       {assigning && (
         <AssignModal job={assigning} techs={techs} dealers={dealers} jobs={jobs} onClose={() => setAssigning(null)}
@@ -418,8 +418,10 @@ export interface NewAdminTask {
   type: ServiceType; product: string; isoDate: string; slot: string; issue: string; techId: string | null;
 }
 
-export function NewTaskModal({ customers, techs, onClose, onCreate, initial }: {
+export function NewTaskModal({ customers, techs, jobs = [], onClose, onCreate, initial }: {
   customers: AdminCustomer[]; techs: AdminTech[]; onClose: () => void; onCreate: (t: NewAdminTask) => Promise<void>;
+  /** Past jobs, so a mobile already on record is flagged the moment it's typed. */
+  jobs?: AdminJob[];
   /** Pre-filled fields, e.g. when turning an ad lead into a job. */
   initial?: Partial<Pick<NewAdminTask, "customerId" | "name" | "phone" | "address" | "pincode" | "type" | "issue">>;
 }) {
@@ -436,7 +438,34 @@ export function NewTaskModal({ customers, techs, onClose, onCreate, initial }: {
   const [techId, setTechId] = useState("");
   const [busy, setBusy] = useState(false);
   // Same mobile / same house already on record? (The customer already picked isn't a duplicate.)
-  const dupes = useDuplicates("admin", phone, address, pincode).filter((h) => !customerId || h.customer_id !== customerId);
+  const server = useDuplicates("admin", phone, address, pincode);
+  const dupes = useMemo(() => {
+    const last10 = (s: string) => s.replace(/\D/g, "").slice(-10);
+    const ph = last10(phone);
+    const local: DuplicateHit[] = [];
+    if (ph.length === 10) {
+      // Instant check against what the console already has loaded — no waiting on the server.
+      const latest = (pred: (j: AdminJob) => boolean) => jobs.filter(pred).sort((a, b) => b.raw.created_at.localeCompare(a.raw.created_at))[0];
+      for (const c of customers.filter((c) => last10(c.phone) === ph)) {
+        const j = latest((x) => x.customerId === c.id);
+        local.push({ match: "Same mobile", customer_id: c.id, customer_code: c.code, name: c.name, phone: c.phone,
+          address: j?.raw.address ?? null, pincode: j?.pincode ?? null, last_ref: j?.ref ?? null, last_at: j?.raw.created_at ?? null });
+      }
+      if (!local.length) {
+        const j = latest((x) => last10(x.customerPhone ?? "") === ph);
+        if (j) local.push({ match: "Same mobile", customer_id: j.customerId || null, customer_code: customers.find((c) => c.id === j.customerId)?.code ?? null,
+          name: j.customerLabel || "Customer", phone: j.customerPhone ?? phone, address: j.raw.address, pincode: j.pincode, last_ref: j.ref, last_at: j.raw.created_at });
+      }
+    }
+    const key = (h: DuplicateHit) => h.customer_id ?? last10(h.phone);
+    const seen = new Set(local.map(key));
+    return [...local, ...server.filter((h) => !seen.has(key(h)))].filter((h) => !customerId || h.customer_id !== customerId);
+  }, [phone, customers, jobs, server, customerId]);
+  const pickDuplicate = (h: DuplicateHit) => {
+    if (h.customer_id) pickCustomer(h.customer_id);
+    if (!address.trim() && h.address) setAddress(h.address);
+    if (!pincode && h.pincode) setPincode(h.pincode);
+  };
 
   const pickCustomer = (id: string) => {
     setCustomerId(id);
@@ -471,13 +500,10 @@ export function NewTaskModal({ customers, techs, onClose, onCreate, initial }: {
         </select>, true)}
         {field("Customer name", <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} style={input} />)}
         {field("Mobile", <input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={16} inputMode="tel" style={input} />)}
+        {/* Right under the mobile, so it's seen as soon as the number is typed. */}
+        {dupes.length > 0 && <div style={{ gridColumn: "1 / -1", marginTop: -12 }}><DuplicateWarning hits={dupes} onUse={pickDuplicate} /></div>}
         {field("Address", <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={2} maxLength={200} placeholder="House no., society, sector, city" style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />, true)}
         {field("Pincode", <input value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" style={input} />)}
-        {dupes.length > 0 && <div style={{ gridColumn: "1 / -1" }}><DuplicateWarning hits={dupes} onUse={(h) => {
-          pickCustomer(h.customer_id!);
-          if (!address.trim() && h.address) setAddress(h.address);
-          if (!pincode && h.pincode) setPincode(h.pincode);
-        }} /></div>}
         {field("Service", <select value={type} onChange={(e) => setType(e.target.value as ServiceType)} style={input}>
           {SERVICE_CATALOG.map((s) => <option key={s.type} value={s.type}>{s.type} · {s.price ? inr(s.price) : "Free"}</option>)}
         </select>)}

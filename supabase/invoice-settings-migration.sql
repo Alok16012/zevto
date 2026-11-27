@@ -26,9 +26,9 @@ create trigger invoice_terms_touch before update on public.invoice_terms for eac
 create table if not exists public.invoice_settings (
   id             integer primary key default 1 check (id = 1),
   company_name   text not null default 'Zavtoo Paani Filter Pvt Ltd',
-  address        text not null default 'K-15, Raja Puri, Dwarka Road, New Delhi – 110059',
+  address        text not null default '808B, DLF Prime Tower, Pocket F, Okhla Phase I, Okhla Industrial Estate, New Delhi, Delhi 110020',
   state          text not null default 'Delhi',
-  phone          text not null default '89-294-546-47',
+  phone          text not null default '8929 45 46 47',
   phone2         text not null default '',
   email          text not null default 'Paanifilter9@gmail.com',
   website        text not null default 'zavtoo.in',

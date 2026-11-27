@@ -649,7 +649,7 @@ function ProfileInfo({ which, onBack, services, amcDaysLeft, onTrack, onRenew }:
             </a>
           ))}
           <a href="https://wa.me/918929454647" target="_blank" rel="noopener noreferrer" style={{ ...row, textDecoration: "none", color: "var(--ink)" }}>
-            <ShieldIcon s={22} c="var(--blue)" /><span style={{ fontSize: 14, fontWeight: 600 }}>WhatsApp 89-294-546-47 (24/7)</span>
+            <ShieldIcon s={22} c="var(--blue)" /><span style={{ fontSize: 14, fontWeight: 600 }}>Customer care · Call & WhatsApp 8929 45 46 47</span>
           </a>
         </InfoPage>
       );
@@ -660,7 +660,7 @@ function ProfileInfo({ which, onBack, services, amcDaysLeft, onTrack, onRenew }:
           <div style={{ ...card, padding: 16 }}>
             <p style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Zavtoo Paani Filter Pvt Ltd</p>
             <p style={small}>India&apos;s trusted name in RO water purifier sales, service and spare parts since 2004 — 20+ years, 50,000+ happy customers, 500+ genuine parts and pan-India delivery. Any brand, any model, anywhere.</p>
-            <p style={small}>K-15, Raja Puri, Dwarka Road, New Delhi – 110059 · Mon–Sun 8 AM – 8 PM · Paanifilter9@gmail.com</p>
+            <p style={small}>808B, DLF Prime Tower, Pocket F, Okhla Phase I, Okhla Industrial Estate, New Delhi, Delhi 110020 · Mon–Sun 8 AM – 8 PM · Paanifilter9@gmail.com</p>
           </div>
         </InfoPage>
       );
