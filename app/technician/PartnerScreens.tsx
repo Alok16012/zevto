@@ -173,7 +173,7 @@ export function EarningsScreen({ jobs, payouts }: { jobs: Job[]; payouts: Payout
             <div key={j.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 0", borderTop: i ? "1px solid var(--line)" : "none" }}>
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{j.type} · {j.customer.name}</p>
-                <p style={{ margin: 0, fontSize: 11.5, color: "var(--ink-mute)" }}>#{j.ref} · {j.payment}</p>
+                <p style={{ margin: 0, fontSize: 11.5, color: j.repeatedByRef ? "var(--error-text)" : "var(--ink-mute)" }}>#{j.ref} · {j.repeatedByRef ? `Repeat #${j.repeatedByRef} — earning cut` : j.repeatOfRef ? `Repeat of #${j.repeatOfRef}` : j.payment}</p>
               </div>
               <span style={{ fontSize: 14, fontWeight: 700, color: "var(--success-text)" }}>+{inr(jobPayout(j))}</span>
             </div>

@@ -876,11 +876,31 @@
 }
 
 /* Floating WhatsApp */
-.fab {
+.fabGroup {
   position:fixed;
   right:20px;
   bottom:20px;
   z-index:90;
+  display:flex;
+  align-items:center;
+  gap:10px
+}
+.bookFab {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:12px 18px;
+  border-radius:999px;
+  background:#00869e;
+  color:#fff!important;
+  font-size:14px;
+  font-weight:700;
+  box-shadow:0 10px 26px rgba(0,134,158,.35)
+}
+.bookFab:hover {
+  background:#006f83
+}
+.fab {
   display:inline-flex;
   align-items:center;
   gap:8px;
@@ -1035,7 +1055,7 @@
 }
 @media(max-width:700px) {
   /* Sit above the bottom tab bar */
-  .fab {
+  .fabGroup {
     bottom:calc(84px + env(safe-area-inset-bottom))
   }
 }

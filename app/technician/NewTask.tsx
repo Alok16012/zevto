@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Footer, PageHeader, PrimaryButton, card, field, label, sectionTitle } from "../components/ui";
 import { SERVICE_ICON } from "../components/ServicesHub";
-import { PRODUCTS, SERVICE_CATALOG, TIME_SLOTS, inr, type ServiceType } from "../lib/data";
+import { PRODUCTS, SERVICE_CATALOG, inr, slotsFor, type ServiceType } from "../lib/data";
 import { todayIso } from "../lib/techData";
 import { fmtDay } from "../lib/catalog";
 import { isPincode } from "../lib/data";
@@ -63,7 +63,7 @@ export function NewTaskPage({ onBack, onSubmit, team }: {
     pincode: !isPincode(pincode) ? "Enter the 6-digit pincode" : null,
     product: !product ? "Pick the product" : null,
     // Ops can pick the slot themselves; you can't do a job without one.
-    slot: route === "self" && !slot ? "Pick a time slot" : null,
+    slot: slot && !slotsFor(date).includes(slot) ? "That time has passed — pick another slot" : route === "self" && !slot ? "Pick a time slot" : null,
     tech: team && route === "self" && !techId ? "Pick the technician" : null,
   };
   const ok = Object.values(errs).every((e) => !e);
@@ -129,7 +129,7 @@ export function NewTaskPage({ onBack, onSubmit, team }: {
           ))}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-          {TIME_SLOTS.map((s) => (
+          {slotsFor(date).map((s) => (
             <button key={s} onClick={() => setSlot(slot === s ? "" : s)} aria-pressed={slot === s} style={{ ...chip(slot === s), flex: "0 0 auto", ...(touched && errs.slot ? { border: "1.5px solid var(--error-text)" } : {}) }}>{s}</button>
           ))}
         </div>

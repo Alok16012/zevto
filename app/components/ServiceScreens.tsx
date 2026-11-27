@@ -21,7 +21,7 @@ import type { LivePoint } from "./LiveTracking";
 import { AddressSheet } from "./Account";
 import {
   PIN_AREAS, techsForPincode, type Address,
-  PRODUCTS, SERVICE_CATALOG, TIME_SLOTS, couponByCode, couponDiscount, couponError, fmtDate, inr,
+  PRODUCTS, SERVICE_CATALOG, couponByCode, couponDiscount, couponError, fmtDate, inr, slotsFor,
   type Order, type ServiceRating, type ServiceRequest, type ServiceType,
 } from "../lib/data";
 
@@ -51,14 +51,19 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
   // Today (local date) is the earliest bookable day and the default, so a complaint
   // raised today shows as today for the customer, technician, dealer and admin.
   const min = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  const [date, setDate] = useState(min);
+  // Late in the day, when every slot today has passed, start on tomorrow.
+  const [date, setDate] = useState(() => slotsFor(min).length ? min : new Date(Date.now() + 864e5 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10));
   const [slot, setSlot] = useState("");
   const [desc, setDesc] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [touched, setTouched] = useState(false);
 
   const brand = product.trim().replace(/\s+/g, " ");
-  const ok = brand && date && slot && address;
+  const slots = date ? slotsFor(date) : [];
+  // A slot that has passed (date changed to today, or time moved on) can't be booked.
+  const slotOk = slots.includes(slot);
+  // The brand is optional; the technician checks it on the visit.
+  const ok = date && slotOk && address;
   const offering = SERVICE_CATALOG.find((o) => o.type === type)!;
   const price = offering.price;
   // Switching service type can make an applied coupon invalid — drop it quietly.
@@ -69,7 +74,7 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
   const submit = () => {
     setTouched(true);
     if (!ok) return;
-    onSubmit({ type, product: brand, date: fmtDate(new Date(`${date}T00:00`)), slot, description: desc.trim(), price, coupon: valid?.code ?? null, discount, photos, address: address!, techId: chosen });
+    onSubmit({ type, product: brand || "RO purifier (unknown model)", date: fmtDate(new Date(`${date}T00:00`)), slot, description: desc.trim(), price, coupon: valid?.code ?? null, discount, photos, address: address!, techId: chosen });
   };
 
   const err = (v: string) => touched && !v ? { border: "1.5px solid var(--error-text)" } : {};
@@ -107,11 +112,11 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
 
         {/* Customers type the brand — there are too many local and branded makes for a list. */}
         <div style={{ marginTop: 20 }}>
-          <label style={label} htmlFor="svc-product">Your RO brand name</label>
+          <label style={label} htmlFor="svc-product">Your RO brand name <span style={{ fontWeight: 500, color: "var(--ink-mute)" }}>(optional)</span></label>
           <input id="svc-product" value={product} onChange={(e) => setProduct(e.target.value)} onBlur={() => setProduct(product.trim().replace(/\s+/g, " "))}
             maxLength={60} autoComplete="off" autoCapitalize="words" enterKeyHint="next" placeholder="e.g. Kent, Aquaguard, Livpure"
-            style={{ ...field, ...err(product.trim()) }} />
-          <p style={{ margin: "6px 2px 0", fontSize: 12, color: "var(--ink-mute)" }}>Not sure? Type what&apos;s written on the purifier, or just “local”.</p>
+            style={field} />
+          <p style={{ margin: "6px 2px 0", fontSize: 12, color: "var(--ink-mute)" }}>Not sure? Leave it blank — the technician will check on the visit.</p>
         </div>
 
         {/* A photo shows the technician the exact model; new installs don't need one. */}
@@ -130,14 +135,15 @@ export function BookServiceScreen({ initialType = "Installation", onBack, onSubm
         <div style={{ marginTop: 18 }}>
           <span style={label}>Preferred Time</span>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {TIME_SLOTS.map((s) => {
+            {!slots.length && <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-mute)" }}>No time slots left for this day — please pick another date.</p>}
+            {slots.map((s) => {
               const on = s === slot;
               return (
                 <button key={s} onClick={() => setSlot(s)} aria-pressed={on} style={{
                   padding: "9px 12px", borderRadius: 12, cursor: "pointer", fontSize: 12.5, fontWeight: 600,
                   background: on ? "var(--blue-tint)" : "var(--surface)",
                   color: on ? "var(--blue)" : "var(--text-secondary)",
-                  border: on ? "1.5px solid var(--blue)" : touched && !slot ? "1.5px solid var(--error-text)" : "1.5px solid var(--line)",
+                  border: on ? "1.5px solid var(--blue)" : touched && !slotOk ? "1.5px solid var(--error-text)" : "1.5px solid var(--line)",
                 }}>{s}</button>
               );
             })}
@@ -383,6 +389,14 @@ export function TrackServicePage({ service, position, otp, closeCode, photoUrls,
           <div style={{ ...card, padding: 14, marginBottom: 12, background: closed ? "var(--error)" : "var(--warning)", boxShadow: "none" }}>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: closed ? "var(--error-text)" : "var(--warning-text)" }}>
               {closed ? "This booking was cancelled. Chat with us if that's unexpected." : `Your visit needs a new slot${service.rescheduleReason ? ` — ${service.rescheduleReason}` : ""}. Our team will call you to fix a time.`}
+            </p>
+          </div>
+        )}
+
+        {service.repeatOfRef && service.status !== "Cancelled" && (
+          <div style={{ ...card, padding: "12px 14px", marginBottom: 12, background: "var(--success)", boxShadow: "none" }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--success-text)" }}>
+              Repeat visit for #{service.repeatOfRef} — covered by our 7-day service warranty. You pay nothing.
             </p>
           </div>
         )}

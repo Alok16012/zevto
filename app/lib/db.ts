@@ -35,6 +35,9 @@ export interface DbRequest {
   assigned_at: string | null; trip_started_at: string | null; arrived_at: string | null; started_at: string | null;
   completed_at: string | null; rated_at: string | null; eta_min: number | null; distance_km: number | null;
   created_at: string; updated_at: string;
+  /** Repeat complaints (null until supabase/repeat-complaint-migration.sql is run). */
+  repeat_of?: string | null; repeat_of_ref?: string | null; repeat_tech_id?: string | null;
+  repeated_at?: string | null; repeated_by_ref?: string | null;
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -79,6 +82,7 @@ export function toServiceRequest(r: DbRequest): ServiceRequest {
     address: r.address, photos: r.photos ?? [], pincode: r.pincode, lat: r.lat, lng: r.lng,
     tripStartedAt: r.trip_started_at, etaMin: r.eta_min, distanceKm: r.distance_km == null ? null : Number(r.distance_km),
     price: r.price, discount: r.discount, amount: r.amount, rescheduleReason: r.reschedule_reason,
+    repeatOfRef: r.repeat_of_ref ?? null,
   };
 }
 
@@ -106,6 +110,8 @@ export function toJob(r: DbRequest, me: string): Job {
     payment: r.payment ?? undefined, completedAt: fmtStamp(r.completed_at) ?? undefined, completedIso: r.completed_at,
     customerRating: r.rating ?? undefined, rescheduleReason: r.reschedule_reason ?? undefined, photos: r.photos ?? [], billToken: r.bill_token,
     source: r.source === "technician" && r.raised_by === me ? "Self-created" : r.customer_id ? "Customer app" : undefined,
+    repeatOfRef: r.repeat_of_ref ?? null, repeatSelf: Boolean(r.repeat_of && r.repeat_tech_id === me),
+    repeatedByRef: r.repeated_by_ref ?? null,
   };
 }
 

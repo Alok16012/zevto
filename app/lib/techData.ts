@@ -86,6 +86,12 @@ export interface Job {
   billToken?: string;
   /** Where the job came from, when it isn't normal dispatch. */
   source?: "Self-created" | "Customer app";
+  /** This complaint repeats job #ref (closed within the last 7 days) — it's free. */
+  repeatOfRef?: string | null;
+  /** True when the technician on this repeat is the one who closed the original job. */
+  repeatSelf?: boolean;
+  /** This job came back as repeat complaint #ref — its earning is cut. */
+  repeatedByRef?: string | null;
 }
 
 /** Today as "YYYY-MM-DD" in local time — jobs compare dates in this format. */
@@ -123,10 +129,12 @@ export const partsTotal = (j: Job) =>
   j.parts.reduce((s, p) => s + partPrice(p) * p.qty, 0);
 
 /** Parts are free for AMC customers (filters are included in the plan). */
-export const customerBill = (j: Job) => (j.amc ? 0 : j.visitCharge + partsTotal(j));
+export const customerBill = (j: Job) => (j.amc || j.repeatOfRef ? 0 : j.visitCharge + partsTotal(j));
 
 /** What one job earns the technician, by part. Salary is paid monthly, on top. */
 export function payBreakdown(j: Job, s: EarningSchedule = PAY) {
+  // A job that came back as a repeat earns nothing, and neither does fixing your own repeat.
+  if (j.repeatedByRef || j.repeatSelf) return { service: 0, parts: 0, travel: 0, travelKm: 0, total: 0 };
   const commission = s.pay_basis !== "Salary";
   const service = !commission ? 0 : !j.visitCharge ? s.free_job_fee
     : s.service_mode === "Percent" ? (j.visitCharge * s.service_value) / 100 : s.service_value;

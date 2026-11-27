@@ -167,7 +167,7 @@ function IncomingRequest({ job, onRespond }: { job: Job; onRespond: (accept: boo
   const respond = async (accept: boolean) => { setBusy(true); await onRespond(accept); setBusy(false); };
   return (
     <div className="fade-up" style={{ ...card, marginTop: 12, padding: 16, border: "2px solid var(--gold)", boxShadow: "0 10px 24px rgba(245,166,35,0.25)" }}>
-      <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--gold-dark)", letterSpacing: "0.05em" }}>NEW JOB REQUEST · #{job.ref}</span>
+      <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--gold-dark)", letterSpacing: "0.05em" }}>NEW JOB REQUEST · #{job.ref}{job.repeatOfRef ? ` · REPEAT OF #${job.repeatOfRef}` : ""}</span>
       <p style={{ margin: "8px 0 0", fontSize: 16, fontWeight: 700 }}>{job.type} · {job.product}</p>
       <p style={small}>{job.issue}</p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
@@ -372,6 +372,16 @@ export function JobDetailPage({ job, stock, shopStock, onBack, onUpdate, onStart
             ))}
           </div>
         )}
+        {/* Repeat complaints: free for the customer, and not paid to whoever closed the original. */}
+        {(job.repeatOfRef || job.repeatedByRef) && (
+          <div style={{ ...card, padding: 14, marginTop: 12, background: "var(--error)", boxShadow: "none" }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--error-text)" }}>
+              {job.repeatOfRef
+                ? `Repeat complaint — the same customer's job #${job.repeatOfRef} was closed less than 7 days ago. No charge to the customer.${job.repeatSelf ? " You closed that job, so this visit isn't paid and it was taken off your job count." : ""}`
+                : `This customer raised repeat complaint #${job.repeatedByRef} within 7 days. This job's earning is cut and it's off your job count.`}
+            </p>
+          </div>
+        )}
         {job.status === "Rescheduled" && (
           <div style={{ ...card, padding: 14, marginTop: 12, background: "var(--warning)", boxShadow: "none" }}>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--warning-text)" }}>Rescheduled · {job.rescheduleReason}. Ops will call the customer to fix a new slot.</p>
@@ -525,7 +535,7 @@ function BillSheet({ job, onClose, onConfirm }: { job: Job; onClose: () => void;
         </div>
       )}
       <p style={{ ...small, fontSize: 12, margin: "10px 4px 14px" }}>
-        {total === 0 ? "Nothing to collect — this visit is covered." : pay === "UPI" ? "Show the customer the Zavtoo QR on your ID card. Confirm only after the payment succeeds." : "Cash is settled against your next weekly payout."}
+        {job.repeatOfRef ? "Repeat complaint — nothing to collect, parts included." : total === 0 ? "Nothing to collect — this visit is covered." : pay === "UPI" ? "Show the customer the Zavtoo QR on your ID card. Confirm only after the payment succeeds." : "Cash is settled against your next weekly payout."}
         {" "}You earn <b style={{ color: "var(--success-text)" }}>{inr(jobPayout(job))}</b> for this job.
       </p>
       {job.needsCode && (

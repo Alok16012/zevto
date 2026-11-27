@@ -171,6 +171,11 @@ export function TechniciansSection({ techs, jobs, dealers, onUpdate, onCreate, o
           { key: "sk", head: "Skills", render: (t) => <span style={muted}>{t.skills.join(", ") || "—"}</span> },
           { key: "r", head: "Rating", render: (t) => t.rating ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontWeight: 700 }}><StarIcon s={12} />{t.rating}</span> : <span style={muted}>New</span> },
           { key: "j", head: "Today", align: "right", render: (t) => `${today(t.id).length} jobs` },
+          { key: "dn", head: "Done", align: "right", render: (t) => {
+            // Repeat complaints are already taken off the done count.
+            const repeats = jobs.filter((j) => j.repeatOfRef && j.repeatTechId === t.id && j.status !== "Cancelled").length;
+            return <>{t.jobs}{repeats > 0 && <div style={{ color: "var(--error-text)", fontSize: 11.5, fontWeight: 600 }}>{repeats} repeat{repeats === 1 ? "" : "s"}</div>}</>;
+          } },
           { key: "st", head: "Status", render: (t) => !t.active ? <Badge tone="grey">Inactive</Badge> : <Badge tone={t.status === "Online" ? "green" : t.status === "On job" ? "blue" : "grey"}>{t.status}</Badge> },
           { key: "k", head: "KYC", render: (t) => <Badge tone={t.kyc === "Verified" ? "green" : "purple"}>{t.kyc}</Badge> },
           { key: "x", head: "", align: "right", render: (t) => (

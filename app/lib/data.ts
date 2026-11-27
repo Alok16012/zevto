@@ -302,6 +302,8 @@ export interface ServiceRequest {
   discount?: number;
   amount?: number;
   rescheduleReason?: string | null;
+  /** Repeat of job #ref within 7 days — free of charge. */
+  repeatOfRef?: string | null;
   rating?: ServiceRating;
   /** Start code the customer gives the technician on arrival. */
   otp?: string;
@@ -338,6 +340,23 @@ export const initialsOf = (name: string) =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
 
 export const TIME_SLOTS = ["08:00 – 10:00 AM", "10:00 AM – 12:00 PM", "12:00 – 02:00 PM", "02:00 – 04:00 PM", "04:00 – 06:00 PM"];
+
+/** Hour (0–23) a slot ends: "02:00 – 04:00 PM" → 16. */
+const slotEndHour = (slot: string) => {
+  const m = /(\d{1,2}):\d{2}\s*(AM|PM)\s*$/.exec(slot);
+  if (!m) return 24;
+  const h = Number(m[1]) % 12;
+  return m[2] === "PM" ? h + 12 : h;
+};
+/** Local "YYYY-MM-DD" for today. */
+const localToday = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+/** Slots still bookable on `isoDate` ("YYYY-MM-DD"): for today, slots that have already ended are left out. */
+export const slotsFor = (isoDate: string) => {
+  if (isoDate !== localToday()) return TIME_SLOTS;
+  const now = new Date();
+  const hour = now.getHours() + now.getMinutes() / 60;
+  return TIME_SLOTS.filter((s) => slotEndHour(s) > hour);
+};
 
 export const nowTime = () =>
   new Date().toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true }).toUpperCase();

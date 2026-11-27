@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { StarIcon } from "../components/icons";
 import TechAvatar from "../components/TechAvatar";
-import { PRODUCTS, SERVICE_CATALOG, TIME_SLOTS, inr, isPincode, type ServiceType } from "../lib/data";
+import { PRODUCTS, SERVICE_CATALOG, inr, slotsFor, isPincode, type ServiceType } from "../lib/data";
 import { fmtDay } from "../lib/catalog";
 import {
   ORDER_FLOW,
@@ -88,8 +88,8 @@ export function OrdersSection({ orders, customers, onStatus }: {
 
 /* ───────────────────────── Service jobs / dispatch ───────────────────────── */
 
-type JobFilter = "All" | AdminJobStatus;
-const FILTERS: JobFilter[] = ["All", "Unassigned", "Awaiting tech", "Assigned", "On the way", "In Progress", "Rescheduled", "Completed", "Cancelled"];
+type JobFilter = "All" | "Repeat" | AdminJobStatus;
+const FILTERS: JobFilter[] = ["All", "Repeat", "Unassigned", "Awaiting tech", "Assigned", "On the way", "In Progress", "Rescheduled", "Completed", "Cancelled"];
 const ACTIVE: AdminJobStatus[] = ["Assigned", "On the way", "Arrived", "In Progress"];
 
 export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onAssignDealer, onCancel, onCreateTask }: {
@@ -104,9 +104,9 @@ export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onA
   const [creating, setCreating] = useState(false);
   const dealerName = (id: string | null) => dealers.find((d) => d.id === id)?.name;
 
-  const rows = jobs.filter((j) => (f === "All" || j.status === f || (f === "On the way" && j.status === "Arrived")) &&
+  const rows = jobs.filter((j) => (f === "All" || j.status === f || (f === "On the way" && j.status === "Arrived") || (f === "Repeat" && !!j.repeatOfRef)) &&
     (!q.trim() || `${j.ref} ${j.type} ${j.area} ${j.pincode} ${jobCustomer(customers, j)} ${j.raisedBy ?? ""}`.toLowerCase().includes(q.trim().toLowerCase())));
-  const counts = Object.fromEntries(FILTERS.map((s) => [s, s === "All" ? jobs.length : jobs.filter((j) => j.status === s).length]));
+  const counts = Object.fromEntries(FILTERS.map((s) => [s, s === "All" ? jobs.length : s === "Repeat" ? jobs.filter((j) => j.repeatOfRef).length : jobs.filter((j) => j.status === s).length]));
   const techName = (id: string | null) => techs.find((t) => t.id === id)?.name;
   const today = isoDay();
 
@@ -132,7 +132,12 @@ export function ServicesSection({ jobs, customers, techs, dealers, onAssign, onA
           <Filter<JobFilter> options={FILTERS} value={f} onChange={setF} counts={counts} />
         </div>
         <Table rows={rows} rowKey={(j) => j.id} empty={jobs.length ? "No jobs match." : "No service bookings yet."} cols={[
-          { key: "id", head: "Job", render: (j) => <><b>#{j.ref}</b><div style={muted}>{j.type}</div></> },
+          { key: "id", head: "Job", render: (j) => <><b>#{j.ref}</b><div style={muted}>{j.type}</div>
+            {/* A complaint within 7 days of a closed job: free, and counted against whoever closed it. */}
+            {j.repeatOfRef && <div style={{ marginTop: 3 }}><Badge tone="red">Repeat of #{j.repeatOfRef}</Badge>
+              <div style={{ ...muted, marginTop: 2 }}>Closed by {techName(j.repeatTechId) ?? "—"} · free</div></div>}
+            {j.repeatedByRef && <div style={{ marginTop: 3 }}><Badge tone="amber">Came back · #{j.repeatedByRef}</Badge></div>}
+          </> },
           { key: "c", head: "Customer", render: (j) => <>
             {jobCustomer(customers, j)}<div style={muted}>{j.area} · {j.pincode}</div>
             {j.customerPhone && <div style={muted}>{j.customerPhone}</div>}
@@ -289,6 +294,7 @@ function NewTaskModal({ customers, techs, onClose, onCreate }: {
     .sort((a, b) => Number(b.pincodes.includes(pincode)) - Number(a.pincodes.includes(pincode)));
   const err = name.trim().length < 2 ? "Enter the customer's name" : address.trim().length < 8 ? "Enter the full address"
     : !isPincode(pincode) ? "Enter the 6-digit pincode" : date < isoDay() ? "Pick today or a later date"
+    : slot && !slotsFor(date).includes(slot) ? "That time slot has passed — pick another"
     : techId && !slot ? "Pick a time slot for the technician" : null;
 
   const save = async () => {
@@ -325,7 +331,7 @@ function NewTaskModal({ customers, techs, onClose, onCreate }: {
         {field("Visit date", <input type="date" value={date} min={isoDay()} onChange={(e) => setDate(e.target.value)} style={input} />)}
         {field("Time slot", <select value={slot} onChange={(e) => setSlot(e.target.value)} style={input}>
           <option value="">Any time</option>
-          {TIME_SLOTS.map((t) => <option key={t} value={t}>{t}</option>)}
+          {slotsFor(date).map((t) => <option key={t} value={t}>{t}</option>)}
         </select>)}
         {field("Assign to (optional)", <select value={techId} onChange={(e) => setTechId(e.target.value)} style={input}>
           <option value="">Assign later</option>
